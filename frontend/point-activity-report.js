@@ -16,12 +16,21 @@ let kids = [];
 let pointDataByKid = new Map();
 let reportDataByKid = new Map();
 let progressDataByKid = new Map();
+let sessionDetailByKey = new Map();
+let ruleActivityCounts = {};
 let selectedKidId = '';
 let currentRule = null;
+let isRuleEditing = false;
 let displayedMonthKey = '';
 let selectedCalendarDayKey = '';
 let activityLogQuery = '';
-let currentProgressViewDays = 0;
+let currentCalendarMetric = (() => {
+    try {
+        return localStorage.getItem('pointActivityReport.calendarMetric') === 'cards' ? 'cards' : 'minutes';
+    } catch (_err) {
+        return 'minutes';
+    }
+})();
 let currentProgressMetric = (() => {
     try {
         return localStorage.getItem('pointActivityReport.progressMetric') === 'correctness' ? 'correctness' : 'speed';
@@ -65,6 +74,13 @@ function formatPoints(value) {
 function formatSignedPoints(value) {
     const number = Number.parseInt(value, 10) || 0;
     return `${number > 0 ? '+' : ''}${number.toLocaleString()} pts`;
+}
+
+function isKidUserMode() {
+    if (window.KidAppNavigation?.getMode) {
+        return window.KidAppNavigation.getMode() === 'kid';
+    }
+    return window.FamilyUserSwitcher?.currentUser?.().mode === 'kid';
 }
 
 function parseDate(value) {
@@ -127,13 +143,6 @@ function weekdayIndexMondayFirst(date) {
     return (date.getUTCDay() + 6) % 7;
 }
 
-function daysBetweenDayKeys(fromKey, toKey) {
-    const from = dateFromDayKey(fromKey);
-    const to = dateFromDayKey(toKey);
-    if (!from || !to) return 0;
-    return Math.max(0, Math.round((to.getTime() - from.getTime()) / 86400000));
-}
-
 function isSameRule(event) {
     if (!requestedRuleId) return false;
     return String(event?.rule?.ruleId || event?.ruleId || '') === requestedRuleId;
@@ -168,20 +177,6 @@ function ensureDisplayedMonth() {
         : monthKeyFromDate(new Date(), timezone);
 }
 
-function latestLabel(events) {
-    const latest = newestEvent(events);
-    const timezone = familyTimezone();
-    const date = parseDate(latest?.createdAt);
-    if (!latest || Number.isNaN(date.getTime()) || !timezone) return 'None';
-    const today = dayKey(new Date(), timezone);
-    const latestDay = dayKey(date, timezone);
-    if (today && latestDay === today) return 'Today';
-    const daysAgo = daysBetweenDayKeys(latestDay, today);
-    if (daysAgo === 1) return 'Yesterday';
-    if (daysAgo > 1) return `${daysAgo} days ago`;
-    return 'Recently';
-}
-
 function shortDateLabel(dayKeyValue) {
     const date = dateFromDayKey(dayKeyValue);
     return date ? date.toLocaleDateString([], { timeZone: 'UTC', month: 'short', day: 'numeric' }) : '';
@@ -207,12 +202,6 @@ function logDateLabel(value) {
         month: 'short',
         day: 'numeric',
     });
-}
-
-function activeDayCount(events) {
-    const timezone = familyTimezone();
-    if (!timezone) return 0;
-    return new Set(events.map((event) => dayKey(parseDate(event?.createdAt), timezone)).filter(Boolean)).size;
 }
 
 function pointTotal(events) {
@@ -291,11 +280,8 @@ function formatActiveMinutes(value) {
 
 function formatCalendarMinutes(value) {
     const minutes = Number(value);
-    if (!Number.isFinite(minutes) || minutes <= 0) return '0m';
-    if (minutes >= 10 || Math.abs(minutes - Math.round(minutes)) < 0.05) {
-        return `${Math.round(minutes).toLocaleString()}m`;
-    }
-    return `${minutes.toFixed(1)}m`;
+    if (!Number.isFinite(minutes) || minutes <= 0) return '0';
+    return Math.ceil(minutes).toLocaleString();
 }
 
 function formatSessionCount(value) {
@@ -377,9 +363,20 @@ function getNiceStep(rawStep) {
 function iconHtml(rule) {
     const triggerKey = String(rule?.triggerKey || '').trim();
     if (rule?.ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
-        return window.subjectIcon(triggerKey);
+        return window.subjectIcon(triggerKey, { size: 36 });
     }
     return escapeHtml(rule?.emoji || '+');
+}
+
+function buildInAppCardManageHref(rule) {
+    const categoryKey = String(rule?.triggerKey || '').trim();
+    if (!categoryKey) return '';
+    const kidId = selectedKidId
+        || String(window.KidAppNavigation?.getKidId?.() || '').trim()
+        || String(kids[0]?.id || '').trim();
+    const query = new URLSearchParams({ categoryKey });
+    if (kidId) query.set('id', kidId);
+    return `/kid-card-manage.html?${query.toString()}`;
 }
 
 function typeBadge(rule) {
@@ -391,29 +388,12 @@ function typeBadge(rule) {
         return { label: 'Redeem', icon: 'gift', tone: 'redeem' };
     }
     if (ruleKind === 'in_app_chore') {
-        return { label: 'In-app earn', icon: 'thumbs-up', tone: 'earn' };
+        return { label: 'In-app', icon: 'thumbs-up', tone: 'earn' };
     }
     if (ruleKind === 'off_app_chore') {
-        return { label: 'Off-app earn', icon: 'thumbs-up', tone: 'earn' };
+        return { label: 'Off-app', icon: 'thumbs-up', tone: 'earn' };
     }
-    return { label: 'Bonus earn', icon: 'thumbs-up', tone: 'earn' };
-}
-
-function pointRulesHref(rule) {
-    const ruleKind = String(rule?.ruleKind || '').trim();
-    const kindByRuleKind = {
-        in_app_chore: 'in_app_chore',
-        off_app_chore: 'off_app_chore',
-        bonus_event: 'bonus_event',
-        deduction_event: 'deduction_event',
-        redeemed_reward: 'redeemed_reward',
-    };
-    const kind = kindByRuleKind[ruleKind] || 'bonus_event';
-    const params = new URLSearchParams({ kind });
-    if (kind === 'redeemed_reward' && String(rule?.rewardType || '').trim()) {
-        params.set('rewardType', String(rule.rewardType).trim());
-    }
-    return `/point-rules.html?${params.toString()}`;
+    return { label: 'Bonus', icon: 'thumbs-up', tone: 'earn' };
 }
 
 function typeBadgeHtml(rule) {
@@ -448,7 +428,51 @@ function renderHero() {
     const events = visibleEvents();
     const rule = currentRule || {};
     const title = String(rule.name || 'Point activity').trim();
-    const rulesHref = pointRulesHref(rule);
+    const canEditRule = !isKidUserMode();
+    const isEditingRule = isRuleEditing && canEditRule;
+    const isInAppRule = String(rule.ruleKind || '') === 'in_app_chore';
+    const ruleActivityCount = Number.parseInt(ruleActivityCounts[String(rule.ruleId || requestedRuleId)] ?? 0, 10) || 0;
+    const canDeleteRule = ruleActivityCount === 0;
+    const ruleTitleHtml = isEditingRule && !isInAppRule
+        ? `<input class="point-activity-title-edit" data-rule-edit-name value="${escapeHtml(title)}" aria-label="Rule name">`
+        : `<h2 class="point-activity-title">${escapeHtml(title)}</h2>`;
+    const heroIconHtml = isEditingRule && !isInAppRule
+        ? `<input class="point-activity-emoji-edit" data-rule-edit-emoji value="${escapeHtml(rule.emoji || '')}" aria-label="Rule emoji" maxlength="8">`
+        : iconHtml(rule);
+    const inAppManageHref = isInAppRule ? buildInAppCardManageHref(rule) : '';
+    const heroIconContainerHtml = inAppManageHref
+        ? `<a class="point-activity-icon point-activity-icon--in-app" href="${escapeHtml(inAppManageHref)}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${heroIconHtml}</a>`
+        : `<div class="point-activity-icon${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
+    const ruleMetaHtml = isEditingRule
+        ? `
+            <span class="point-activity-rule-meta point-activity-rule-meta--editing">
+                <input class="point-activity-points-edit" data-rule-edit-points type="number" min="1" step="1" value="${rule.maxPoint == null ? '' : escapeHtml(rule.maxPoint)}" aria-label="Default points">
+                <span>pts</span>
+                ${isInAppRule ? '' : `
+                    <label class="point-activity-rule-status-editor">
+                        <input data-rule-edit-active type="checkbox" ${rule.isActive ? 'checked' : ''}>
+                        <span>Active</span>
+                    </label>
+                `}
+            </span>
+        `
+        : `
+            <span class="point-activity-rule-meta">
+                <span>${escapeHtml(formatPoints(rule.maxPoint))}</span>
+                ${isInAppRule ? '' : `<span class="point-activity-rule-status">${rule.isActive ? 'Active' : 'Inactive'}</span>`}
+            </span>
+        `;
+    const ruleEditActionHtml = !canEditRule
+        ? ''
+        : isEditingRule
+        ? `
+            <span class="point-activity-rule-edit-actions">
+                ${canDeleteRule ? `<button type="button" class="point-activity-rule-edit-action is-delete" data-rule-edit-action="delete" aria-label="Delete rule" title="Delete rule"><span class="icon" data-icon="trash" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>` : ''}
+                <button type="button" class="point-activity-rule-edit-action is-save" data-rule-edit-action="save" aria-label="Save rule" title="Save rule"><span class="icon" data-icon="save" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>
+                <button type="button" class="point-activity-rule-edit-action is-cancel" data-rule-edit-action="cancel" aria-label="Cancel editing" title="Cancel editing"><span class="icon" data-icon="x" data-icon-size="15" data-icon-stroke="2.8" aria-hidden="true"></span></button>
+            </span>
+        `
+        : `<button type="button" class="point-activity-rules-link" data-rule-edit-action="start" aria-label="Edit point rule" title="Edit rule"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></button>`;
     const filterLabel = selectedKidId
         ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
         : 'Showing combined total';
@@ -458,27 +482,18 @@ function renderHero() {
     pointActivityHero.innerHTML = `
         <div class="point-activity-hero">
             <div class="point-activity-hero-top">
-                <div class="point-activity-icon" aria-hidden="true">${iconHtml(rule)}</div>
+                ${heroIconContainerHtml}
                 <div class="point-activity-main">
                     <div class="point-activity-title-row">
-                        <h2 class="point-activity-title">${escapeHtml(title)}</h2>
                         ${typeBadgeHtml(rule)}
-                        <a class="paradigm-icon-btn paradigm-panel-action--circle point-activity-rules-link" href="${escapeHtml(rulesHref)}" aria-label="Edit point rules" title="Edit rules"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></a>
+                        ${ruleTitleHtml}
+                        ${ruleMetaHtml}
+                        ${ruleEditActionHtml}
                     </div>
                     <button type="button" class="report-hero-meta-item point-activity-filter" data-point-filter="combined" ${selectedKidId ? '' : 'disabled'}>
                         <span class="report-hero-meta-icon"><span class="icon" data-icon="users" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
                         <span class="report-hero-meta-value">${escapeHtml(filterLabel)}</span>
                     </button>
-                    <div class="report-hero-meta point-activity-meta">
-                        <span class="report-hero-meta-item">
-                            <span class="report-hero-meta-icon"><span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
-                            <span class="report-hero-meta-value">${escapeHtml(activeDayCount(events))} active days</span>
-                        </span>
-                        <span class="report-hero-meta-item">
-                            <span class="report-hero-meta-icon"><span class="icon" data-icon="clock" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
-                            <span class="report-hero-meta-value">${escapeHtml(latestLabel(events))}</span>
-                        </span>
-                    </div>
                 </div>
                 <div class="point-activity-kids">
                     ${kids.map((kid) => {
@@ -567,13 +582,15 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const cardCount = isSessionCalendar ? Number.parseInt(total.cards, 10) || 0 : 0;
     const wrongCount = isSessionCalendar ? Number.parseInt(total.wrong, 10) || 0 : 0;
     const pointTotalValue = isSessionCalendar ? 0 : Number(total) || 0;
-    const metricTotal = isSessionCalendar ? minutes : pointTotalValue;
+    const showingCards = isSessionCalendar && currentCalendarMetric === 'cards';
+    const sessionMetric = showingCards ? cardCount : minutes;
+    const metricTotal = isSessionCalendar ? sessionMetric : pointTotalValue;
     const level = calendarLevel(metricTotal, maxTotal);
     const calendarTone = typeBadge(currentRule || {}).tone;
     const canSelect = isSessionCalendar ? sessionCount > 0 : Math.abs(pointTotalValue) > 0;
     const tagName = canSelect ? 'button' : 'div';
     const ariaMetric = isSessionCalendar
-        ? `${formatCalendarMinutes(minutes)} ${cardCount.toLocaleString()} cards`
+        ? `${formatCalendarMinutes(minutes)} minutes, ${cardCount.toLocaleString()} cards`
         : `${Math.abs(pointTotalValue).toLocaleString()} points`;
     const attrs = canSelect
         ? `type="button" data-calendar-day="${escapeHtml(key)}" aria-label="${escapeHtml(`${shortDateLabel(key)} ${ariaMetric}`)}"`
@@ -582,14 +599,8 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
         <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
             <span class="point-activity-day-number">${dayNumber}</span>
             <span class="point-activity-day-metrics${isSessionCalendar ? ' point-activity-day-metrics--session' : ''}">
-                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? formatCalendarMinutes(minutes) : Math.abs(pointTotalValue).toLocaleString()) : (isSessionCalendar ? '0m' : '0')}</span>
+                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : Math.abs(pointTotalValue).toLocaleString()) : '0'}</span>
             </span>
-            ${isSessionCalendar ? `
-                <span class="point-activity-day-card-count" aria-label="${escapeHtml(`${cardCount} cards practiced`)}">
-                    <span class="icon" data-icon="credit-card" data-icon-size="11" data-icon-stroke="2.5" aria-hidden="true"></span>
-                    <span>${escapeHtml(String(cardCount))}</span>
-                </span>
-            ` : ''}
             ${isSessionCalendar && wrongCount > 0 ? `
                 <span class="point-activity-day-note-dot" aria-label="${escapeHtml(`${wrongCount} wrong cards`)}"></span>
             ` : ''}
@@ -610,6 +621,39 @@ function sessionsForSelectedDay() {
     return visibleSessions()
         .filter((session) => dayKey(parseDate(session?.started_at || session?.completed_at), familyTimezone()) === selectedCalendarDayKey)
         .sort((a, b) => parseDate(a?.started_at || a?.completed_at).getTime() - parseDate(b?.started_at || b?.completed_at).getTime());
+}
+
+function sessionDetailKey(session) {
+    const kidId = String(session?.kidId || session?.kid?.id || '').trim();
+    const sessionId = String(session?.id || '').trim();
+    return kidId && sessionId ? `${kidId}:${sessionId}` : '';
+}
+
+function nonGreenSessionCards(session) {
+    const detail = sessionDetailByKey.get(sessionDetailKey(session));
+    const answers = Array.isArray(detail?.answers) ? detail.answers : [];
+    return answers
+        .filter((answer) => Number(answer?.correct_score) !== 1)
+        .map((answer) => String(answer?.materialized_prompt || answer?.front || answer?.back || '').trim())
+        .filter(Boolean);
+}
+
+async function loadSelectedSessionDetails() {
+    const missingSessions = sessionsForSelectedDay().filter((session) => {
+        const key = sessionDetailKey(session);
+        return key && !sessionDetailByKey.has(key);
+    });
+    if (!missingSessions.length) return;
+    await Promise.all(missingSessions.map(async (session) => {
+        const key = sessionDetailKey(session);
+        try {
+            const detail = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(session.kidId)}/report/sessions/${encodeURIComponent(session.id)}`);
+            sessionDetailByKey.set(key, detail);
+        } catch (error) {
+            console.warn('Failed to load session cards for point activity:', session?.kidId, session?.id, error);
+            sessionDetailByKey.set(key, { answers: [] });
+        }
+    }));
 }
 
 function renderDayDetails() {
@@ -643,28 +687,16 @@ function renderSessionDayDetails() {
     if (!selectedCalendarDayKey || !sessions.length) return '';
     return `
         <div class="point-activity-day-detail">
-            <h3 class="point-activity-day-detail-date paradigm-panel-heading">${escapeHtml(shortDateLabel(selectedCalendarDayKey))}</h3>
             <div class="point-activity-day-detail-list">
                 ${sessions.map((session) => {
                     const kid = session?.kid || {};
-                    const cards = sessionCardCount(session);
-                    const wrong = sessionWrongCount(session);
-                    const minutes = sessionActiveMinutes(session);
+                    const nonGreenCards = nonGreenSessionCards(session);
                     return `
-                        <a class="point-activity-event-row point-activity-event-row-link" href="${escapeHtml(sessionReportHref(session))}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        <a class="point-activity-event-row point-activity-event-row--session point-activity-event-row-link" href="${escapeHtml(sessionReportHref(session))}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                             <span class="point-activity-event-time">${escapeHtml(timeLabel(session?.started_at || session?.completed_at))}</span>
                             ${avatarHtml(kid)}
                             <span class="point-activity-event-name">${escapeHtml(kid?.name || 'Kid')}</span>
-                            <span class="point-activity-event-note point-activity-event-note--metrics">
-                                <span>${escapeHtml(`${cards.toLocaleString()} ${cards === 1 ? 'card' : 'cards'}`)}</span>
-                                ${wrong > 0 ? `
-                                    <span class="point-activity-event-wrong-metric">
-                                        <span class="icon" data-icon="x" data-icon-size="12" data-icon-stroke="2.7" aria-hidden="true"></span>
-                                        <span>${escapeHtml(String(wrong))}</span>
-                                    </span>
-                                ` : ''}
-                                <span>${escapeHtml(formatCalendarMinutes(minutes))}</span>
-                            </span>
+                            <span class="point-activity-event-wrong-pills"${nonGreenCards.length ? '' : ' aria-hidden="true"'}>${nonGreenCards.map((label) => `<span class="point-rule-delta paradigm-pill negative point-activity-event-wrong-pill">${escapeHtml(label)}</span>`).join('')}</span>
                             <span class="icon point-activity-event-chevron" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.7" aria-hidden="true"></span>
                         </a>
                     `;
@@ -845,55 +877,12 @@ function buildProgressXTicks(totalDays) {
     return Array.from(ticks).sort((a, b) => a - b);
 }
 
-function clipProgressChart(chart, viewDays) {
-    if (!chart || !Array.isArray(chart.points) || !chart.points.length) return chart;
-    const fullSpanDays = Math.max(0, Number(chart.totalDays) - 1);
-    const requested = Math.max(0, Number(viewDays) || 0);
-    const visiblePoints = (requested > 0 && requested < fullSpanDays)
-        ? chart.points.slice(-(requested + 1))
-        : chart.points;
-    if (visiblePoints === chart.points) return { ...chart, fullSpanDays, viewDays: 0 };
-    const reindexed = visiblePoints.map((point, idx) => ({ ...point, dayIndex: idx + 1 }));
-    const rtRange = computeFiniteRange(reindexed, 'avgCorrectRtSec');
-    const crRange = computeFiniteRange(reindexed, 'cumCorrectPct');
-    return {
-        ...chart,
-        points: reindexed,
-        totalDays: reindexed.length,
-        yMax: Math.max(1, reindexed.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0)),
-        rtMin: rtRange.hasData ? rtRange.min : null,
-        rtMax: rtRange.hasData ? rtRange.max : 0,
-        crMin: crRange.hasData ? crRange.min : null,
-        crMax: crRange.hasData ? crRange.max : 0,
-        fullSpanDays,
-        viewDays: requested,
-    };
-}
-
 function renderProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
     if (!rtHasData || !crHasData) return '';
     return `
         <div class="daily-progress-metric-btns paradigm-chip-toggle-group">
             <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${activeMetric === 'speed' ? ' active' : ''}" data-progress-metric="speed">Speed</button>
             <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${activeMetric === 'correctness' ? ' active' : ''}" data-progress-metric="correctness">Correct</button>
-        </div>
-    `;
-}
-
-function renderProgressPeriodBtns(fullSpanDays) {
-    const span = Math.max(0, Number(fullSpanDays) || 0);
-    const presets = [7, 14, 30, 90].filter((days) => span > days);
-    if (!presets.length) {
-        currentProgressViewDays = 0;
-        return '';
-    }
-    if (currentProgressViewDays !== 0 && !presets.includes(currentProgressViewDays)) currentProgressViewDays = 0;
-    const options = [...presets.map((days) => ({ days, label: `${days}d` })), { days: 0, label: 'All' }];
-    return `
-        <div class="daily-progress-period-btns paradigm-chip-toggle-group">
-            ${options.map((option) => `
-                <button type="button" class="daily-progress-period-btn paradigm-chip-toggle${option.days === currentProgressViewDays ? ' active' : ''}" data-progress-period-days="${option.days}">${escapeHtml(option.label)}</button>
-            `).join('')}
         </div>
     `;
 }
@@ -905,7 +894,7 @@ function renderProgressPanel() {
         pointActivityProgress.innerHTML = '';
         return;
     }
-    const chart = clipProgressChart(buildProgressChart(visibleProgressRows(), progressFamilyTimezone()), currentProgressViewDays);
+    const chart = buildProgressChart(visibleProgressRows(), progressFamilyTimezone());
     if (!chart || !Array.isArray(chart.points) || !chart.points.length) {
         pointActivityProgressPanel.classList.add('hidden');
         pointActivityProgress.innerHTML = '';
@@ -969,7 +958,6 @@ function renderProgressPanel() {
     const formatRtTick = (tick) => Number.isInteger(Number(tick)) ? `${tick}s` : `${Number(tick).toFixed(1)}s`;
     const formatCrTick = (tick) => Number.isInteger(Number(tick)) ? `${tick}%` : `${Number(tick).toFixed(1)}%`;
     const metricButtonsHtml = renderProgressMetricBtns({ rtHasData, crHasData, activeMetric });
-    const periodButtonsHtml = renderProgressPeriodBtns(Number(chart.fullSpanDays) || 0);
     pointActivityProgress.innerHTML = `
         <div class="daily-progress-card${hasRtData ? ' has-response-time' : ''}${hasCrData ? ' has-correctness-rate' : ''}">
             <div class="daily-progress-head">
@@ -979,7 +967,6 @@ function renderProgressPanel() {
                 </h2>
                 ${metricButtonsHtml}
             </div>
-            ${periodButtonsHtml ? `<div class="daily-progress-controls">${periodButtonsHtml}</div>` : ''}
             <div class="daily-progress-legend">
                 <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced <span style="color: #2f66e6;">${escapeHtml(String(lastPoint.practiced))}</span></span>
                 <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned <span style="color: #16a34a;">${escapeHtml(String(lastPoint.learned))}</span></span>
@@ -1037,7 +1024,9 @@ function renderCalendar() {
     const totals = isInAppChore() ? calendarSessionsByDay() : calendarTotalsByDay(visibleEvents());
     const noteDays = isInAppChore() ? new Set() : calendarNoteDays(visibleEvents());
     const maxTotal = Math.max(1, ...[...totals.values()].map((value) => (
-        isInAppChore() ? Math.abs(Number(value?.minutes) || 0) : Math.abs(value)
+        isInAppChore()
+            ? Math.abs(Number(currentCalendarMetric === 'cards' ? value?.cards : value?.minutes) || 0)
+            : Math.abs(value)
     )));
     const cells = [
         ...Array.from({ length: leadingBlanks }, () => '<div class="point-activity-day is-blank" aria-hidden="true"></div>'),
@@ -1050,15 +1039,21 @@ function renderCalendar() {
                 <span class="paradigm-panel-title-icon"><span class="icon" data-icon="calendar" data-icon-size="22" data-icon-stroke="2.4" aria-hidden="true"></span></span>
                 <span class="paradigm-panel-heading">Monthly Activity Calendar</span>
             </h2>
-            <div class="point-activity-month-nav">
-                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
-                    <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
-                </button>
-                <span class="point-activity-month-label">${escapeHtml(monthLabel(displayedMonthKey))}</span>
-                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="1" aria-label="Next month">
-                    <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
-                </button>
-            </div>
+            ${isInAppChore() ? `
+                <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>
+                </div>
+            ` : ''}
+        </div>
+        <div class="point-activity-month-nav">
+            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
+                <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+            </button>
+            <span class="point-activity-month-label">${escapeHtml(monthLabel(displayedMonthKey))}</span>
+            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="1" aria-label="Next month">
+                <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+            </button>
         </div>
         <div class="point-activity-weekdays" aria-hidden="true">
             <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
@@ -1151,11 +1146,13 @@ async function loadInitialData() {
         return;
     }
     showError('');
-    const [loadedKids, ruleData] = await Promise.all([
+    const [loadedKids, ruleData, countData] = await Promise.all([
         fetchJson(`${API_BASE}/kids?view=reward_nav`),
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
+        fetchJson(`${API_BASE}/points/rules/activity-counts`),
     ]);
     kids = loadedKids;
+    ruleActivityCounts = countData?.counts && typeof countData.counts === 'object' ? countData.counts : {};
     const entries = await Promise.all(kids.map(async (kid) => [
         String(kid.id),
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kid.id)}/points?limit=${POINT_ACTIVITY_HISTORY_LIMIT}`),
@@ -1181,7 +1178,93 @@ async function loadInitialData() {
     render();
 }
 
-pointActivityHero?.addEventListener('click', (event) => {
+pointActivityHero?.addEventListener('click', async (event) => {
+    const ruleEditAction = event.target.closest('[data-rule-edit-action]');
+    if (ruleEditAction && pointActivityHero.contains(ruleEditAction)) {
+        if (isKidUserMode()) return;
+        const action = String(ruleEditAction.dataset.ruleEditAction || '');
+        if (action === 'start') {
+            isRuleEditing = true;
+            renderHero();
+            pointActivityHero.querySelector('[data-rule-edit-points]')?.focus();
+            return;
+        }
+        if (action === 'cancel') {
+            isRuleEditing = false;
+            renderHero();
+            return;
+        }
+        if (action === 'delete') {
+            const ruleId = Number.parseInt(currentRule?.ruleId || requestedRuleId, 10);
+            const ruleName = String(currentRule?.name || 'this rule').trim() || 'this rule';
+            if (!Number.isInteger(ruleId) || ruleId <= 0) {
+                showError('Rule is unavailable for deletion.');
+                return;
+            }
+            if (!window.confirm(`Delete "${ruleName}"? This cannot be undone.`)) return;
+            ruleEditAction.disabled = true;
+            try {
+                const response = await fetch(`${API_BASE}/points/rules/${encodeURIComponent(ruleId)}`, {
+                    method: 'DELETE',
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || 'Failed to delete rule.');
+                window.location.assign('/point-log.html');
+            } catch (error) {
+                ruleEditAction.disabled = false;
+                showError(error.message || 'Failed to delete rule.');
+            }
+            return;
+        }
+        if (action === 'save') {
+            const ruleId = Number.parseInt(currentRule?.ruleId, 10);
+            const pointsInput = pointActivityHero.querySelector('[data-rule-edit-points]');
+            const activeInput = pointActivityHero.querySelector('[data-rule-edit-active]');
+            const nameInput = pointActivityHero.querySelector('[data-rule-edit-name]');
+            const emojiInput = pointActivityHero.querySelector('[data-rule-edit-emoji]');
+            const pointsText = String(pointsInput?.value || '').trim();
+            const maxPoint = pointsText ? Number.parseInt(pointsText, 10) : null;
+            if (!Number.isInteger(ruleId) || ruleId <= 0) {
+                showError('Rule is unavailable for editing.');
+                return;
+            }
+            if (pointsText && (!Number.isInteger(maxPoint) || maxPoint <= 0)) {
+                showError('Default points must be a positive whole number.');
+                pointsInput?.focus();
+                return;
+            }
+            const payload = {
+                maxPoint,
+            };
+            if (String(currentRule?.ruleKind || '') !== 'in_app_chore') {
+                payload.isActive = Boolean(activeInput?.checked);
+            }
+            if (nameInput) {
+                payload.name = String(nameInput.value || '').trim();
+            }
+            if (emojiInput) {
+                payload.emoji = String(emojiInput.value || '').trim();
+            }
+            ruleEditAction.disabled = true;
+            try {
+                const response = await fetch(`${API_BASE}/points/rules/${encodeURIComponent(ruleId)}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const result = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(result.error || 'Failed to save rule.');
+                currentRule = result.rule || currentRule;
+                isRuleEditing = false;
+                showError('');
+                render();
+            } catch (error) {
+                ruleEditAction.disabled = false;
+                showError(error.message || 'Failed to save rule.');
+            }
+            return;
+        }
+    }
     const kidButton = event.target.closest('[data-point-filter-kid]');
     if (kidButton && pointActivityHero.contains(kidButton)) {
         const nextKidId = String(kidButton.dataset.pointFilterKid || '');
@@ -1198,10 +1281,19 @@ pointActivityHero?.addEventListener('click', (event) => {
     }
 });
 
-pointActivityCalendar?.addEventListener('click', (event) => {
+pointActivityCalendar?.addEventListener('click', async (event) => {
+    const metricButton = event.target.closest('[data-calendar-metric]');
+    if (metricButton && pointActivityCalendar.contains(metricButton)) {
+        currentCalendarMetric = String(metricButton.dataset.calendarMetric || '') === 'cards' ? 'cards' : 'minutes';
+        try { localStorage.setItem('pointActivityReport.calendarMetric', currentCalendarMetric); } catch (_err) {}
+        renderCalendar();
+        return;
+    }
     const dayButton = event.target.closest('[data-calendar-day]');
     if (dayButton && pointActivityCalendar.contains(dayButton)) {
         selectedCalendarDayKey = String(dayButton.dataset.calendarDay || '');
+        renderCalendar();
+        await loadSelectedSessionDetails();
         renderCalendar();
         return;
     }
@@ -1213,12 +1305,6 @@ pointActivityCalendar?.addEventListener('click', (event) => {
 });
 
 pointActivityProgress?.addEventListener('click', (event) => {
-    const periodBtn = event.target.closest('[data-progress-period-days]');
-    if (periodBtn && pointActivityProgress.contains(periodBtn)) {
-        currentProgressViewDays = Number(periodBtn.dataset.progressPeriodDays) || 0;
-        renderProgressPanel();
-        return;
-    }
     const metricBtn = event.target.closest('[data-progress-metric]');
     if (metricBtn && pointActivityProgress.contains(metricBtn)) {
         currentProgressMetric = String(metricBtn.dataset.progressMetric || '') === 'correctness' ? 'correctness' : 'speed';

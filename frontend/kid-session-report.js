@@ -249,29 +249,15 @@ function renderSummaryHero(metaHtml) {
     const title = currentSessionCategoryDisplayName
         || (key ? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '');
     if (!title) return '';
-    const iconHtml = hasIcon ? window.subjectIcon(key, { size: 44 }) : '';
+    const iconHtml = hasIcon ? window.subjectIcon(key, { size: 36 }) : '';
     const subjectIconHtml = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
     const subjectMetaHtml = `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIconHtml}</span><span class="report-hero-meta-value">${escapeHtml(title)}</span></span>`;
-    const actionHtml = window.ReportHeroAction.renderActionGroupHtml([
-        {
-            href: buildCardManageHref(),
-            label: 'Cards',
-            leadingIcon: 'layout-grid',
-        },
-        {
-            id: 'subjectActionBtn',
-            href: buildCardManageHref({ highlightSessionId: sessionId }),
-            label: 'sessions',
-            leadingIcon: 'history',
-        },
-    ]);
     return `
         <div class="session-summary-hero">
-            ${iconHtml ? `<div class="session-summary-hero-icon">${iconHtml}</div>` : ''}
+            ${iconHtml ? `<a class="session-summary-hero-icon" href="${escapeHtml(buildCardManageHref())}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${iconHtml}</a>` : ''}
             <div class="session-summary-hero-text">
                 <div class="report-hero-meta">${subjectMetaHtml}${metaHtml}</div>
             </div>
-            ${actionHtml}
         </div>
     `;
 }

@@ -37,17 +37,47 @@
 }
 
 .point-template-frame {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.42rem;
 }
 
-.point-log-workbench .point-template-row .point-rule-emoji {
-    width: auto;
-    height: auto;
-    margin-right: 0.12rem;
-    border-radius: 0;
+.point-inactive-rules-toggle {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--paradigm-disclosure-link-gap);
+    justify-self: start;
+    min-height: var(--paradigm-disclosure-link-min-height);
+    margin-top: 0.24rem;
+    padding: 0 0.34rem 0 0;
+    border: 0;
+    border-radius: 8px;
     background: transparent;
+    color: var(--paradigm-disclosure-link-color);
+    font: inherit;
+    font-size: var(--paradigm-disclosure-link-font-size);
+    font-weight: var(--paradigm-disclosure-link-font-weight);
+    line-height: var(--paradigm-disclosure-link-line-height);
+    cursor: pointer;
+}
+
+.point-inactive-rules-toggle:hover,
+.point-inactive-rules-toggle:focus-visible {
+    color: var(--paradigm-disclosure-link-hover-color);
+    background: var(--paradigm-disclosure-link-hover-bg);
+    outline: none;
+}
+
+.point-inactive-rules-toggle-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-disclosure-link-icon-box-size);
+    height: var(--paradigm-disclosure-link-icon-box-size);
+    flex: 0 0 var(--paradigm-disclosure-link-icon-box-size);
+    color: currentColor;
 }
 
 .point-log-workbench .point-template-row:not(.active):not(.point-template-row--redeem) {
@@ -58,6 +88,15 @@
 .point-log-workbench .point-template-row.active:not(.point-template-row--redeem) {
     border-color: var(--p-accent-border-soft);
     background: color-mix(in srgb, var(--p-accent) 7%, #fff);
+}
+
+.point-log-workbench .point-template-row.inactive:not(.point-template-row--redeem) {
+    cursor: default;
+    opacity: 0.55;
+}
+
+.point-log-workbench .point-template-row.inactive .point-template-icon-link {
+    cursor: pointer;
 }
 
 @media (hover: hover) {
@@ -72,15 +111,26 @@
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.42rem;
-    min-width: min(100%, 13rem);
+    min-width: 0;
     border: 1px solid #d9dfef;
-    border-radius: 999px;
+    border-radius: 10px;
     background: #fcfdff;
     color: inherit;
     cursor: pointer;
     font: inherit;
     position: relative;
     text-align: left;
+}
+
+.point-template-row[role="button"]:focus-visible {
+    outline: 2px solid var(--p-accent);
+    outline-offset: 2px;
+}
+
+.point-template-icon-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .point-template-row--pending {

@@ -1672,6 +1672,17 @@
             color: var(--pill-accent);
         }
 
+        .card-compact-pill.is-expanded {
+            background: var(--pill-accent);
+            border-color: var(--pill-accent);
+            color: #fff;
+        }
+
+        .card-compact-pill.is-expanded .card-compact-count-badge {
+            background: #fff;
+            color: var(--pill-accent);
+        }
+
         .card-compact-pill.chinese {
             font-family: var(--font-kaiti);
             font-size: 1.28rem;
@@ -1908,13 +1919,13 @@
         }
 
         .expanded-card-hero-actions {
-            display: grid;
-            grid-template-columns: repeat(2, 32px);
-            gap: 0.32rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
         }
 
         .expanded-card-hero-action {
-            --paradigm-icon-btn-size: 32px;
+            --paradigm-icon-btn-size: 36px;
         }
 
         .expanded-card-preview {
@@ -1938,6 +1949,12 @@
         button.expanded-card-preview {
             font: inherit;
             cursor: pointer;
+        }
+
+        a.expanded-card-preview {
+            color: inherit;
+            cursor: pointer;
+            text-decoration: none;
         }
 
         .expanded-card-preview.queue-missed {
@@ -2572,7 +2589,7 @@
             }
 
             .expanded-card-hero-action {
-                --paradigm-icon-btn-size: 28px;
+                --paradigm-icon-btn-size: 34px;
             }
 
             .expanded-card-preview {

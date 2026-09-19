@@ -39,6 +39,7 @@ let selectedKidId = '';
 let activeMode = '';
 let selectedRuleId = 0;
 let activeRewardType = '';
+let inactiveRulesExpanded = false;
 let pointDraft = { emoji: '', name: '', points: '', note: '' };
 let pointData = { totalPoints: 0, events: [] };
 let selectedHistoryDayKey = '';
@@ -110,7 +111,6 @@ function todayHistoryDayKey() {
 
 function currentRulesForMode() {
     return rules.filter((rule) => {
-        if (!rule.isActive) return false;
         if (activeMode === 'bonus') return rule.ruleKind === 'bonus_event';
         if (activeMode === 'deduction') return rule.ruleKind === 'deduction_event';
         if (activeMode === 'rewards') return rule.ruleKind === 'redeemed_reward' && (!activeRewardType || rewardType(rule) === activeRewardType);
@@ -226,7 +226,9 @@ function hasActiveSelection() {
 function exactDraftRule() {
     const name = String(pointDraft.name || '').trim().toLowerCase();
     if (!name) return null;
-    return currentRulesForMode().find((rule) => String(rule?.name || '').trim().toLowerCase() === name) || null;
+    return currentRulesForMode().find((rule) => (
+        rule.isActive && String(rule?.name || '').trim().toLowerCase() === name
+    )) || null;
 }
 
 function draftRuleForSubmit() {
@@ -348,7 +350,30 @@ function templateRow(rule) {
             maxPoint: Number.isInteger(draftPoints) && draftPoints > 0 ? draftPoints : rule.maxPoint,
         }
         : rule;
-    return window.PointRuleTemplateCommon.renderRuleRow(displayRule, { active: isActive });
+    return window.PointRuleTemplateCommon.renderRuleRow(displayRule, {
+        active: isActive,
+        iconHref: `/point-activity-report.html?ruleId=${encodeURIComponent(rule.ruleId)}`,
+        selectable: Boolean(rule.isActive),
+        showCheck: false,
+    });
+}
+
+function inactiveRulesToggle(count) {
+    const safeCount = Math.max(0, Number.parseInt(count, 10) || 0);
+    if (!safeCount) return '';
+    const iconName = inactiveRulesExpanded ? 'chevron-up' : 'chevron-down';
+    const iconHtml = typeof window.icon === 'function'
+        ? window.icon(iconName, { size: 18, strokeWidth: 2.6 })
+        : '';
+    const label = inactiveRulesExpanded
+        ? 'Hide inactive rules'
+        : `${safeCount} more inactive rule${safeCount === 1 ? '' : 's'}`;
+    return `
+        <button type="button" class="point-inactive-rules-toggle" data-inactive-rule-toggle aria-expanded="${inactiveRulesExpanded ? 'true' : 'false'}">
+            <span class="point-inactive-rules-toggle-icon" aria-hidden="true">${iconHtml}</span>
+            <span>${escapeHtml(label)}</span>
+        </button>
+    `;
 }
 
 function renderTemplates() {
@@ -359,12 +384,18 @@ function renderTemplates() {
     }
     templateList.classList.toggle('has-selection', hasActiveSelection());
     const modeRules = filteredRulesForMode();
-    if (!modeRules.length) {
+    const activeRules = modeRules.filter((rule) => rule.isActive);
+    const inactiveRules = modeRules.filter((rule) => !rule.isActive);
+    const visibleRules = inactiveRulesExpanded ? modeRules : activeRules;
+    if (!visibleRules.length && !inactiveRules.length) {
         const hasQuery = Boolean(String(pointDraft.name || '').trim());
         templateList.innerHTML = `<div class="point-empty">${escapeHtml(hasQuery ? 'No matching rules yet.' : (MODE_META[activeMode]?.empty || ''))}</div>`;
         return;
     }
-    templateList.innerHTML = `<div class="point-template-frame">${modeRules.map(templateRow).join('')}</div>`;
+    const emptyHtml = !visibleRules.length
+        ? '<div class="point-empty">No active rules yet.</div>'
+        : '';
+    templateList.innerHTML = `${emptyHtml}<div class="point-template-frame">${visibleRules.map(templateRow).join('')}</div>${inactiveRulesToggle(inactiveRules.length)}`;
 }
 
 function refreshTemplateSelection(ruleIds) {
@@ -475,7 +506,7 @@ async function loadInitialData() {
     showError('');
     const [kidsData, rulesData] = await Promise.all([
         fetchJson(`${API_BASE}/kids?view=reward_nav`),
-        fetchJson(`${API_BASE}/points/rules?includeInactive=0`),
+        fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
     ]);
     kids = Array.isArray(kidsData) ? kidsData : [];
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
@@ -562,6 +593,15 @@ modeTabs.forEach((tab) => {
 });
 
 templateList.addEventListener('click', (event) => {
+    if (event.target.closest('[data-inactive-rule-toggle]')) {
+        inactiveRulesExpanded = !inactiveRulesExpanded;
+        renderTemplates();
+        window.hydrateIcons?.(templateList);
+        return;
+    }
+    if (event.target.closest('[data-rule-report-link]')) {
+        return;
+    }
     const ruleButton = event.target.closest('[data-rule-id]');
     if (ruleButton) {
         const ruleId = Number.parseInt(ruleButton.dataset.ruleId || '', 10) || 0;
@@ -573,11 +613,21 @@ templateList.addEventListener('click', (event) => {
             return;
         }
         const rule = rules.find((item) => Number(item.ruleId) === ruleId);
+        if (!rule?.isActive) return;
         populateDraftFromRule(rule);
         syncDraftFromInputs({ preserveSelection: true });
         refreshTemplateSelection([previousRuleId, Number(selectedRuleId) || 0]);
         updateSubmitState();
     }
+});
+
+templateList.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (event.target.closest('[data-rule-report-link]')) return;
+    const ruleRow = event.target.closest('[data-rule-id][role="button"]');
+    if (!ruleRow || !templateList.contains(ruleRow)) return;
+    event.preventDefault();
+    ruleRow.click();
 });
 
 [pointEmoji, pointRuleName, pointPoints, pointNote].forEach((input) => {

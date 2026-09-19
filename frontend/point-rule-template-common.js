@@ -56,14 +56,17 @@
     function renderRuleRow(rule, options = {}) {
         const delta = rulePointValue(rule);
         const isActive = Boolean(options.active);
-        const tag = options.element === 'div' ? 'div' : 'button';
+        const isSelectable = options.selectable !== false;
+        const iconHref = String(options.iconHref || '').trim();
+        const tag = iconHref || options.element === 'div' ? 'div' : 'button';
         const type = tag === 'button' ? ' type="button"' : '';
-        const role = tag === 'div' && options.role ? ` role="${escapeHtml(options.role)}"` : '';
+        const role = tag === 'div' && isSelectable ? ` role="${escapeHtml(options.role || 'button')}" tabindex="0"` : '';
         const data = rule?.ruleId ? ` data-rule-id="${escapeHtml(rule.ruleId)}"` : '';
         const extraClass = String(options.className || '').trim();
         const classes = [
             'point-template-row',
             isActive ? 'active' : '',
+            !isSelectable ? 'inactive' : '',
             extraClass,
         ].filter(Boolean).join(' ');
         const deltaText = delta === 0 && isRewardRule(rule)
@@ -72,9 +75,12 @@
         const checkHtml = typeof window.icon === 'function'
             ? window.icon('check', { size: 13, strokeWidth: 3 })
             : '';
+        const iconCellHtml = iconHref
+            ? `<a class="point-template-icon-link point-history-icon-link" data-rule-report-link href="${escapeHtml(iconHref)}" aria-label="${escapeHtml(`View all activity for ${rule?.name || 'this point rule'}`)}"><span class="point-rule-emoji">${iconHtml(rule, delta)}</span></a>`
+            : `<span class="point-rule-emoji">${iconHtml(rule, delta)}</span>`;
         return `
             <${tag}${type}${role} class="${classes}"${data}>
-                <span class="point-rule-emoji">${iconHtml(rule, delta)}</span>
+                ${iconCellHtml}
                 <span class="point-template-name activity-timeline-title">${escapeHtml(rule?.name || 'Rule')}</span>
                 <span class="point-rule-delta paradigm-pill ${deltaClassForRule(rule)}">${escapeHtml(deltaText)}</span>
                 ${isActive && options.showCheck !== false ? `<span class="point-template-check" aria-hidden="true">${checkHtml}</span>` : ''}

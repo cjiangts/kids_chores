@@ -264,18 +264,16 @@ function buildExpandedCardPreviewMarkup(card, options = {}) {
         <span class="expanded-card-preview-text">${renderMathHtml(text)}</span>
         <span class="expanded-card-preview-badge">${escapeHtml(String(totalPracticed))}</span>
     `;
-    const collapseCardId = String(options.collapseCardId || '').trim();
-    if (collapseCardId) {
-        classes.push('is-collapse-trigger');
+    const reportHref = String(options.reportHref || '').trim();
+    if (reportHref) {
+        classes.push('is-report-link');
         return `
-            <button
-                type="button"
+            <a
+                href="${escapeHtml(reportHref)}"
                 class="${classes.join(' ')}"
-                data-action="collapse-compact"
-                data-card-id="${escapeHtml(collapseCardId)}"
-                title="Minimize card"
-                aria-label="Minimize card"
-            >${innerHtml}</button>
+                title="View history"
+                aria-label="View history for ${escapeHtml(text)}"
+            >${innerHtml}</a>
         `;
     }
     return `
@@ -322,7 +320,10 @@ function buildCardMarkup(card, options = {}) {
         <div class="${classes.filter(Boolean).join(' ')}">
             ${prependControlsHtml}
             <div class="expanded-card-hero${heroAsideHtml ? ' has-aside' : ''}">
-                ${showPreviewPill ? buildExpandedCardPreviewMarkup(card, { queueHighlight: options.queueHighlight, collapseCardId }) : ''}
+                ${showPreviewPill ? buildExpandedCardPreviewMarkup(card, {
+                    queueHighlight: options.queueHighlight,
+                    reportHref: collapseCardId ? buildCardReportHref(card) : '',
+                }) : ''}
                 <div class="expanded-card-main">
                     ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
                     ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}${cardBackSizeClass}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
@@ -400,8 +401,12 @@ function buildCompactCardMarkup(card, options = {}) {
     const totalPracticed = Math.max(0, Number.parseInt(card && card.lifetime_attempts, 10) || 0);
     const cardId = getCardIdText(card);
     const isSelected = isCardsSelectModeOn && cardId && selectedCardIds.has(cardId);
+    const isExpanded = !isCardsSelectModeOn && cardId && expandedCompactCardIds.has(cardId);
     if (isSelected) {
         classes.push('selected');
+    }
+    if (isExpanded) {
+        classes.push('is-expanded');
     }
     const highlightHint = queueHighlight === 'last-failed'
         ? ' • Next session: last failed'
@@ -451,7 +456,7 @@ function buildCompactCardMarkup(card, options = {}) {
             data-action="${action}"
             data-card-id="${escapeHtml(cardId)}"
             title="${titleAttr}"
-            aria-label="${ariaLabel}"${selectAttrs}
+            aria-label="${ariaLabel}"${selectAttrs}${isCardsSelectModeOn ? '' : ` aria-expanded="${isExpanded ? 'true' : 'false'}"`}
         >
             <span class="card-compact-pill-check" aria-hidden="true">${icon('check', { size: 12, strokeWidth: 3 })}</span>
             <span class="card-compact-pill-text">${escapeHtml(text)}</span>
@@ -508,12 +513,6 @@ function buildExpandedCardHeroActionsMarkup(card, supportsSkipControl, trailingA
                 title="${skipTitle}"
                 aria-label="${skipTitle}"
             >${card.skip_practice ? icon('eye', { size: 16 }) : icon('eye-off', { size: 16 })}</button>` : ''}
-            <a
-                class="paradigm-icon-btn expanded-card-hero-action"
-                href="${buildCardReportHref(card)}"
-                title="View history"
-                aria-label="View history"
-            >${icon('history', { size: 16 })}</a>
             ${trailingActionHtml}
         </div>
     `;
@@ -1589,18 +1588,6 @@ async function handleCardsGridClick(event) {
             expandedCompactCardIds.add(cardId);
             displayCards(currentCards);
         }
-        return;
-    }
-
-    if (action === 'collapse-compact') {
-        const cardId = String(actionBtn.dataset.cardId || '').trim();
-        if (!cardId || !expandedCompactCardIds.has(cardId)) {
-            return;
-        }
-        if (currentCardViewMode === 'long') {
-            currentCardViewMode = 'short';
-        }
-        await closeCompactCardPopover();
         return;
     }
 
