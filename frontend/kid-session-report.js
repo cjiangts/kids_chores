@@ -133,6 +133,10 @@ function resolveBackHref() {
         if (categoryKey) qs.set('categoryKey', categoryKey);
         return `/kid-card-manage.html?${qs.toString()}`;
     }
+    if (from === 'point-activity-report') {
+        const ruleId = String(params.get('ruleId') || '').trim();
+        return ruleId ? `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}` : '/point-rules.html';
+    }
     const qs = new URLSearchParams();
     qs.set('id', String(kidId));
     if (from === 'kid-home') {

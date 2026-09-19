@@ -1,16 +1,13 @@
 /*
- * kid-card-manage-stats.js — view-mode toggle, distributions, daily-progress
+ * kid-card-manage-stats.js — view-mode toggle and distributions
  *
  * Layout:
  *   1. Cards view-mode toggle + setter
- *   2. Loading spinner + report renderer + report-view loader
+ *   2. Loading spinner
  *   3. Stats view + summary
  *   4. Card-stat accessors + capsule label getter
- *   5. Daily progress metric + distribution tab normalizers
+ *   5. Distribution tab normalizer
  *   6. Distribution histogram builders (accuracy / count / speed / last-seen)
- *   7. Daily progress chart build + finite-range
- *   8. Metric / period button rendering + view clipping + date-key helpers
- *   9. Daily progress Y / X tick builders + panel render
  */
 
 // =====================================================================
@@ -28,25 +25,6 @@ function setupCardsViewModeToggle() {
     const statsContainer = document.getElementById('cardsStatsView');
     if (statsContainer) {
         const handleBucketActivate = (target) => {
-            const periodBtn = target.closest('[data-progress-period-days]');
-            if (periodBtn) {
-                const days = Number(periodBtn.getAttribute('data-progress-period-days')) || 0;
-                if (days !== currentDailyProgressViewDays) {
-                    currentDailyProgressViewDays = days;
-                    renderStatsView();
-                }
-                return;
-            }
-            const metricBtn = target.closest('[data-progress-metric]');
-            if (metricBtn) {
-                const next = normalizeDailyProgressMetric(metricBtn.getAttribute('data-progress-metric'));
-                if (next !== currentDailyProgressMetric) {
-                    currentDailyProgressMetric = next;
-                    try { localStorage.setItem(DAILY_PROGRESS_METRIC_STORAGE_KEY, next); } catch (_err) {}
-                    renderStatsView();
-                }
-                return;
-            }
             const tabBtn = target.closest('[data-distribution-tab]');
             if (tabBtn) {
                 const next = normalizeDistributionTab(tabBtn.getAttribute('data-distribution-tab'));
@@ -101,7 +79,6 @@ function setCardsViewMode(mode) {
     } catch (_err) {}
     document.body.classList.toggle('cards-view-mode-queue', next === 'queue');
     document.body.classList.toggle('cards-view-mode-stats', next === 'stats');
-    document.body.classList.toggle('cards-view-mode-report', next === 'report');
     document.querySelectorAll('[data-cards-view-toggle]').forEach((btn) => {
         const isActive = btn.getAttribute('data-cards-view-toggle') === next;
         btn.classList.toggle('active', isActive);
@@ -119,13 +96,11 @@ function setCardsViewMode(mode) {
                 resetAndDisplayCards(currentCards);
             });
         }
-    } else if (next === 'report') {
-        loadReportViewIfNeeded();
     }
 }
 
 // =====================================================================
-// === 2. Loading spinner + report renderer + report-view loader
+// === 2. Loading spinner
 // =====================================================================
 
 function renderCardsLoadingSpinner() {
@@ -140,60 +115,6 @@ function renderCardsLoadingSpinner() {
             <span class="app-spinner" aria-hidden="true"></span>
         </div>
     `;
-}
-
-let reportRenderer = null;
-let reportLoadState = 'idle';
-
-function getReportRenderer() {
-    if (reportRenderer) return reportRenderer;
-    const summaryGrid = document.getElementById('reportSummaryGrid');
-    if (!summaryGrid) return null;
-    const highlightSessionId = String(params.get('highlightSessionId') || '').trim();
-    reportRenderer = window.KidReportCommon.createReport({
-        elements: {
-            summaryGrid,
-            dailyChartBody: document.getElementById('reportDailyChartBody'),
-            dailyChartLegend: document.getElementById('reportDailyChartLegend'),
-            dailyChartPageLabel: document.getElementById('reportDailyChartPageLabel'),
-            dailyChartNewerBtn: document.getElementById('reportDailyChartNewerBtn'),
-            dailyChartOlderBtn: document.getElementById('reportDailyChartOlderBtn'),
-        },
-        fixedCategoryKey: categoryKey,
-        clickBarToSession: true,
-        highlightSessionId: highlightSessionId || null,
-        buildSessionUrl: (session) => {
-            const qs = new URLSearchParams();
-            qs.set('id', String(kidId));
-            qs.set('sessionId', String(session?.id || ''));
-            qs.set('from', 'kid-card-manage');
-            if (categoryKey) qs.set('categoryKey', categoryKey);
-            return `/kid-session-report.html?${qs.toString()}`;
-        },
-    });
-    return reportRenderer;
-}
-
-async function loadReportViewIfNeeded() {
-    const renderer = getReportRenderer();
-    if (!renderer) return;
-    if (reportLoadState === 'loading' || reportLoadState === 'loaded') return;
-    reportLoadState = 'loading';
-    renderer.renderInitialLoading();
-    try {
-        const response = await fetch(`${API_BASE}/kids/${kidId}/report`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
-        const sessions = Array.isArray(data.sessions) ? data.sessions : [];
-        renderer.setData({ sessions, familyTimezone: data.family_timezone });
-        reportLoadState = 'loaded';
-    } catch (error) {
-        console.error('Error loading report view:', error);
-        reportLoadState = 'error';
-        renderer.renderInitialLoading('Failed to load practice report.');
-    }
 }
 
 // =====================================================================
@@ -239,11 +160,8 @@ function renderStatsView() {
         const active = t.key === activeTab.key ? ' active' : '';
         return `<button type="button" class="cards-distribution-tab${active}" data-distribution-tab="${t.key}" aria-pressed="${active ? 'true' : 'false'}">${escapeHtml(t.label)}</button>`;
     }).join('');
-    const dailyProgress = buildDailyProgressChart(currentDailyProgressRows, currentFamilyTimezone);
-    const dailyProgressView = dailyProgress ? clipDailyProgressView(dailyProgress, currentDailyProgressViewDays) : null;
     container.innerHTML = `
         ${renderStatsSummary(uniqueCount, attemptTotal)}
-        ${dailyProgressView ? renderDailyProgressPanel(dailyProgressView) : ''}
         <div class="cards-distribution-card distribution-card">
             <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon">${(typeof window !== 'undefined' && typeof window.ICON_PATHS === 'object' && window.ICON_PATHS['layout-grid']) ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${window.ICON_PATHS['layout-grid']}</svg>` : ''}</span><span class="paradigm-panel-heading">Distribution</span></h2>
             <div class="cards-distribution-tabs" role="tablist">${tabsHtml}</div>
@@ -324,22 +242,10 @@ function makeCardCapsuleLabelGetter() {
 }
 
 const selectedBucketByPanel = new Map();
-let currentDailyProgressViewDays = 0;
-const DAILY_PROGRESS_METRIC_STORAGE_KEY = 'kidCardManage.dailyProgressMetric';
 // =====================================================================
-// === 5. Daily progress metric + distribution tab normalizers
+// === 5. Distribution tab normalizer
 // =====================================================================
 
-function normalizeDailyProgressMetric(value) {
-    return value === 'correctness' ? 'correctness' : 'speed';
-}
-let currentDailyProgressMetric = (() => {
-    try {
-        return normalizeDailyProgressMetric(localStorage.getItem(DAILY_PROGRESS_METRIC_STORAGE_KEY));
-    } catch (_err) {
-        return 'speed';
-    }
-})();
 const DISTRIBUTION_TAB_STORAGE_KEY = 'kidCardManage.distributionTab';
 const DISTRIBUTION_TAB_KEYS = ['accuracy', 'counts', 'speed', 'ema', 'recency'];
 function normalizeDistributionTab(value) {
@@ -482,414 +388,4 @@ function buildLastSeenDistribution(cards, getCardCapsuleLabel, getCardHref) {
         ],
         cards,
     });
-}
-
-// =====================================================================
-// === 7. Daily progress chart build + finite-range
-// =====================================================================
-
-function buildDailyProgressChart(dailyProgressRows, familyTimezone) {
-    const rows = Array.isArray(dailyProgressRows) ? dailyProgressRows : [];
-    const validRows = [];
-    for (const row of rows) {
-        const cardId = Number(row?.card_id);
-        const date = String(row?.date || '').trim();
-        const attempts = Math.max(0, Number.parseInt(row?.attempts, 10) || 0);
-        const correct = Math.max(0, Number.parseInt(row?.correct, 10) || 0);
-        const rtSum = Math.max(0, Number.parseInt(row?.correct_response_time_ms_sum, 10) || 0);
-        const rtCount = Math.max(0, Number.parseInt(row?.correct_response_time_count, 10) || 0);
-        if (!Number.isFinite(cardId) || cardId <= 0 || !date || attempts <= 0) continue;
-        validRows.push({ cardId, date, attempts, correct, rtSum, rtCount });
-    }
-    if (!validRows.length) return null;
-    const rowsByDate = new Map();
-    for (const row of validRows) {
-        if (!rowsByDate.has(row.date)) rowsByDate.set(row.date, []);
-        rowsByDate.get(row.date).push(row);
-    }
-    const sortedDates = Array.from(rowsByDate.keys()).sort();
-    const firstDate = sortedDates[0];
-    const lastDate = sortedDates[sortedDates.length - 1];
-    const startEpoch = parseDateKeyToEpochUtc(firstDate);
-    const lastDataEpoch = parseDateKeyToEpochUtc(lastDate);
-    if (!Number.isFinite(startEpoch) || !Number.isFinite(lastDataEpoch) || lastDataEpoch < startEpoch) return null;
-    const todayDateKey = getTodayDateKeyInTimezone(familyTimezone);
-    const todayEpoch = parseDateKeyToEpochUtc(todayDateKey);
-    const endEpoch = Number.isFinite(todayEpoch) && todayEpoch > lastDataEpoch ? todayEpoch : lastDataEpoch;
-    const dayMs = 24 * 60 * 60 * 1000;
-    const cardCum = new Map();
-    const practicedSet = new Set();
-    const learnedSet = new Set();
-    const points = [];
-    let dayIndex = 0;
-    let cumRtSumMs = 0;
-    let cumRtCount = 0;
-    let cumAttempts = 0;
-    let cumCorrect = 0;
-    for (let epoch = startEpoch; epoch <= endEpoch; epoch += dayMs) {
-        dayIndex += 1;
-        const dateStr = formatEpochUtcToDateKey(epoch);
-        const dayRows = rowsByDate.get(dateStr) || [];
-        for (const row of dayRows) {
-            let cum = cardCum.get(row.cardId);
-            if (!cum) {
-                cum = { attempts: 0, correct: 0 };
-                cardCum.set(row.cardId, cum);
-            }
-            cum.attempts += row.attempts;
-            cum.correct += row.correct;
-            practicedSet.add(row.cardId);
-            if (cum.attempts >= 5 && (cum.correct / cum.attempts) >= 0.8) {
-                learnedSet.add(row.cardId);
-            }
-            cumRtSumMs += row.rtSum;
-            cumRtCount += row.rtCount;
-            cumAttempts += row.attempts;
-            cumCorrect += row.correct;
-        }
-        const avgCorrectRtSec = cumRtCount > 0 ? (cumRtSumMs / cumRtCount) / 1000 : null;
-        const cumCorrectPct = cumAttempts > 0 ? (cumCorrect / cumAttempts) * 100 : null;
-        points.push({
-            dayIndex,
-            date: dateStr,
-            practiced: practicedSet.size,
-            learned: learnedSet.size,
-            avgCorrectRtSec,
-            cumCorrectPct,
-        });
-    }
-    const yMax = Math.max(1, points.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
-    const rtRange = computeFiniteRange(points, 'avgCorrectRtSec');
-    const crRange = computeFiniteRange(points, 'cumCorrectPct');
-    return {
-        title: 'Daily Progress',
-        firstDate,
-        lastDate,
-        totalDays: points.length,
-        points,
-        yMax,
-        rtMin: rtRange.hasData ? rtRange.min : null,
-        rtMax: rtRange.hasData ? rtRange.max : 0,
-        crMin: crRange.hasData ? crRange.min : null,
-        crMax: crRange.hasData ? crRange.max : 0,
-    };
-}
-
-function computeFiniteRange(points, key) {
-    let min = Infinity;
-    let max = -Infinity;
-    for (const p of points) {
-        const v = Number(p?.[key]);
-        if (!Number.isFinite(v)) continue;
-        if (v < min) min = v;
-        if (v > max) max = v;
-    }
-    const hasData = Number.isFinite(min) && Number.isFinite(max);
-    return { hasData, min: hasData ? min : 0, max: hasData ? max : 0 };
-}
-
-// =====================================================================
-// === 8. Metric / period button rendering + view clipping + date-key helpers
-// =====================================================================
-
-function renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
-    if (!rtHasData || !crHasData) return '';
-    const opts = [
-        { metric: 'speed', label: 'Speed' },
-        { metric: 'correctness', label: 'Correct' },
-    ];
-    const buttonsHtml = opts.map((o) => {
-        const active = o.metric === activeMetric ? ' active' : '';
-        return `<button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${active}" data-progress-metric="${o.metric}">${o.label}</button>`;
-    }).join('');
-    return `<div class="daily-progress-metric-btns paradigm-chip-toggle-group">${buttonsHtml}</div>`;
-}
-
-function renderDailyProgressPeriodBtns(fullSpanDays) {
-    const span = Math.max(0, Number(fullSpanDays) || 0);
-    const presets = [7, 14, 30, 90].filter((d) => span > d);
-    if (!presets.length) {
-        if (currentDailyProgressViewDays !== 0) currentDailyProgressViewDays = 0;
-        return '';
-    }
-    if (currentDailyProgressViewDays !== 0 && !presets.includes(currentDailyProgressViewDays)) {
-        currentDailyProgressViewDays = 0;
-    }
-    const opts = [...presets.map((d) => ({ days: d, label: `${d}d` })), { days: 0, label: 'All' }];
-    const buttonsHtml = opts.map((o) => {
-        const active = o.days === currentDailyProgressViewDays ? ' active' : '';
-        return `<button type="button" class="daily-progress-period-btn paradigm-chip-toggle${active}" data-progress-period-days="${o.days}">${o.label}</button>`;
-    }).join('');
-    return `<div class="daily-progress-period-btns paradigm-chip-toggle-group">${buttonsHtml}</div>`;
-}
-
-function clipDailyProgressView(chart, viewDays) {
-    if (!chart || !Array.isArray(chart.points) || !chart.points.length) return chart;
-    const fullSpanDays = Math.max(0, Number(chart.totalDays) - 1);
-    const requested = Math.max(0, Number(viewDays) || 0);
-    const visiblePoints = (requested > 0 && requested < fullSpanDays)
-        ? chart.points.slice(-(requested + 1))
-        : chart.points;
-    if (visiblePoints === chart.points) {
-        return { ...chart, fullSpanDays, viewDays: 0 };
-    }
-    const reindexed = visiblePoints.map((point, idx) => ({ ...point, dayIndex: idx + 1 }));
-    const yMaxVisible = Math.max(1, reindexed.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
-    const rtRange = computeFiniteRange(reindexed, 'avgCorrectRtSec');
-    const crRange = computeFiniteRange(reindexed, 'cumCorrectPct');
-    return {
-        ...chart,
-        points: reindexed,
-        totalDays: reindexed.length,
-        yMax: yMaxVisible,
-        rtMin: rtRange.hasData ? rtRange.min : null,
-        rtMax: rtRange.hasData ? rtRange.max : 0,
-        crMin: crRange.hasData ? crRange.min : null,
-        crMax: crRange.hasData ? crRange.max : 0,
-        fullSpanDays,
-        viewDays: requested,
-    };
-}
-
-function getTodayDateKeyInTimezone(timezone) {
-    const tz = String(timezone || '').trim();
-    try {
-        const formatter = new Intl.DateTimeFormat('en-CA', {
-            timeZone: tz || undefined,
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-        });
-        const parts = formatter.formatToParts(new Date());
-        const year = parts.find((p) => p.type === 'year')?.value;
-        const month = parts.find((p) => p.type === 'month')?.value;
-        const day = parts.find((p) => p.type === 'day')?.value;
-        if (year && month && day) return `${year}-${month}-${day}`;
-    } catch (_) {
-        // fall through to UTC fallback
-    }
-    return formatEpochUtcToDateKey(Date.now());
-}
-
-function parseDateKeyToEpochUtc(dateStr) {
-    const text = String(dateStr || '').trim();
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
-    if (!match) return NaN;
-    return Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-}
-
-function formatEpochUtcToDateKey(epochMs) {
-    const dt = new Date(epochMs);
-    if (Number.isNaN(dt.getTime())) return '';
-    const y = dt.getUTCFullYear();
-    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(dt.getUTCDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
-}
-
-// =====================================================================
-// === 9. Daily progress Y / X tick builders + panel render
-// =====================================================================
-
-function buildDailyProgressYTicks(yMax) {
-    const safeMax = Math.max(1, Number(yMax) || 0);
-    const step = getNiceHistogramStep(safeMax / 4);
-    const axisMax = Math.max(step, Math.ceil(safeMax / step) * step);
-    const ticks = [];
-    for (let value = 0; value <= axisMax; value += step) ticks.push(value);
-    return ticks;
-}
-
-function buildResponseTimeYTicks(rtMin, rtMax) {
-    const lo = Math.max(0, Math.floor(Number(rtMin) || 0));
-    const hi = Math.max(lo + 1, Number(rtMax) || lo + 1);
-    const span = Math.max(1, hi - lo);
-    const step = getNiceHistogramStep(span / 4);
-    const axisMax = lo + Math.max(step, Math.ceil(span / step) * step);
-    const ticks = [];
-    for (let value = lo; value <= axisMax; value += step) ticks.push(value);
-    return ticks;
-}
-
-function buildCorrectnessRateYTicks(crMin, crMax) {
-    const lo = Math.max(0, Math.floor(Number(crMin) || 0));
-    const hiRaw = Math.max(lo + 1, Math.ceil(Number(crMax) || lo + 1));
-    const hi = Math.min(100, hiRaw);
-    const span = Math.max(1, hi - lo);
-    const step = getNiceHistogramStep(span / 4);
-    const axisMax = Math.min(100, lo + Math.max(step, Math.ceil(span / step) * step));
-    const ticks = [];
-    for (let value = lo; value <= axisMax; value += step) ticks.push(value);
-    if (ticks[ticks.length - 1] < hi) ticks.push(hi);
-    return ticks;
-}
-
-function buildDailyProgressXTicks(totalDays) {
-    const days = Math.max(1, Number(totalDays) || 1);
-    const lastTick = days - 1;
-    if (lastTick <= 0) return [0];
-    const targetCount = 5;
-    const candidateSteps = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1000];
-    let step = candidateSteps[candidateSteps.length - 1];
-    for (const s of candidateSteps) {
-        if (Math.floor(lastTick / s) + 1 <= targetCount) {
-            step = s;
-            break;
-        }
-    }
-    const minGap = Math.max(1, Math.floor(step * 0.6));
-    const ticks = new Set([0]);
-    for (let v = step; v <= lastTick - minGap; v += step) ticks.add(v);
-    ticks.add(lastTick);
-    return Array.from(ticks).sort((a, b) => a - b);
-}
-
-function renderDailyProgressPanel(chart) {
-    const points = Array.isArray(chart?.points) ? chart.points : [];
-    if (!points.length) return '';
-    const totalDays = Math.max(1, Number(chart?.totalDays) || points.length);
-    const yMax = Math.max(1, Number(chart?.yMax) || 0);
-    const yTicks = buildDailyProgressYTicks(yMax);
-    const axisMax = yTicks[yTicks.length - 1] || yMax;
-    const rtMaxRaw = Number(chart?.rtMax) || 0;
-    const rtMinRaw = Number(chart?.rtMin);
-    const rtHasData = rtMaxRaw > 0 && Number.isFinite(rtMinRaw);
-    const crMaxRawAll = Number(chart?.crMax) || 0;
-    const crMinRawAll = Number(chart?.crMin);
-    const crHasData = crMaxRawAll > 0 && Number.isFinite(crMinRawAll);
-    const activeMetric = (currentDailyProgressMetric === 'correctness' && crHasData)
-        ? 'correctness'
-        : (rtHasData ? 'speed' : (crHasData ? 'correctness' : 'none'));
-    const hasRtData = activeMetric === 'speed' && rtHasData;
-    const hasCrData = activeMetric === 'correctness' && crHasData;
-    const rtTicks = hasRtData ? buildResponseTimeYTicks(rtMinRaw, rtMaxRaw) : [];
-    const rtAxisMin = rtTicks.length ? rtTicks[0] : 0;
-    const rtAxisMax = rtTicks.length ? rtTicks[rtTicks.length - 1] : 0;
-    const rtAxisRange = rtAxisMax - rtAxisMin;
-    const crTicks = hasCrData ? buildCorrectnessRateYTicks(crMinRawAll, crMaxRawAll) : [];
-    const crAxisMin = crTicks.length ? crTicks[0] : 0;
-    const crAxisMax = crTicks.length ? crTicks[crTicks.length - 1] : 0;
-    const crAxisRange = crAxisMax - crAxisMin;
-    const xTicks = buildDailyProgressXTicks(totalDays);
-    const positionForDay = (dayIndex) => totalDays <= 1 ? 50 : ((dayIndex - 1) / (totalDays - 1)) * 100;
-    const positionForValue = (value) => axisMax <= 0 ? 0 : (Number(value) / axisMax) * 100;
-    const positionForRt = (value) => rtAxisRange <= 0 ? 0 : ((Number(value) - rtAxisMin) / rtAxisRange) * 100;
-    const positionForCr = (value) => crAxisRange <= 0 ? 0 : ((Number(value) - crAxisMin) / crAxisRange) * 100;
-    const buildLinePath = (key) => points.map((point, idx) => {
-        const x = positionForDay(point.dayIndex).toFixed(2);
-        const y = (100 - positionForValue(point[key])).toFixed(2);
-        return `${idx === 0 ? 'M' : 'L'}${x},${y}`;
-    }).join(' ');
-    const buildSparseLinePath = (key, positionFn) => {
-        const segments = [];
-        let pendingMove = true;
-        for (const point of points) {
-            const value = Number(point[key]);
-            if (!Number.isFinite(value)) {
-                pendingMove = true;
-                continue;
-            }
-            const x = positionForDay(point.dayIndex).toFixed(2);
-            const y = (100 - positionFn(value)).toFixed(2);
-            segments.push(`${pendingMove ? 'M' : 'L'}${x},${y}`);
-            pendingMove = false;
-        }
-        return segments.join(' ');
-    };
-    const practicedPath = buildLinePath('practiced');
-    const learnedPath = buildLinePath('learned');
-    const responseTimePath = hasRtData ? buildSparseLinePath('avgCorrectRtSec', positionForRt) : '';
-    const correctnessPath = hasCrData ? buildSparseLinePath('cumCorrectPct', positionForCr) : '';
-    const lastPoint = points[points.length - 1] || { practiced: 0, learned: 0, avgCorrectRtSec: null, cumCorrectPct: null };
-    const lastRtValue = Number(lastPoint?.avgCorrectRtSec);
-    const lastRtLabel = Number.isFinite(lastRtValue) ? `${lastRtValue.toFixed(2)}s` : '—';
-    const lastCrValue = Number(lastPoint?.cumCorrectPct);
-    const lastCrLabel = Number.isFinite(lastCrValue) ? `${lastCrValue.toFixed(1)}%` : '—';
-    const formatRtTick = (tick) => {
-        const num = Number(tick);
-        if (!Number.isFinite(num)) return '';
-        return Number.isInteger(num) ? `${num}s` : `${num.toFixed(1)}s`;
-    };
-    const formatCrTick = (tick) => {
-        const num = Number(tick);
-        if (!Number.isFinite(num)) return '';
-        return Number.isInteger(num) ? `${num}%` : `${num.toFixed(1)}%`;
-    };
-    const periodButtonsHtml = renderDailyProgressPeriodBtns(Number(chart?.fullSpanDays) || 0);
-    const metricButtonsHtml = renderDailyProgressMetricBtns({ rtHasData, crHasData, activeMetric });
-    const controlsHtml = (metricButtonsHtml || periodButtonsHtml)
-        ? `<div class="daily-progress-controls">${metricButtonsHtml}${periodButtonsHtml}</div>`
-        : '';
-    const cardClasses = ['cards-distribution-card', 'daily-progress-card'];
-    if (hasRtData) cardClasses.push('has-response-time');
-    if (hasCrData) cardClasses.push('has-correctness-rate');
-    const awardIconPath = (typeof window !== 'undefined' && typeof window.ICON_PATHS === 'object')
-        ? window.ICON_PATHS['award']
-        : '';
-    const awardSvg = awardIconPath
-        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${awardIconPath}</svg>`
-        : '';
-    return `
-        <div class="${cardClasses.join(' ')}">
-            <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon">${awardSvg}</span><span class="paradigm-panel-heading">${escapeHtml(String(chart?.title || 'Daily Progress'))}</span></h2>
-            ${controlsHtml}
-            <div class="daily-progress-legend">
-                <span class="daily-progress-legend-item practiced"><span class="daily-progress-legend-swatch"></span>Practiced <span style="color: #2f66e6;">${escapeHtml(String(lastPoint.practiced))}</span></span>
-                <span class="daily-progress-legend-item learned"><span class="daily-progress-legend-swatch"></span>Learned <span style="color: #16a34a;">${escapeHtml(String(lastPoint.learned))}</span></span>
-                ${hasCrData ? `<span class="daily-progress-legend-item correctness-rate"><span class="daily-progress-legend-swatch"></span>Cumulative correct <span style="color: #db2777;">${escapeHtml(lastCrLabel)}</span></span>` : ''}
-                ${hasRtData ? `<span class="daily-progress-legend-item response-time"><span class="daily-progress-legend-swatch"></span>Avg correct time <span style="color: #d97706;">${escapeHtml(lastRtLabel)}</span></span>` : ''}
-            </div>
-            <div class="daily-progress-chart">
-                <div class="daily-progress-y-label">Cards</div>
-                <div class="daily-progress-y-axis">
-                    ${yTicks.map((tick) => `
-                        <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForValue(tick).toFixed(2)}%">${escapeHtml(String(tick))}</div>
-                    `).join('')}
-                </div>
-                ${hasRtData ? `
-                    <div class="daily-progress-y-label daily-progress-y-label-right">Response</div>
-                    <div class="daily-progress-y-axis daily-progress-y-axis-right">
-                        ${rtTicks.map((tick) => `
-                            <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForRt(tick).toFixed(2)}%">${escapeHtml(formatRtTick(tick))}</div>
-                        `).join('')}
-                    </div>
-                ` : ''}
-                ${hasCrData ? `
-                    <div class="daily-progress-y-label daily-progress-y-label-correctness">Correct</div>
-                    <div class="daily-progress-y-axis daily-progress-y-axis-correctness">
-                        ${crTicks.map((tick) => `
-                            <div class="daily-progress-y-tick paradigm-chart-axis-label" style="bottom:${positionForCr(tick).toFixed(2)}%">${escapeHtml(formatCrTick(tick))}</div>
-                        `).join('')}
-                    </div>
-                ` : ''}
-                <div class="daily-progress-plot">
-                    <div class="daily-progress-grid">
-                        ${yTicks.map((tick) => `
-                            <div class="daily-progress-grid-line paradigm-chart-grid-line" style="bottom:${positionForValue(tick).toFixed(2)}%"></div>
-                        `).join('')}
-                        ${xTicks.map((tick) => `
-                            <div class="daily-progress-grid-line-vertical paradigm-chart-grid-line" style="left:${positionForDay(tick + 1).toFixed(2)}%"></div>
-                        `).join('')}
-                    </div>
-                    <svg class="daily-progress-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-                        <path class="daily-progress-line practiced" d="${practicedPath}" />
-                        <path class="daily-progress-line learned" d="${learnedPath}" />
-                        ${correctnessPath ? `<path class="daily-progress-line correctness-rate" d="${correctnessPath}" />` : ''}
-                        ${responseTimePath ? `<path class="daily-progress-line response-time" d="${responseTimePath}" />` : ''}
-                    </svg>
-                    <div class="daily-progress-x-axis">
-                        ${xTicks.map((tick) => {
-                            const isLast = tick === totalDays - 1;
-                            return `
-                            <div class="daily-progress-x-tick paradigm-chart-axis-label${isLast ? ' is-today' : ''}" style="left:${positionForDay(tick + 1).toFixed(2)}%">${escapeHtml(String(tick))}d${isLast ? '<div class="daily-progress-x-tick-today">(today)</div>' : ''}</div>
-                        `;
-                        }).join('')}
-                    </div>
-                </div>
-            </div>
-            <div class="daily-progress-definition">
-                <strong>Learned</strong> = cumulative count of distinct cards with at least 5 attempts and ≥80% correct rate.
-            </div>
-        </div>
-    `;
 }

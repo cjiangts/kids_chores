@@ -1032,5 +1032,5 @@
         return Number.isNaN(dt.getTime()) ? null : dt;
     }
 
-    window.KidReportCommon = { createReport };
+    window.KidReportCommon = { createReport, summarizeSessions };
 })();

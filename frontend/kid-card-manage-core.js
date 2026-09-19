@@ -160,15 +160,13 @@ const drillSpeedTargetInput = document.getElementById('drillSpeedTargetInput');
 let allDecks = [];
 let orphanDeck = null;
 let currentCards = [];
-let currentDailyProgressRows = [];
-let currentFamilyTimezone = '';
 let currentPracticePrioritySubjectBaseline = {
     p50_correct_time: null,
     p95_correct_time: null,
     correct_sample_count: 0,
 };
 const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
-const CARDS_VIEW_MODES = new Set(['queue', 'stats', 'report']);
+const CARDS_VIEW_MODES = new Set(['queue', 'stats']);
 // =====================================================================
 // === 2. Card view-mode + Chinese back + sort-mode helpers
 // =====================================================================

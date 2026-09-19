@@ -145,6 +145,10 @@
     cursor: pointer;
 }
 
+.point-activity-kid-card.no-chevron {
+    grid-template-columns: 34px minmax(0, 1fr);
+}
+
 .point-activity-kid-card.active {
     border-color: var(--kid-color, #6b5cf6);
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--kid-color, #6b5cf6) 18%, transparent);
@@ -356,12 +360,52 @@ button.point-activity-day:focus-visible {
     line-height: 1;
 }
 
+.point-activity-day-metrics {
+    display: grid;
+    place-items: center;
+    gap: 0.14rem;
+    min-width: 0;
+    line-height: 1;
+}
+
 .point-activity-day-total {
     color: currentColor;
     font-size: 1rem;
     font-weight: 820;
     line-height: 1;
     font-variant-numeric: tabular-nums;
+}
+
+.point-activity-day-metrics--session .point-activity-day-total {
+    font-size: 0.82rem;
+    font-weight: 820;
+}
+
+.point-activity-day-card-count {
+    position: absolute;
+    bottom: 0.38rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.14rem;
+    color: currentColor;
+    font-size: 0.72rem;
+    font-weight: 780;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.86;
+}
+
+.point-activity-day-card-count {
+    left: 0.42rem;
+}
+
+.point-activity-day-card-count .icon,
+.point-activity-day-card-count svg {
+    width: 11px;
+    height: 11px;
+    flex: 0 0 11px;
+    color: currentColor;
+    stroke: currentColor;
 }
 
 .point-activity-day-note-dot {
@@ -414,6 +458,18 @@ button.point-activity-day:focus-visible {
     min-width: 0;
 }
 
+.point-activity-event-row-link {
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.point-activity-event-row-link:hover,
+.point-activity-event-row-link:focus-visible {
+    outline: none;
+    background: rgba(99, 102, 241, 0.06);
+}
+
 .point-activity-event-row .point-activity-avatar {
     width: 26px;
     height: 26px;
@@ -452,6 +508,43 @@ button.point-activity-day:focus-visible {
     overflow: hidden;
     overflow-wrap: anywhere;
     white-space: normal;
+}
+
+.point-activity-event-note--metrics {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.point-activity-event-note--metrics > span + span::before {
+    content: '·';
+    margin-right: 0.3rem;
+    color: var(--paradigm-list-item-sub-color);
+    font-weight: 760;
+}
+
+.point-activity-event-wrong-metric {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    color: #dc2626;
+    font-weight: 760;
+}
+
+.point-activity-event-wrong-metric .icon,
+.point-activity-event-wrong-metric svg {
+    width: 12px;
+    height: 12px;
+    flex: 0 0 12px;
+    color: currentColor;
+    stroke: currentColor;
+}
+
+.point-activity-event-chevron {
+    justify-self: end;
+    color: #737fa1;
 }
 
 .point-activity-log-head {
@@ -574,6 +667,271 @@ button.point-activity-day:focus-visible {
     font-weight: var(--paradigm-list-item-sub-font-weight);
 }
 
+.point-activity-report-page .daily-progress-card {
+    display: grid;
+    gap: 0.32rem;
+}
+
+.point-activity-report-page .daily-progress-card .paradigm-panel-title {
+    margin: 0;
+}
+
+.point-activity-report-page .daily-progress-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.72rem;
+}
+
+.point-activity-report-page .daily-progress-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.28rem;
+}
+
+.point-activity-report-page .daily-progress-period-btns,
+.point-activity-report-page .daily-progress-metric-btns {
+    gap: 0.3rem;
+}
+
+.point-activity-report-page .daily-progress-metric-btns {
+    flex: 0 0 auto;
+    gap: 0;
+    padding: 0.13rem;
+    border: 1px solid #c5cfec;
+    border-radius: 999px;
+    background: #f7f9ff;
+}
+
+.point-activity-report-page .daily-progress-period-btns {
+    justify-content: flex-end;
+}
+
+.point-activity-report-page .daily-progress-period-btn.active {
+    background: #2f66e6;
+    border-color: #2f66e6;
+    color: #fff;
+}
+
+.point-activity-report-page .daily-progress-metric-btn {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+}
+
+.point-activity-report-page .daily-progress-metric-btn.active {
+    background: #4a5688;
+    border-color: transparent;
+    color: #fff;
+}
+
+.point-activity-report-page .daily-progress-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.42rem 0.72rem;
+    color: #4a5688;
+    font-size: 0.74rem;
+    font-weight: 600;
+}
+
+.point-activity-report-page .daily-progress-legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+}
+
+.point-activity-report-page .daily-progress-legend-swatch {
+    width: 0.85rem;
+    height: 0.18rem;
+    border-radius: 2px;
+    background: #2f66e6;
+}
+
+.point-activity-report-page .daily-progress-legend-item.learned .daily-progress-legend-swatch {
+    background: #16a34a;
+}
+
+.point-activity-report-page .daily-progress-legend-item.response-time .daily-progress-legend-swatch {
+    background: #d97706;
+}
+
+.point-activity-report-page .daily-progress-legend-item.correctness-rate .daily-progress-legend-swatch {
+    background: #db2777;
+}
+
+.point-activity-report-page .daily-progress-chart {
+    position: relative;
+    height: 13.5rem;
+    padding-left: 2.6rem;
+    padding-bottom: 1.15rem;
+}
+
+.point-activity-report-page .daily-progress-card.has-response-time .daily-progress-chart,
+.point-activity-report-page .daily-progress-card.has-correctness-rate .daily-progress-chart {
+    padding-right: 2.8rem;
+}
+
+.point-activity-report-page .daily-progress-y-label {
+    position: absolute;
+    left: 0;
+    top: 0;
+    color: #4a5688;
+    font-size: 0.74rem;
+    font-weight: 700;
+}
+
+.point-activity-report-page .daily-progress-y-label-right {
+    right: 0;
+    left: auto;
+    color: #d97706;
+}
+
+.point-activity-report-page .daily-progress-y-label-correctness {
+    right: 0;
+    left: auto;
+    color: #db2777;
+}
+
+.point-activity-report-page .daily-progress-y-axis {
+    position: absolute;
+    top: 1.4rem;
+    bottom: 1.15rem;
+    left: 0;
+    width: 2.2rem;
+}
+
+.point-activity-report-page .daily-progress-y-axis-right,
+.point-activity-report-page .daily-progress-y-axis-correctness {
+    right: 0;
+    left: auto;
+    width: 2.4rem;
+}
+
+.point-activity-report-page .daily-progress-y-tick {
+    position: absolute;
+    right: 0.35rem;
+    transform: translateY(50%);
+}
+
+.point-activity-report-page .daily-progress-y-axis-right .daily-progress-y-tick {
+    right: auto;
+    left: 0.35rem;
+    color: #d97706;
+}
+
+.point-activity-report-page .daily-progress-y-axis-correctness .daily-progress-y-tick {
+    right: auto;
+    left: 0.35rem;
+    color: #db2777;
+}
+
+.point-activity-report-page .daily-progress-plot {
+    position: absolute;
+    top: 1.4rem;
+    right: 0.4rem;
+    bottom: 1.15rem;
+    left: 2.6rem;
+}
+
+.point-activity-report-page .daily-progress-card.has-response-time .daily-progress-plot,
+.point-activity-report-page .daily-progress-card.has-correctness-rate .daily-progress-plot {
+    right: 2.8rem;
+}
+
+.point-activity-report-page .daily-progress-grid,
+.point-activity-report-page .daily-progress-svg {
+    position: absolute;
+    inset: 0;
+}
+
+.point-activity-report-page .daily-progress-svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.point-activity-report-page .daily-progress-grid-line {
+    position: absolute;
+    right: 0;
+    left: 0;
+    border-top-width: 1px;
+    border-top-style: dashed;
+}
+
+.point-activity-report-page .daily-progress-grid-line-vertical {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-left-width: 1px;
+    border-left-style: dashed;
+    transform: translateX(-0.5px);
+}
+
+.point-activity-report-page .daily-progress-line {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.point-activity-report-page .daily-progress-line.practiced {
+    stroke: #2f66e6;
+}
+
+.point-activity-report-page .daily-progress-line.learned {
+    stroke: #16a34a;
+}
+
+.point-activity-report-page .daily-progress-line.response-time {
+    stroke: #d97706;
+    stroke-dasharray: 4 3;
+}
+
+.point-activity-report-page .daily-progress-line.correctness-rate {
+    stroke: #db2777;
+    stroke-dasharray: 5 2;
+}
+
+.point-activity-report-page .daily-progress-x-axis {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    height: 0.7rem;
+    margin-top: 0.08rem;
+}
+
+.point-activity-report-page .daily-progress-x-tick {
+    position: absolute;
+    text-align: center;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.point-activity-report-page .daily-progress-x-tick.is-today {
+    padding-right: 0.4rem;
+    text-align: right;
+    transform: translateX(-100%);
+}
+
+.point-activity-report-page .daily-progress-x-tick-today {
+    margin-top: 0;
+    color: #d97706;
+}
+
+.point-activity-report-page .daily-progress-definition {
+    color: #5b6787;
+    font-size: 0.78rem;
+    line-height: 1.35;
+}
+
+.point-activity-report-page .daily-progress-definition strong {
+    color: var(--p-ink-title);
+}
+
 @media (max-width: 620px) {
     .point-activity-hero-top {
         grid-template-columns: 54px minmax(0, 1fr);
@@ -630,6 +988,29 @@ button.point-activity-day:focus-visible {
 
     .point-activity-day-total {
         font-size: 0.84rem;
+    }
+
+    .point-activity-day-metrics--session .point-activity-day-total {
+        font-size: 0.58rem;
+        font-weight: 720;
+    }
+
+    .point-activity-day-card-count {
+        bottom: 0.22rem;
+        gap: 0.07rem;
+        font-size: 0.52rem;
+        font-weight: 760;
+    }
+
+    .point-activity-day-card-count {
+        left: 0.26rem;
+    }
+
+    .point-activity-day-card-count .icon,
+    .point-activity-day-card-count svg {
+        width: 8px;
+        height: 8px;
+        flex-basis: 8px;
     }
 
     .point-activity-day-note-dot {

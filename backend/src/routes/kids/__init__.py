@@ -268,10 +268,26 @@ def get_shared_type1_cards(kid_id):
                 include_practiced_from_other=parse_include_practiced_from_other_arg(),
                 conn=conn,
             )
-            payload.update(build_kid_daily_progress_section(kid, category_key, conn=conn))
         finally:
             conn.close()
         return jsonify(payload), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/daily-progress', methods=['GET'])
+def get_kid_daily_progress(kid_id):
+    """Get per-card daily progress rows for one kid/category."""
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        category_key = normalize_shared_deck_tag(request.args.get('categoryKey'))
+        if not category_key:
+            return jsonify({'error': 'categoryKey is required'}), 400
+        return jsonify(build_kid_daily_progress_section(kid, category_key)), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
     except Exception as e:
@@ -931,7 +947,6 @@ def get_shared_type3_cards(kid_id):
             category_key,
             include_practiced_from_other=parse_include_practiced_from_other_arg(),
         )
-        payload.update(build_kid_daily_progress_section(kid, category_key))
         return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -953,7 +968,6 @@ def get_shared_type4_cards(kid_id):
             kid,
             category_key,
         )
-        payload.update(build_kid_daily_progress_section(kid, category_key))
         return jsonify(payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -1186,7 +1200,6 @@ def get_shared_type2_cards(kid_id):
             'practice_priority_subject_baseline': practice_priority_subject_baseline,
             'cards': merged_cards,
             **special_ready_payload,
-            **build_kid_daily_progress_section(kid, category_key),
         }), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
