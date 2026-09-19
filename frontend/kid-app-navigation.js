@@ -120,7 +120,7 @@
         const path = window.location.pathname || '';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
         if (path.endsWith('/point-log.html')) return 'rewards';
-        if (path.endsWith('/stats.html') || path.endsWith('/stats2.html')) return 'stats';
+        if (path.endsWith('/stats2.html')) return 'stats';
         if (
             path.endsWith('/parent-settings.html')
             || path.endsWith('/point-rules.html')
