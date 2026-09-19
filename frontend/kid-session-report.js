@@ -254,18 +254,13 @@ function renderSummaryHero(metaHtml) {
     const subjectMetaHtml = `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIconHtml}</span><span class="report-hero-meta-value">${escapeHtml(title)}</span></span>`;
     const actionHtml = window.ReportHeroAction.renderActionGroupHtml([
         {
-            href: buildCardManageHref('queue'),
+            href: buildCardManageHref(),
             label: 'Cards',
             leadingIcon: 'layout-grid',
         },
         {
-            href: buildCardManageHref('stats'),
-            label: 'Stats',
-            leadingIcon: 'bar-chart-3',
-        },
-        {
             id: 'subjectActionBtn',
-            href: buildCardManageHref('report', { highlightSessionId: sessionId }),
+            href: buildCardManageHref({ highlightSessionId: sessionId }),
             label: 'sessions',
             leadingIcon: 'history',
         },
@@ -281,11 +276,10 @@ function renderSummaryHero(metaHtml) {
     `;
 }
 
-function buildCardManageHref(view, extraParams = {}) {
+function buildCardManageHref(extraParams = {}) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
     if (currentSessionType) qs.set('categoryKey', String(currentSessionType));
-    qs.set('view', String(view || 'queue'));
     Object.entries(extraParams || {}).forEach(([key, value]) => {
         const normalized = String(value || '').trim();
         if (normalized) qs.set(key, normalized);

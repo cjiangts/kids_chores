@@ -153,9 +153,20 @@ const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
+const cardsSectionTitleIcon = document.getElementById('cardsSectionTitleIcon');
+const cardsSectionTitleText = document.getElementById('cardsSectionTitleText');
 const queueSettingsSaveBtn = document.getElementById('queueSettingsSaveBtn');
 const drillSpeedSettingsGroup = document.getElementById('drillSpeedSettingsGroup');
 const drillSpeedTargetInput = document.getElementById('drillSpeedTargetInput');
+
+function renderCardsLoadingSpinner() {
+    if (!cardsGrid) return;
+    cardsGrid.innerHTML = `
+        <div class="app-spinner-block" style="grid-column: 1 / -1;" role="status" aria-label="Loading cards">
+            <span class="app-spinner" aria-hidden="true"></span>
+        </div>
+    `;
+}
 
 let allDecks = [];
 let orphanDeck = null;
@@ -165,24 +176,6 @@ let currentPracticePrioritySubjectBaseline = {
     p95_correct_time: null,
     correct_sample_count: 0,
 };
-const CARDS_VIEW_MODE_STORAGE_KEY = 'kidCardManage_cardsViewMode';
-const CARDS_VIEW_MODES = new Set(['queue', 'stats']);
-// =====================================================================
-// === 2. Card view-mode + Chinese back + sort-mode helpers
-// =====================================================================
-
-function normalizeCardsViewMode(value) {
-    return CARDS_VIEW_MODES.has(value) ? value : 'queue';
-}
-let currentCardsViewMode = (() => {
-    const urlView = String(params.get('view') || '').trim();
-    if (urlView && CARDS_VIEW_MODES.has(urlView)) return urlView;
-    try {
-        return normalizeCardsViewMode(localStorage.getItem(CARDS_VIEW_MODE_STORAGE_KEY));
-    } catch (_err) {
-        return 'queue';
-    }
-})();
 let sortedCards = [];
 let isDeckMoveInFlight = false;
 let baselineOptedDeckIdSet = new Set();
@@ -651,7 +644,7 @@ function getCurrentCategoryDisplayName() {
 // =====================================================================
 
 async function loadKidsAndApplyKidInfo() {
-    const response = await fetch(`${API_BASE}/kids?view=manage_nav`);
+    const response = await fetch(`${API_BASE}/kids`);
     const kids = await response.json().catch(() => []);
     if (!response.ok) {
         const errorMessage = kids && kids.error ? kids.error : `Failed to load kids (HTTP ${response.status})`;
@@ -717,6 +710,15 @@ function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = supportsPersonalDeckEditor();
     const showType4DeckTargetBlock = isType4Behavior();
+    if (cardsSectionTitleText) {
+        cardsSectionTitleText.textContent = displayName || 'Cards';
+    }
+    if (cardsSectionTitleIcon) {
+        cardsSectionTitleIcon.innerHTML = window.DeckCategoryCommon
+            && typeof window.DeckCategoryCommon.renderCategorySubjectIcon === 'function'
+            ? window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, { size: 22 })
+            : '';
+    }
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Daily Targets';
     }

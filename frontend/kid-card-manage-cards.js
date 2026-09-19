@@ -1059,9 +1059,6 @@ async function loadSharedDeckCards() {
             : currentCards.filter((card) => !!card.skip_practice).length;
         currentSkippedCardCount = skippedCount;
         resetAndDisplayCards(currentCards);
-        if (currentCardsViewMode === 'stats') {
-            renderStatsView();
-        }
     } catch (error) {
         console.error('Error loading shared category cards:', error);
         showError(error.message || `Failed to load shared ${getCurrentCategoryDisplayName()} cards.`);
@@ -1729,15 +1726,6 @@ function applyKidInfo(kid) {
     currentCategoryDisplayName = displayName;
     currentKidName = String(kid.name || '').trim();
     applyCategoryUiText();
-
-    window.PracticeManageCommon.applyKidManageTabVisibility({
-        kidId,
-        optedInCategoryKeys: kid.optedInDeckCategoryKeys,
-        deckCategoryMetaByKey: kid.deckCategoryMetaByKey,
-        defaultCategoryByRoute: {
-            '/kid-card-manage.html': categoryKey,
-        },
-    });
 
     kidNameEl.textContent = 'Manage Cards';
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);

@@ -111,10 +111,9 @@ The 5,957-line page controller was split. To edit kid-card-manage features, find
 | [kid-card-manage-deck-setup.js](frontend/kid-card-manage-deck-setup.js) | Opt-in/out, deck-tag helpers, deck-tree modal |
 | [kid-card-manage-cards-priority.js](frontend/kid-card-manage-cards-priority.js) | Card filter/sort, practice-priority scoring, queue mix legend |
 | [kid-card-manage-cards.js](frontend/kid-card-manage-cards.js) | Card markup, displayCards, bulk add/edit/delete, kid + decks loaders |
-| [kid-card-manage-stats.js](frontend/kid-card-manage-stats.js) | View-mode toggle, distribution histograms, daily progress chart |
 | [kid-card-manage.js](frontend/kid-card-manage.js) (residual) | DOMContentLoaded handler — page init |
 
-Load order in [kid-card-manage.html](frontend/kid-card-manage.html): core → type4-generator → type4-counts → deck-setup → cards-priority → cards → stats → kid-card-manage.js (init).
+Load order in [kid-card-manage.html](frontend/kid-card-manage.html): core → type4-generator → type4-counts → deck-setup → cards-priority → cards → kid-card-manage.js (init).
 
 ### kid-practice.js — split package
 

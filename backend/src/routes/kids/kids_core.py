@@ -152,31 +152,6 @@ def get_kids():
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
-        if view == 'manage_nav':
-            kids_with_manage_context = []
-            for kid in kids:
-                conn = None
-                try:
-                    conn = get_kid_connection_for(kid, read_only=True)
-                except Exception:
-                    conn = None
-                try:
-                    opted_in_category_keys = get_kid_opted_in_deck_category_keys(
-                        kid,
-                        category_meta_by_key=category_meta_by_key,
-                        conn=conn,
-                    )
-                    kids_with_manage_context.append({
-                        **kid,
-                        'optedInDeckCategoryKeys': opted_in_category_keys,
-                        'deckCategoryMetaByKey': category_meta_by_key,
-                        'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
-                    })
-                finally:
-                    if conn is not None:
-                        conn.close()
-            return jsonify(kids_with_manage_context), 200
-
         offline_lock_by_kid = {
             str(entry.get('kid_id') or ''): entry
             for entry in get_locks_for_family(family_id)

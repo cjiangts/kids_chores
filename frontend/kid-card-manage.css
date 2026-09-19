@@ -659,10 +659,6 @@
             margin-bottom: var(--card-section-title-margin-bottom);
         }
 
-        .cards-header-row {
-            justify-content: center;
-        }
-
         .cards-view-control {
             display: flex;
             flex-direction: row;
@@ -2664,18 +2660,6 @@
                 grid-template-columns: 1fr;
             }
 
-            .manage-page .tab-nav .manage-tab {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 0.24rem;
-            }
-
-            .manage-page .tab-nav .manage-tab .manage-tab-emoji {
-                font-size: 1rem;
-                line-height: 1;
-            }
-
             .deck-setup-actions {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
                 gap: 0.35rem;
@@ -2807,277 +2791,6 @@
                 font-size: 0.78rem;
             }
 
-            .manage-page .tab-nav .manage-tab {
-                min-width: 0;
-                width: 100%;
-                padding: 0.48rem 0.22rem;
-            }
-
-            .manage-page .tab-nav .manage-tab .manage-tab-label {
-                display: none;
-            }
-
-            .manage-page .tab-nav .manage-tab .manage-tab-emoji {
-                font-size: 1.15rem;
-                margin: 0;
-            }
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab {
-            position: relative;
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-start;
-            gap: 0.45rem;
-            flex: 1 1 0;
-            min-width: 0;
-            width: auto;
-            border: 0;
-            border-radius: 12px;
-            padding: 0.6rem 0.85rem;
-            min-height: 0;
-            background: transparent;
-            box-shadow: none;
-            color: rgba(255, 255, 255, 0.92);
-            font-size: 0.85rem;
-            font-weight: 500;
-            line-height: 1.1;
-            letter-spacing: 0.01em;
-            text-decoration: none;
-            cursor: pointer;
-            white-space: normal;
-            text-align: left;
-            transition: background 0.18s, color 0.18s, box-shadow 0.18s;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab .manage-tab-emoji {
-            flex-shrink: 0;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: transparent;
-            border-radius: 0;
-            padding: 0;
-            line-height: 1;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab .manage-tab-emoji .subject-icon {
-            --subj-size: 18px !important;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab .manage-tab-label {
-            display: block;
-            flex: 1 1 auto;
-            min-width: 0;
-            line-height: 1.2;
-            overflow-wrap: break-word;
-            word-wrap: break-word;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab:hover {
-            background: rgba(255, 255, 255, 0.18);
-            border-color: transparent;
-            box-shadow: none;
-            color: #fff;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab.active {
-            background: #ffffff;
-            border: 0;
-            color: var(--p-ink-title);
-            font-weight: 600;
-            cursor: default;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab.active:hover {
-            background: #ffffff;
-        }
-
-        .kid-card-manage-page .tab-nav .manage-tab.active .manage-tab-emoji .subject-icon {
-        }
-
-        @media (max-width: 640px) {
-            /* Default layout before compacting: icon-left tile, label wraps to 2 lines */
-            .kid-card-manage-page .tab-nav .manage-tab {
-                position: relative;
-                flex: 1 1 0;
-                min-width: 0;
-                width: auto;
-                flex-direction: row;
-                justify-content: flex-start;
-                align-items: center;
-                text-align: left;
-                gap: 0.35rem;
-                min-height: 0;
-                padding: 0.5rem 0.6rem;
-                font-size: 0.84rem;
-                line-height: 1.1;
-                white-space: normal;
-                background: transparent;
-                border: 0;
-                border-radius: 10px;
-                box-shadow: none;
-                color: rgba(255, 255, 255, 0.94);
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab:hover {
-                background: rgba(255, 255, 255, 0.18);
-                border-color: transparent;
-                box-shadow: none;
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab .manage-tab-emoji {
-                flex-shrink: 0;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                background: transparent;
-                border-radius: 0;
-                padding: 0;
-                line-height: 1;
-                margin: 0;
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab .manage-tab-emoji .subject-icon {
-                --subj-size: 16px !important;
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab .manage-tab-label {
-                display: block;
-                flex: 1 1 auto;
-                min-width: 0;
-                line-height: 1.2;
-                overflow-wrap: break-word;
-                word-wrap: break-word;
-            }
-
-            /* Active tab — white pill background, dark navy text, soft shadow (matches kid row) */
-            .kid-card-manage-page .tab-nav .manage-tab.active {
-                background: #ffffff;
-                border: 0;
-                color: var(--p-ink-title);
-                font-weight: 700;
-                cursor: default;
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab.active:hover {
-                background: #ffffff;
-            }
-
-            .kid-card-manage-page .tab-nav .manage-tab.active .manage-tab-emoji .subject-icon {
-            }
-
-            /* 1-2 tabs: full information on a single line */
-            .kid-card-manage-page .tab-nav:not(:has(> .manage-tab:nth-child(3))) .manage-tab .manage-tab-label {
-                white-space: nowrap;
-                overflow: hidden;
-                text-overflow: ellipsis;
-            }
-
-            /* 3+ tabs: icon-only tiles (label dropped to fit) */
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) {
-                padding: 0.18rem;
-            }
-
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab {
-                flex-direction: column;
-                justify-content: center;
-                align-items: center;
-                text-align: center;
-                gap: 0;
-                padding: 0.12rem 0.16rem 0.22rem;
-                min-height: 0;
-            }
-
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab .manage-tab-emoji .subject-icon {
-                --subj-size: 26px !important;
-            }
-
-            .kid-card-manage-page .tab-nav:has(> .manage-tab:nth-child(3)) .manage-tab .manage-tab-label {
-                display: none;
-            }
-        }
-
-        body.cards-view-mode-stats .cards-toolbar,
-        body.cards-view-mode-stats .cards-view-control,
-        body.cards-view-mode-stats .queue-actions-layout,
-        body.cards-view-mode-stats .deck-setup-actions,
-        body.cards-view-mode-stats #queueSettingsSubgroup,
-        body.cards-view-mode-stats #cardsQueueLegend,
-        body.cards-view-mode-stats .cards-bulk-action-message-wrap,
-        body.cards-view-mode-stats #cardsGrid {
-            display: none !important;
-        }
-
-        body.cards-view-mode-queue #cardsStatsView {
-            display: none !important;
-        }
-
-        #cardsStatsView > .cards-distribution-card {
-            background: transparent;
-            border: 0;
-            border-radius: 0;
-            box-shadow: none;
-            padding: 0;
-        }
-
-        #cardsStatsView > .distribution-card {
-            margin-top: 0;
-            margin-bottom: 0;
-            padding-top: 0;
-            border-top: 1px solid var(--p-border-soft);
-        }
-
-        .distribution-card > .cards-distribution-tabs {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.3rem;
-            margin: 0 0 0.6rem;
-        }
-
-        .cards-distribution-tab {
-            background: #fff;
-            border: 1px solid var(--p-border);
-            border-radius: 999px;
-            padding: 0.3rem 0.85rem;
-            font-size: 0.78rem;
-            font-weight: 600;
-            color: #4a5688;
-            cursor: pointer;
-            line-height: 1.2;
-        }
-
-        .cards-distribution-tab:hover {
-            background: #f4f6fc;
-        }
-
-        .cards-distribution-tab.active {
-            background: var(--p-ink-title);
-            border-color: var(--p-ink-title);
-            color: #fff;
-        }
-
-        .distribution-card-body > .cards-distribution-card {
-            border: 0;
-            background: transparent;
-            box-shadow: none;
-            padding: 0;
-        }
-
-        .distribution-card-body > .cards-distribution-card > .cards-distribution-card-head {
-            margin-bottom: 0;
-        }
-
-        .distribution-card-body > .cards-distribution-card > .cards-distribution-card-head > .cards-distribution-card-title {
-            display: none;
-        }
-
-        .distribution-card-body > .cards-distribution-card > .cards-distribution-card-head:has(.cards-distribution-filter-chip) {
-            margin-bottom: 0.7rem;
-        }
-
-        body.cards-view-mode-stats .cards-view-control {
-            display: none !important;
         }
 
         .kid-card-manage-page {
@@ -3302,4 +3015,12 @@
 
         body.kid-card-manage-page.type4-manage .deck-setup-actions .manage-popup-btn-meta {
             display: none;
+        }
+
+        .kid-card-manage-page .cards-section > .paradigm-panel-title {
+            margin-bottom: 0;
+        }
+
+        .kid-card-manage-page .cards-section > .paradigm-panel-title + .queue-actions-layout {
+            margin-top: 0;
         }

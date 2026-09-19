@@ -2,7 +2,7 @@
  * kid-card-manage.js — residual page init for kid-card-manage.html
  *
  * The 5,957-line page controller was split across kid-card-manage-{core, type4-generator,
- * type4-counts, deck-setup, cards-priority, cards, stats}.js; what remains here is the
+ * type4-counts, deck-setup, cards-priority, and cards}.js; what remains here is the
  * single DOMContentLoaded handler that wires their exported handlers to DOM events
  * and kicks off the initial async load.
  *
@@ -206,14 +206,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     syncModalBodyLock();
     applyCategoryUiText();
-
-    // === 6. Kid-manage tab visibility + cards-grid + font-reflow listeners ===
-    window.PracticeManageCommon.applyKidManageTabVisibility({
-        kidId,
-        defaultCategoryByRoute: {
-            '/kid-card-manage.html': categoryKey,
-        },
-    });
 
     cardsGrid.addEventListener('click', handleCardsGridClick);
     window.addEventListener('resize', () => {
@@ -461,7 +453,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 console.error('Error preloading shared decks for type-IV:', error);
             });
         }
-        setupCardsViewModeToggle();
+        renderCardsLoadingSpinner();
+        await ensureSharedDeckCardsLoaded();
         updateAddReadingButtonCount();
     } catch (error) {
         console.error('Error initializing category manage:', error);
