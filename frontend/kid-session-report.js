@@ -853,6 +853,13 @@ function renderAnswerList(container, cards, options = {}) {
         const reportHref = Number.isFinite(Number(item?.card_id)) && reportFrom
             ? buildCardReportHref(item.card_id, reportFrom, resultId)
             : '';
+        const typeIIITitleLength = [...displayLabel].length;
+        const typeIIITitleSizeClass = typeIIITitleLength > 8 ? 'size-sm' : (typeIIITitleLength > 4 ? 'size-md' : 'size-lg');
+        const typeIIITitleTileHtml = typeIII
+            ? (reportHref
+                ? `<a class="answer-type3-title-tile" href="${escapeHtml(reportHref)}" aria-label="Open history for ${escapeHtml(displayLabel)}" title="${escapeHtml(displayLabel)}"><span class="answer-type3-title-tile-text ${typeIIITitleSizeClass}">${escapeHtml(displayLabel)}</span></a>`
+                : `<span class="answer-type3-title-tile" title="${escapeHtml(displayLabel)}" aria-label="${escapeHtml(displayLabel)}"><span class="answer-type3-title-tile-text ${typeIIITitleSizeClass}">${escapeHtml(displayLabel)}</span></span>`)
+            : `<div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${renderMathHtml(displayLabel)}</div>`;
         const useCompactLink = compact && !!reportHref;
         const tagName = useCompactLink ? 'a' : 'div';
         const retryLabel = `${retryCount} ${retryCount === 1 ? 'retry' : 'retries'}`;
@@ -878,7 +885,7 @@ function renderAnswerList(container, cards, options = {}) {
                 <div class="answer-head-actions">
                     ${promptAudioBadgeHtml}
                     ${typeIII ? renderGradingControls(item) : ''}
-                    ${!reportHref ? '' : `<a class="answer-report-btn paradigm-btn" href="${reportHref}">${window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : ''}<span>History</span></a>`}
+                    ${!reportHref || typeIII ? '' : `<a class="answer-report-btn paradigm-btn" href="${reportHref}">${window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : ''}<span>History</span></a>`}
                 </div>
             `;
         const typeIIIDetailsHtml = (!compact && typeIII) ? renderTypeIIIAnswerDetails(item) : '';
@@ -911,11 +918,11 @@ function renderAnswerList(container, cards, options = {}) {
                 data-response-time-ms="${rawMs}"
             >
                 <div class="answer-head-row">
-                    <div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${renderMathHtml(displayLabel)}</div>
+                    ${typeIII ? `<div class="answer-type3-hero">${typeIIITitleTileHtml}<div class="answer-type3-hero-content">${typeIIIDetailsHtml}</div></div>` : typeIIITitleTileHtml}
                     ${headerActionsHtml}
                 </div>
                 ${compact && !isTypeIVSession() && secondaryLabel ? `<div class="answer-secondary">${escapeHtml(secondaryLabel)}</div>` : ''}
-                ${typeIIIDetailsHtml}
+                ${typeIII ? '' : typeIIIDetailsHtml}
                 ${detailBodyHtml}
                 ${audioBlockHtml}
                 ${timeBadgeHtml}
@@ -1289,13 +1296,15 @@ function renderTypeIIIAnswerDetails(item) {
     }
     const detailBits = [];
     if (back) {
-        detailBits.push(`<span class="answer-type3-back">${escapeHtml(back)}</span>`);
+        const pageIcon = window.icon ? window.icon('file-text', { size: 12, strokeWidth: 2.4 }) : '';
+        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${pageIcon}</span><span class="report-hero-meta-value">${escapeHtml(back)}</span></span>`);
     }
     if (sourceDeck) {
-        detailBits.push(`<span class="answer-type3-source">Source: ${escapeHtml(sourceDeck)}</span>`);
+        const deckIcon = window.icon ? window.icon('layers', { size: 12, strokeWidth: 2.4 }) : '';
+        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${deckIcon}</span><span class="report-hero-meta-value">Source: ${escapeHtml(sourceDeck)}</span></span>`);
     }
     return detailBits.length
-        ? `<div class="answer-type3-details">${detailBits.join('<span class="answer-type3-sep" aria-hidden="true">·</span>')}</div>`
+        ? `<div class="answer-type3-details report-hero-meta">${detailBits.join('')}</div>`
         : '';
 }
 
