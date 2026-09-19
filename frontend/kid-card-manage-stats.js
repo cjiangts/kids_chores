@@ -80,16 +80,6 @@ function setupCardsViewModeToggle() {
             renderStatsView();
         };
         statsContainer.addEventListener('click', (event) => {
-            const linkEl = event.target.closest && event.target.closest('.cards-distribution-toplist-item.is-link[data-card-id]');
-            if (linkEl) {
-                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
-                    return;
-                }
-                event.preventDefault();
-                const cardId = linkEl.getAttribute('data-card-id');
-                if (cardId) setFocusedCardById(cardId);
-                return;
-            }
             handleBucketActivate(event.target);
         });
         statsContainer.addEventListener('keydown', (event) => {
@@ -230,7 +220,11 @@ function renderStatsView() {
         qs.set('id', String(kidId || ''));
         qs.set('cardId', String(cardId || ''));
         if (categoryKey) qs.set('categoryKey', categoryKey);
-        return `/kid-card-manage.html?${qs.toString()}`;
+        const from = currentSharedScope === SHARED_SCOPE_LESSON_READING
+            ? 'lesson-reading'
+            : (currentSharedScope === SHARED_SCOPE_TYPE2 ? 'type2' : 'cards');
+        qs.set('from', from);
+        return `/kid-card-report.html?${qs.toString()}`;
     };
     const tabDefs = [
         { key: 'accuracy', label: 'Correct Rate', build: () => buildAccuracyDistribution(practiced, getCardCapsuleLabel, getCardHref) },

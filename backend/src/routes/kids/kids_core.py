@@ -30,7 +30,12 @@ from src.routes.kids_constants import (
 )
 from flask import send_file
 from src.services import kid_avatar
-from src.services.kid_category_config import get_category_orphan_deck_name
+from src.services.deck_source_merge import get_shared_merged_source_decks_for_kid
+from src.services.kid_category_config import (
+    get_category_orphan_deck_name,
+    get_category_session_card_count_for_kid,
+)
+from src.services.practice_priority import build_practice_priority_preview_for_decks
 from src.routes.kids import (
     datetime,
     defaultdict,
@@ -1174,6 +1179,7 @@ def get_kid_report_card_detail(kid_id, card_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid card id'}), 400
 
+        category_key = normalize_shared_deck_tag(request.args.get('categoryKey'))
         conn = get_kid_connection_for(kid, read_only=True)
         card_row = conn.execute(
             """
@@ -1193,6 +1199,55 @@ def get_kid_report_card_detail(kid_id, card_id):
         if not card_row:
             conn.close()
             return jsonify({'error': 'Card not found'}), 404
+
+        queue_preview = None
+        category_meta_by_key = get_shared_deck_category_meta_by_key()
+        session_behavior_type = get_session_behavior_type(category_key, category_meta_by_key)
+        if category_key and session_behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+            hydrate_kid_category_config_from_db(
+                kid,
+                category_meta_by_key=category_meta_by_key,
+                conn=conn,
+            )
+            sources = get_shared_merged_source_decks_for_kid(conn, kid, category_key)
+            practice_source_ids = [
+                int(source['local_deck_id'])
+                for source in sources
+                if bool(source.get('included_in_queue'))
+                and int(source.get('active_card_count') or 0) > 0
+            ]
+            if practice_source_ids:
+                priority_preview = build_practice_priority_preview_for_decks(
+                    conn,
+                    practice_source_ids,
+                    category_key,
+                    session_behavior_type,
+                )
+                details = priority_preview['details_by_card_id'].get(card_id_int) or {}
+                queue_rank = details.get('order')
+                queue_total = len(priority_preview['order_by_card_id'])
+                ema = details.get('correct_time_ema')
+                baseline = priority_preview.get('subject_baseline') or {}
+                p50 = baseline.get('p50_correct_time')
+                p95 = baseline.get('p95_correct_time')
+                speed_percentile = None
+                if (
+                    isinstance(ema, (int, float)) and ema > 0
+                    and isinstance(p50, (int, float))
+                    and isinstance(p95, (int, float))
+                    and p95 > p50
+                ):
+                    speed_percentile = round(max(1, min(99, 50 + ((ema - p50) / (p95 - p50)) * 45)))
+                session_card_count = min(
+                    get_category_session_card_count_for_kid(kid, category_key),
+                    queue_total,
+                )
+                queue_preview = {
+                    'speed_percentile': speed_percentile,
+                    'queue_rank': int(queue_rank) if queue_rank else None,
+                    'queue_total': queue_total,
+                    'in_next_session': bool(queue_rank and int(queue_rank) <= session_card_count),
+                }
 
         attempts_rows = conn.execute(
             """
@@ -1227,7 +1282,6 @@ def get_kid_report_card_detail(kid_id, card_id):
         ).fetchall()
         conn.close()
 
-        category_meta_by_key = get_shared_deck_category_meta_by_key()
         attempts = []
         right_count = 0
         wrong_count = 0
@@ -1332,6 +1386,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'accuracy_pct': accuracy_pct,
                 'avg_response_ms': avg_response_ms,
             },
+            'queue_preview': queue_preview,
             'attempts': attempts,
         }), 200
     except Exception as e:

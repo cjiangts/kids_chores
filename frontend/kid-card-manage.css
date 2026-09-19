@@ -725,8 +725,7 @@
             padding: 0.54rem 0.62rem;
         }
 
-        .toolbar-icon-toggle-btn,
-        .card-view-mode-btn {
+        .toolbar-icon-toggle-btn {
             appearance: none;
             -webkit-appearance: none;
             border: 0;
@@ -746,34 +745,29 @@
             transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
         }
 
-        .toolbar-icon-toggle-btn .icon,
-        .card-view-mode-btn .icon {
+        .toolbar-icon-toggle-btn .icon {
             display: block;
         }
 
-        .toolbar-icon-toggle-btn:hover,
-        .card-view-mode-btn:hover {
+        .toolbar-icon-toggle-btn:hover {
             border-color: var(--p-accent-border);
             background: #f6f9ff;
             color: var(--p-ink-title);
         }
 
-        .toolbar-icon-toggle-btn.active,
-        .card-view-mode-btn.active {
+        .toolbar-icon-toggle-btn.active {
             background: #fff;
             border-color: var(--p-accent-border-soft);
             color: var(--p-accent);
         }
 
-        .toolbar-icon-toggle-btn.active:hover,
-        .card-view-mode-btn.active:hover {
+        .toolbar-icon-toggle-btn.active:hover {
             background: #f6f7ff;
             border-color: var(--p-accent-border);
             color: var(--p-accent);
         }
 
-        .toolbar-icon-toggle-btn:disabled,
-        .card-view-mode-btn:disabled {
+        .toolbar-icon-toggle-btn:disabled {
             cursor: not-allowed;
             opacity: 0.58;
         }
@@ -1045,85 +1039,6 @@
             margin-bottom: 0.4rem;
         }
 
-        .manage-page .card-focus-banner {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.4rem;
-            padding: 0.32rem 0.45rem 0.32rem 0.7rem;
-            margin-bottom: 0.5rem;
-            border-radius: 999px;
-            background: #eef2ff;
-            color: #3730a3;
-            font-size: 0.85rem;
-            font-weight: 500;
-            max-width: 100%;
-        }
-
-        .manage-page .card-focus-banner.hidden {
-            display: none;
-        }
-
-        .manage-page .card-focus-banner-label {
-            color: var(--p-accent);
-            font-weight: 600;
-            font-size: 0.7rem;
-            font-weight: 420;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .manage-page .card-focus-banner-text {
-            color: #1e1b4b;
-            font-weight: 600;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-            min-width: 0;
-            max-width: 60ch;
-        }
-
-        .manage-page .card-focus-banner-clear {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 1.4rem;
-            height: 1.4rem;
-            margin-left: 0.15rem;
-            border-radius: 999px;
-            border: none;
-            background: transparent;
-            color: #4338ca;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .manage-page .card-focus-banner-clear:hover {
-            background: #c7d2fe;
-        }
-
-        .manage-page .card-item.is-focused-card {
-            outline: 3px solid var(--p-accent);
-            outline-offset: 3px;
-            box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.18), 0 12px 28px rgba(79, 70, 229, 0.18);
-            border-radius: 14px;
-            animation: cardFocusPulse 1.6s ease-out 1;
-        }
-
-        @keyframes cardFocusPulse {
-            0% {
-                outline-color: rgba(99, 102, 241, 0);
-                box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.55);
-            }
-            60% {
-                outline-color: var(--p-accent);
-                box-shadow: 0 0 0 14px rgba(99, 102, 241, 0);
-            }
-            100% {
-                outline-color: var(--p-accent);
-                box-shadow: 0 0 0 6px rgba(99, 102, 241, 0.18), 0 12px 28px rgba(79, 70, 229, 0.18);
-            }
-        }
-
         .manage-page .cards-toolbar .sort-control-group {
             grid-column: 1 / -1;
         }
@@ -1309,8 +1224,7 @@
                 min-width: 0;
             }
 
-            .toolbar-icon-toggle-btn,
-            .card-view-mode-btn {
+            .toolbar-icon-toggle-btn {
                 width: 38px;
                 height: 32px;
             }
@@ -1321,8 +1235,7 @@
                 gap: 0.35rem;
             }
 
-            .manage-page .cards-toolbar .toolbar-icon-toggle-btn,
-            .manage-page .cards-toolbar .card-view-mode-btn {
+            .manage-page .cards-toolbar .toolbar-icon-toggle-btn {
                 width: 36px;
                 height: 32px;
             }
@@ -1576,14 +1489,17 @@
             flex-wrap: wrap;
             align-items: flex-start;
             gap: 0.5rem;
+            position: relative;
         }
 
-        .cards-grid.short-view .short-expanded-slot {
-            flex: 1 1 100%;
+        .short-expanded-popover {
+            position: absolute;
+            z-index: 20;
+            width: min(620px, calc(100% - 0.5rem));
         }
 
-        .cards-grid.short-view .short-expanded-slot .card-item {
-            width: min(100%, 620px);
+        .short-expanded-popover .card-item {
+            width: 100%;
         }
 
         .cards-grid.short-view .empty-state {
@@ -1971,30 +1887,6 @@
             color: #59627a;
         }
 
-        .card-deck-pill {
-            max-width: min(100%, 220px);
-            display: inline-block;
-            border: 1px solid var(--p-accent-border-soft);
-            background: #edf2ff;
-            color: var(--p-ink-title);
-            border-radius: 999px;
-            padding: 0.2rem 0.55rem;
-            font-size: 0.8rem;
-            line-height: 1.15;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .card-item.skipped {
-            opacity: 0.62;
-        }
-
-        .card-item.skipped .card-front,
-        .card-item.skipped .card-back {
-            text-decoration: line-through;
-        }
-
         .expanded-detail-card {
             text-align: left;
             border-radius: 18px;
@@ -2015,45 +1907,18 @@
 
         .practice-priority-hero-aside {
             display: flex;
-            flex-direction: column;
             align-items: flex-end;
-            gap: 0.05rem;
             padding-left: 0.6rem;
-            text-align: right;
-            line-height: 1.15;
         }
 
-        .practice-priority-hero-caption {
-            color: #5f6d89;
-            font-size: 0.78rem;
-            font-weight: 600;
+        .expanded-card-hero-actions {
+            display: grid;
+            grid-template-columns: repeat(2, 32px);
+            gap: 0.32rem;
         }
 
-        .practice-priority-hero-value {
-            color: #274ca2;
-            font-size: 1.1rem;
-            font-weight: 800;
-            letter-spacing: -0.01em;
-        }
-
-        .practice-priority-hero-rank {
-            color: #2c3347;
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
-        .practice-priority-hero-session {
-            margin-top: 0.12rem;
-            font-size: 0.74rem;
-            font-weight: 600;
-        }
-
-        .practice-priority-hero-session.in {
-            color: #1f8b4b;
-        }
-
-        .practice-priority-hero-session.out {
-            color: #8e94a3;
+        .expanded-card-hero-action {
+            --paradigm-icon-btn-size: 32px;
         }
 
         .expanded-card-preview {
@@ -2158,11 +2023,41 @@
 
         .expanded-detail-card .card-back {
             text-align: left;
+            font-size: 0.78rem;
+            line-height: 1.25;
         }
 
         .expanded-detail-card .card-deck-row {
             margin-top: 0.32rem;
             justify-content: flex-start;
+            flex-wrap: wrap;
+            gap: 0.28rem 0.5rem;
+        }
+
+        .expanded-detail-card .card-deck-meta,
+        .expanded-detail-card .card-priority-rank {
+            min-width: 0;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.22rem;
+            color: #5b6787;
+            font-size: 0.72rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .expanded-detail-card .card-deck-meta > span {
+            flex: 1 1 auto;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .expanded-detail-card .card-deck-meta svg,
+        .expanded-detail-card .card-priority-rank svg {
+            color: #8993b3;
+            flex: 0 0 auto;
         }
 
         .expanded-detail-card .card-back.standalone {
@@ -2237,6 +2132,29 @@
             flex: 0 0 auto;
         }
 
+        .practice-priority-score-legend-icon {
+            display: inline-flex;
+            align-items: center;
+            color: #d13c2f;
+            flex: 0 0 auto;
+        }
+
+        .practice-priority-score-legend-icon svg {
+            display: block;
+        }
+
+        .practice-priority-score-legend-item.slow .practice-priority-score-legend-icon {
+            color: #d38714;
+        }
+
+        .practice-priority-score-legend-item.due .practice-priority-score-legend-icon {
+            color: #7b53c7;
+        }
+
+        .practice-priority-score-legend-item.learning .practice-priority-score-legend-icon {
+            color: #2f75ea;
+        }
+
         .practice-priority-score-legend-item.missed .practice-priority-score-legend-dot {
             background: #d76363;
         }
@@ -2257,733 +2175,24 @@
             font-weight: 600;
         }
 
-        .practice-priority-score-legend-item.missed .practice-priority-score-legend-percent {
+        .practice-priority-score-legend-item.missed .practice-priority-score-legend-detail {
             color: #d13c2f;
         }
 
-        .practice-priority-score-legend-item.slow .practice-priority-score-legend-percent {
+        .practice-priority-score-legend-item.slow .practice-priority-score-legend-detail {
             color: #d38714;
         }
 
-        .practice-priority-score-legend-item.learning .practice-priority-score-legend-percent {
+        .practice-priority-score-legend-item.learning .practice-priority-score-legend-detail {
             color: #2f75ea;
         }
 
-        .practice-priority-score-legend-item.due .practice-priority-score-legend-percent {
+        .practice-priority-score-legend-item.due .practice-priority-score-legend-detail {
             color: #7b53c7;
         }
 
-        .practice-priority-score-legend-percent {
+        .practice-priority-score-legend-detail {
             font-weight: 700;
-        }
-
-        .practice-priority-detail-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0;
-        }
-
-        .practice-priority-detail-card {
-            --reason-color: #526081;
-            display: grid;
-            grid-template-columns: 84px minmax(0, 1fr);
-            border-top: 1px solid var(--p-border);
-            border-left: 1px solid var(--p-border);
-            background: var(--p-surface);
-        }
-
-        .practice-priority-detail-card:nth-child(-n + 2) {
-            border-top: 0;
-        }
-
-        .practice-priority-detail-card:nth-child(odd) {
-            border-left: 0;
-        }
-
-        .practice-priority-detail-card:nth-child(odd):last-child {
-            grid-column: 1 / -1;
-        }
-
-
-        .practice-priority-detail-card.missed {
-            --reason-color: #d13c2f;
-        }
-
-        .practice-priority-detail-card.slow {
-            --reason-color: #d38714;
-        }
-
-        .practice-priority-detail-card.learning {
-            --reason-color: #2f75ea;
-        }
-
-        .practice-priority-detail-card.due {
-            --reason-color: #7b53c7;
-        }
-
-        .practice-priority-detail-side {
-            padding: 0.6rem 0.66rem;
-            background: transparent;
-            color: var(--reason-color);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            gap: 0.08rem;
-        }
-
-        .practice-priority-detail-title {
-            font-size: 0.68rem;
-            font-weight: 800;
-            line-height: 1.15;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.22rem;
-        }
-
-        .practice-priority-detail-points {
-            font-size: 1.22rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-body {
-            padding: 0.56rem 0.66rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.52rem;
-        }
-
-        .practice-priority-detail-card.missed {
-            display: block;
-            grid-template-columns: none;
-            padding: 0.5rem 0.66rem;
-        }
-
-        .practice-priority-detail-missed-header {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-detail-missed-header .practice-priority-detail-points {
-            line-height: 1;
-        }
-
-        .practice-priority-detail-missed-header .practice-priority-detail-title {
-            font-size: 0.78rem;
-        }
-
-        .practice-priority-detail-missed-content {
-            display: flex;
-            align-items: center;
-            gap: 0.6rem;
-            margin-top: 0.32rem;
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-detail-side {
-            padding: 0;
-            flex: 0 0 auto;
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-detail-body {
-            padding: 0;
-            flex: 1 1 auto;
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-detail-points {
-            font-size: 0.78rem;
-            font-weight: 800;
-        }
-
-        .practice-priority-detail-card.slow {
-            display: block;
-            grid-template-columns: none;
-            padding: 0.5rem 0.66rem;
-        }
-
-        .practice-priority-detail-slow-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.4rem;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-detail-slow-header-left {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .practice-priority-detail-slow-header .practice-priority-detail-title {
-            font-size: 0.78rem;
-        }
-
-        .practice-priority-detail-slow-header .practice-priority-detail-points {
-            font-size: 0.78rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-slow-content {
-            margin-top: 0.32rem;
-        }
-
-        .practice-priority-detail-simple-speed {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 0.06rem;
-            padding: 0.2rem 0.5rem 0.1rem;
-        }
-
-        .practice-priority-detail-simple-speed-value {
-            font-size: 1rem;
-            font-weight: 800;
-            line-height: 1.1;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-detail-simple-speed-caption {
-            font-size: 0.62rem;
-            font-weight: 700;
-            line-height: 1.05;
-            color: #6d7fa9;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-text {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 0.02rem;
-            text-align: right;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-caption {
-            font-size: 0.58rem;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-value {
-            font-size: 0.78rem;
-            margin-top: 0;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-visual {
-            padding: 0 0.6rem;
-            min-width: 0;
-            width: 100%;
-            justify-content: center;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-axis {
-            width: 100%;
-            max-width: none;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-axis-track {
-            height: 42px;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-axis-line {
-            top: 34px;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-axis-tick {
-            top: 30px;
-        }
-
-        .practice-priority-detail-card.due {
-            display: block;
-            grid-template-columns: none;
-            padding: 0.5rem 0.66rem;
-        }
-
-        .practice-priority-detail-due-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.4rem;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-detail-due-header-left {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .practice-priority-detail-due-header .practice-priority-detail-title {
-            font-size: 0.78rem;
-        }
-
-        .practice-priority-detail-due-header .practice-priority-detail-points {
-            font-size: 0.78rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-due-content {
-            margin-top: 0.32rem;
-        }
-
-        .practice-priority-detail-card.due .practice-priority-detail-visual {
-            padding: 0 0.6rem;
-            min-width: 0;
-            width: 100%;
-            justify-content: center;
-        }
-
-        .practice-priority-detail-card.due .practice-priority-axis {
-            width: 100%;
-            max-width: none;
-        }
-
-        .practice-priority-detail-card.due .practice-priority-axis-track {
-            height: 42px;
-        }
-
-        .practice-priority-detail-card.due .practice-priority-axis-line {
-            top: 34px;
-        }
-
-        .practice-priority-detail-card.due .practice-priority-axis-tick {
-            top: 30px;
-        }
-
-        .practice-priority-detail-card.learning {
-            display: block;
-            grid-template-columns: none;
-            padding: 0.5rem 0.66rem;
-        }
-
-        .practice-priority-detail-learning-header {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.4rem;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-detail-learning-header-left {
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-
-        .practice-priority-detail-learning-header .practice-priority-detail-title {
-            font-size: 0.78rem;
-        }
-
-        .practice-priority-detail-learning-header .practice-priority-detail-points {
-            font-size: 0.78rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-learning-content {
-            margin-top: 0.5rem;
-            padding-bottom: 0.2rem;
-            display: flex;
-            justify-content: center;
-        }
-
-        .practice-priority-detail-card.learning .practice-priority-learning-visual {
-            width: 100%;
-            gap: 0.42rem;
-        }
-
-        .practice-priority-detail-card.learning .practice-priority-learning-dots {
-            gap: 0.5rem;
-        }
-
-        .practice-priority-learning-attempts {
-            display: inline-flex;
-            align-items: baseline;
-            gap: 0.42rem;
-            color: var(--reason-color);
-        }
-
-        .practice-priority-learning-attempts-caption {
-            font-size: 0.66rem;
-            font-weight: 700;
-            opacity: 0.85;
-        }
-
-        .practice-priority-learning-attempts-value {
-            font-size: 1rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-detail-card.learning .practice-priority-learning-caption-note {
-            font-size: 0.66rem;
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-detail-visual {
-            min-width: 92px;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-side,
-        .practice-priority-detail-card.due .practice-priority-detail-side {
-            padding-top: 0.48rem;
-            padding-bottom: 0.48rem;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-body,
-        .practice-priority-detail-card.due .practice-priority-detail-body {
-            padding-top: 0.38rem;
-            padding-bottom: 0.38rem;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-main,
-        .practice-priority-detail-card.due .practice-priority-detail-main {
-            font-size: 0.75rem;
-            line-height: 1.18;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-sub,
-        .practice-priority-detail-card.due .practice-priority-detail-sub {
-            font-size: 0.66rem;
-            line-height: 1.18;
-        }
-
-        .practice-priority-detail-card.slow .practice-priority-detail-visual,
-        .practice-priority-detail-card.due .practice-priority-detail-visual {
-            min-width: 114px;
-        }
-
-        .practice-priority-detail-text {
-            min-width: 0;
-            display: grid;
-            gap: 0.14rem;
-        }
-
-        .practice-priority-detail-main {
-            color: #24324f;
-            font-size: 0.78rem;
-            font-weight: 700;
-            line-height: 1.25;
-        }
-
-        .practice-priority-detail-caption {
-            color: var(--reason-color);
-            font-size: 0.78rem;
-            font-weight: 600;
-            line-height: 1.2;
-            opacity: 0.82;
-        }
-
-        .practice-priority-detail-value {
-            color: var(--reason-color);
-            font-size: 1.5rem;
-            font-weight: 800;
-            line-height: 1.05;
-            margin-top: 0.04rem;
-        }
-
-        .practice-priority-detail-stats {
-            display: flex;
-            flex-direction: column;
-            gap: 0.04rem;
-            margin-top: 0.18rem;
-        }
-
-        .practice-priority-detail-sub {
-            color: #5e6d89;
-            font-size: 0.7rem;
-            line-height: 1.25;
-        }
-
-        .practice-priority-detail-visual {
-            flex: 0 0 auto;
-            min-width: 126px;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-        }
-
-        .practice-priority-inline-value.missed {
-            color: #d13c2f;
-        }
-
-        .practice-priority-inline-value.slow {
-            color: #d38714;
-        }
-
-        .practice-priority-inline-value.learning {
-            color: #2f75ea;
-        }
-
-        .practice-priority-inline-value.due {
-            color: #7b53c7;
-        }
-
-        .practice-priority-inline-note.positive {
-            color: #1f8e43;
-            font-weight: 700;
-        }
-
-        .practice-priority-inline-note.negative {
-            color: #c53929;
-            font-weight: 700;
-        }
-
-        .practice-priority-last-result.right {
-            color: #1f8e43;
-            font-weight: 700;
-        }
-
-        .practice-priority-last-result.wrong {
-            color: #c53929;
-            font-weight: 700;
-        }
-
-        .practice-priority-last-result.neutral {
-            color: #5e6d89;
-            font-weight: 700;
-        }
-
-        .practice-priority-donut {
-            --chart-percent: 0%;
-            width: 58px;
-            height: 58px;
-            border-radius: 999px;
-            background: conic-gradient(#57b85b 0 var(--chart-percent), #de4333 var(--chart-percent) 100%);
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: inset 0 0 0 1px rgba(39, 76, 162, 0.08);
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-donut {
-            width: 56px;
-            height: 56px;
-        }
-
-        .practice-priority-donut-inner {
-            width: 40px;
-            height: 40px;
-            border-radius: 999px;
-            background: #fff;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            color: #24324f;
-            font-size: 0.66rem;
-            font-weight: 800;
-            line-height: 1;
-            text-align: center;
-            padding: 0 0.08rem;
-        }
-
-        .practice-priority-detail-card.missed .practice-priority-donut-inner {
-            width: 40px;
-            height: 40px;
-            font-size: 0.66rem;
-        }
-
-        .practice-priority-donut-inner.positive {
-            color: #1f8e43;
-        }
-
-        .practice-priority-axis {
-            width: 126px;
-            display: grid;
-            gap: 0.14rem;
-        }
-
-        .practice-priority-axis-track {
-            position: relative;
-            height: 31px;
-        }
-
-        .practice-priority-axis-line {
-            position: absolute;
-            left: 0;
-            right: 0;
-            top: 23px;
-            height: 2px;
-            border-radius: 999px;
-            background: var(--p-border);
-        }
-
-        .practice-priority-axis-tick {
-            position: absolute;
-            top: 19px;
-            width: 2px;
-            height: 8px;
-            margin-left: -1px;
-            border-radius: 999px;
-            background: var(--p-border);
-        }
-
-        .practice-priority-axis-marker {
-            position: absolute;
-            top: 0;
-            color: var(--reason-color);
-            transform: translateX(-50%);
-            display: inline-grid;
-            justify-items: center;
-            gap: 2px;
-        }
-
-        .practice-priority-axis-marker.slow {
-            color: #d38714;
-        }
-
-        .practice-priority-axis-marker.due {
-            color: #7b53c7;
-        }
-
-        .practice-priority-axis-marker.anchor-start {
-            transform: translateX(-4px);
-            justify-items: start;
-        }
-
-        .practice-priority-axis-marker.anchor-end {
-            transform: translateX(calc(-100% + 4px));
-            justify-items: end;
-        }
-
-        .practice-priority-axis-marker.anchor-start.overflow-start {
-            transform: translateX(-8px);
-        }
-
-        .practice-priority-axis-marker.anchor-end.overflow-end {
-            transform: translateX(calc(-100% + 8px));
-        }
-
-        .practice-priority-axis-marker::after {
-            content: "";
-            display: block;
-            width: 8px;
-            height: 7px;
-            background: currentColor;
-            clip-path: polygon(0 0, 100% 0, 50% 100%);
-        }
-
-        .practice-priority-axis-marker-label {
-            display: inline-block;
-            min-width: 0;
-            white-space: nowrap;
-            text-align: center;
-            font-size: 0.7rem;
-            font-weight: 800;
-            line-height: 1;
-        }
-
-        .practice-priority-axis-marker-caption {
-            display: inline-block;
-            white-space: nowrap;
-            text-align: center;
-            font-size: 0.55rem;
-            font-weight: 700;
-            line-height: 1;
-            opacity: 0.85;
-        }
-
-        .practice-priority-axis-labels {
-            display: flex;
-            justify-content: space-between;
-            gap: 0.42rem;
-        }
-
-        .practice-priority-axis-end {
-            min-width: 0;
-            display: grid;
-            gap: 0.02rem;
-        }
-
-        .practice-priority-axis-end.align-right {
-            text-align: right;
-        }
-
-        .practice-priority-axis-end-value {
-            color: #24324f;
-            font-size: 0.66rem;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .practice-priority-axis-end-note {
-            color: #6b7791;
-            font-size: 0.57rem;
-            font-weight: 700;
-            line-height: 1;
-        }
-
-        .practice-priority-axis-end-note.positive {
-            color: #1f8e43;
-        }
-
-        .practice-priority-axis-end-note.negative {
-            color: #c53929;
-        }
-
-        .practice-priority-detail-empty {
-            margin-top: 0.32rem;
-            padding: 0.36rem 0.5rem;
-            color: #6b7791;
-            font-size: 0.66rem;
-            font-weight: 600;
-            line-height: 1.35;
-            text-align: center;
-            opacity: 0.85;
-        }
-
-        .practice-priority-learning-visual {
-            width: 126px;
-            display: grid;
-            gap: 0.24rem;
-            justify-items: center;
-        }
-
-        .practice-priority-learning-dots {
-            position: relative;
-            display: flex;
-            align-items: center;
-            gap: 0.28rem;
-            padding: 0 0.08rem;
-        }
-
-        .practice-priority-learning-dot {
-            position: relative;
-            z-index: 1;
-            width: 12px;
-            height: 12px;
-            border-radius: 999px;
-            background: var(--p-border);
-            box-shadow: inset 0 0 0 1px rgba(47, 117, 234, 0.12);
-        }
-
-        .practice-priority-learning-dot.filled {
-            background: #2f75ea;
-        }
-
-        .practice-priority-learning-caption {
-            display: grid;
-            gap: 0.04rem;
-            text-align: center;
-        }
-
-        .practice-priority-learning-caption-value {
-            color: var(--p-accent-strong);
-            font-size: 0.72rem;
-            font-weight: 800;
-            line-height: 1.1;
-        }
-
-        .practice-priority-learning-caption-note {
-            color: #6d7fa9;
-            font-size: 0.62rem;
-            font-weight: 700;
-            line-height: 1.05;
         }
 
         .skipped-note {
@@ -2991,50 +2200,6 @@
             color: #6d3bb0;
             font-size: 0.8rem;
             font-weight: 600;
-        }
-
-        .expanded-card-meta-row {
-            position: relative;
-            margin-top: 0;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.28rem 0;
-            padding: 0.55rem 0 0;
-            border-top: 1px solid var(--p-border);
-        }
-
-        .expanded-card-meta-row::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            left: 50%;
-            width: 1px;
-            background: var(--p-border);
-        }
-
-        .expanded-card-meta-item {
-            min-width: 0;
-            display: grid;
-            gap: 0.06rem;
-            justify-items: center;
-            text-align: center;
-        }
-
-        .expanded-card-meta-label {
-            color: #7a869f;
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0;
-        }
-
-        .expanded-card-meta-value {
-            color: #24324f;
-            font-size: 0.72rem;
-            font-weight: 700;
-            line-height: 1.05;
-            word-break: break-word;
         }
 
         .type1-chinese-mode .cards-grid:not(.short-view) {
@@ -3060,6 +2225,11 @@
             color: #1d7a35;
             font-size: 0.92rem;
             font-weight: 700;
+        }
+
+        .type1-chinese-mode .expanded-detail-card .card-back {
+            font-size: 0.78rem;
+            line-height: 1.25;
         }
 
         .card-actions {
@@ -3123,14 +2293,6 @@
             gap: 0.3rem;
             margin: 0;
             min-width: 0;
-        }
-
-        .expanded-detail-card.type4-card .card-deck-pill {
-            max-width: none;
-            font-size: 0.74rem;
-            padding: 0.16rem 0.5rem;
-            overflow: visible;
-            text-overflow: clip;
         }
 
         .type4-multichoice-chip {
@@ -3409,24 +2571,12 @@
                 grid-template-columns: fit-content(84px) minmax(0, 1fr) auto;
             }
 
-            .practice-priority-hero-caption {
-                font-size: 0.7rem;
-            }
-
-            .practice-priority-hero-value {
-                font-size: 0.96rem;
-            }
-
-            .practice-priority-hero-rank {
-                font-size: 0.7rem;
-            }
-
-            .practice-priority-hero-session {
-                font-size: 0.66rem;
-            }
-
             .practice-priority-hero-aside {
                 padding-left: 0.4rem;
+            }
+
+            .expanded-card-hero-action {
+                --paradigm-icon-btn-size: 28px;
             }
 
             .expanded-card-preview {
@@ -3447,12 +2597,12 @@
             }
 
             .expanded-detail-card .card-back {
-                font-size: 0.86rem;
+                font-size: 0.72rem;
                 line-height: 1.15;
             }
 
             .expanded-detail-card .card-back.size-md {
-                font-size: 0.78rem;
+                font-size: 0.72rem;
             }
 
             .expanded-detail-card .card-back.size-sm {
@@ -3465,12 +2615,6 @@
 
             .expanded-detail-card .card-deck-row {
                 margin-top: 0.24rem;
-            }
-
-            .card-deck-pill {
-                max-width: 100%;
-                padding: 0.18rem 0.46rem;
-                font-size: 0.72rem;
             }
 
             .practice-priority-score-bar {
@@ -3489,176 +2633,6 @@
 
             .practice-priority-score-legend-item {
                 gap: 0.18rem;
-            }
-
-            .practice-priority-detail-card {
-                grid-template-columns: 72px minmax(0, 1fr);
-            }
-
-            .practice-priority-detail-card.missed {
-                padding: 0.42rem 0.5rem;
-            }
-
-            .practice-priority-detail-side {
-                padding: 0.48rem 0.5rem;
-                border-right: 0;
-                border-bottom: 0;
-            }
-
-            .practice-priority-detail-title {
-                font-size: 0.62rem;
-            }
-
-            .practice-priority-detail-points {
-                font-size: 1.02rem;
-            }
-
-            .practice-priority-detail-body {
-                padding: 0.44rem 0.5rem;
-                flex-direction: row;
-                align-items: center;
-                gap: 0.35rem;
-            }
-
-            .practice-priority-detail-text {
-                gap: 0.1rem;
-            }
-
-            .practice-priority-detail-main {
-                font-size: 0.72rem;
-                line-height: 1.18;
-            }
-
-            .practice-priority-detail-caption {
-                font-size: 0.7rem;
-            }
-
-            .practice-priority-detail-value {
-                font-size: 1.22rem;
-            }
-
-            .practice-priority-detail-sub {
-                font-size: 0.64rem;
-                line-height: 1.15;
-            }
-
-            .practice-priority-detail-visual {
-                min-width: 96px;
-                justify-content: flex-end;
-            }
-
-            .practice-priority-detail-card.slow .practice-priority-detail-body,
-            .practice-priority-detail-card.due .practice-priority-detail-body {
-                padding-top: 0.32rem;
-                padding-bottom: 0.32rem;
-            }
-
-            .practice-priority-detail-card.slow .practice-priority-detail-main,
-            .practice-priority-detail-card.due .practice-priority-detail-main {
-                font-size: 0.69rem;
-            }
-
-            .practice-priority-detail-card.slow .practice-priority-detail-sub,
-            .practice-priority-detail-card.due .practice-priority-detail-sub {
-                font-size: 0.6rem;
-                line-height: 1.14;
-            }
-
-            .practice-priority-donut {
-                width: 66px;
-                height: 66px;
-            }
-
-            .practice-priority-donut-inner {
-                width: 48px;
-                height: 48px;
-                font-size: 0.7rem;
-            }
-
-            .practice-priority-axis {
-                width: 94px;
-                gap: 0.1rem;
-            }
-
-            .practice-priority-axis-track {
-                height: 26px;
-            }
-
-            .practice-priority-axis-line {
-                top: 20px;
-            }
-
-            .practice-priority-axis-tick {
-                top: 16px;
-                height: 7px;
-            }
-
-            .practice-priority-axis-marker {
-                top: auto;
-                bottom: 10px;
-                gap: 1px;
-            }
-
-            .practice-priority-axis-marker.anchor-start.overflow-start {
-                transform: translateX(-6px);
-            }
-
-            .practice-priority-axis-marker.anchor-end.overflow-end {
-                transform: translateX(calc(-100% + 6px));
-            }
-
-            .practice-priority-axis-marker-label {
-                font-size: 0.58rem;
-            }
-
-            .practice-priority-axis-marker::after {
-                width: 6px;
-                height: 5px;
-            }
-
-            .practice-priority-axis-end-value {
-                font-size: 0.56rem;
-            }
-
-            .practice-priority-axis-end-note {
-                font-size: 0.5rem;
-            }
-
-            .practice-priority-learning-visual {
-                width: 96px;
-                gap: 0.12rem;
-            }
-
-            .practice-priority-learning-dots {
-                gap: 0.18rem;
-                padding: 0 0.04rem;
-            }
-
-            .practice-priority-learning-dot {
-                width: 9px;
-                height: 9px;
-            }
-
-            .practice-priority-learning-caption-value {
-                font-size: 0.62rem;
-            }
-
-            .practice-priority-learning-caption-note {
-                font-size: 0.54rem;
-            }
-
-            .expanded-card-meta-row {
-                margin-top: 0;
-                gap: 0.2rem 0;
-                padding: 0.46rem 0 0;
-            }
-
-            .expanded-card-meta-label {
-                font-size: 0.54rem;
-            }
-
-            .expanded-card-meta-value {
-                font-size: 0.64rem;
             }
 
             .expanded-detail-card .card-actions {
@@ -4032,7 +3006,6 @@
         body.cards-view-mode-stats #cardsQueueLegend,
         body.cards-view-mode-stats .cards-bulk-action-message-wrap,
         body.cards-view-mode-stats #cardsGrid,
-        body.cards-view-mode-stats #cardFocusBanner,
         body.cards-view-mode-report .cards-toolbar,
         body.cards-view-mode-report .cards-view-control,
         body.cards-view-mode-report .queue-actions-layout,
@@ -4040,8 +3013,7 @@
         body.cards-view-mode-report #queueSettingsSubgroup,
         body.cards-view-mode-report #cardsQueueLegend,
         body.cards-view-mode-report .cards-bulk-action-message-wrap,
-        body.cards-view-mode-report #cardsGrid,
-        body.cards-view-mode-report #cardFocusBanner {
+        body.cards-view-mode-report #cardsGrid {
             display: none !important;
         }
 

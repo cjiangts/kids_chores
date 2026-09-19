@@ -15,7 +15,7 @@
  *   6. Kid-manage tab visibility + cards-grid + font-reflow listeners
  *   7. Session settings form (queue mix + drill-speed stepper)
  *   8. View-order / sort-menu / source-deck-filter / sort-direction / view-mode buttons
- *   9. Card search + focus-banner clear + cards-selection toolbar
+ *   9. Card search + cards-selection toolbar
  *  10. Add-card form + Chinese-char input + session-card-count stepper
  *  11. Type-IV deck-counts modal input listeners
  *  12. Latest-response tracker + initial async load
@@ -325,20 +325,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             resetAndDisplayCards(currentCards);
         });
     });
-    renderCardViewModeButtons();
-    if (cardViewModeToggleBtn) {
-        cardViewModeToggleBtn.addEventListener('click', () => {
-            setCardViewMode(currentCardViewMode === 'short' ? 'long' : 'short');
-        });
-    }
-    // === 9. Card search + focus-banner clear + cards-selection toolbar ===
+    // === 9. Card search + cards-selection toolbar ===
     if (cardSearchInput) {
         cardSearchInput.addEventListener('input', () => {
             resetAndDisplayCards(currentCards);
         });
-    }
-    if (cardFocusBannerClear) {
-        cardFocusBannerClear.addEventListener('click', clearFocusedCard);
     }
     if (cardsSelectModeBtn) {
         cardsSelectModeBtn.addEventListener('click', () => {

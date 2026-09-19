@@ -135,9 +135,6 @@ const sortMenuPopover = document.getElementById('sortMenuPopover');
 const sortDirectionToggleGroup = document.getElementById('sortDirectionToggleGroup');
 const sortDirectionToggleBtns = sortDirectionToggleGroup ? [sortDirectionToggleGroup] : [];
 const cardSearchInput = document.getElementById('cardSearchInput');
-const cardFocusBanner = document.getElementById('cardFocusBanner');
-const cardFocusBannerText = document.getElementById('cardFocusBannerText');
-const cardFocusBannerClear = document.getElementById('cardFocusBannerClear');
 const sourceDeckFilterBtn = document.getElementById('sourceDeckFilterBtn');
 const sourceDeckFilterBtnLabel = document.getElementById('sourceDeckFilterBtnLabel');
 const sourceDeckFilterPopover = document.getElementById('sourceDeckFilterPopover');
@@ -156,7 +153,6 @@ const cardsQueueLegend = document.getElementById('cardsQueueLegend');
 const cardsGrid = document.getElementById('cardsGrid');
 const cardsToolbar = document.querySelector('.cards-toolbar');
 const cardsViewControl = document.querySelector('.cards-view-control');
-const cardViewModeToggleBtn = document.getElementById('cardViewModeToggleBtn');
 const queueSettingsSaveBtn = document.getElementById('queueSettingsSaveBtn');
 const drillSpeedSettingsGroup = document.getElementById('drillSpeedSettingsGroup');
 const drillSpeedTargetInput = document.getElementById('drillSpeedTargetInput');
@@ -181,7 +177,6 @@ function normalizeCardsViewMode(value) {
     return CARDS_VIEW_MODES.has(value) ? value : 'queue';
 }
 let currentCardsViewMode = (() => {
-    if (String(params.get('cardId') || '').trim()) return 'queue';
     const urlView = String(params.get('view') || '').trim();
     if (urlView && CARDS_VIEW_MODES.has(urlView)) return urlView;
     try {
@@ -205,7 +200,7 @@ let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
 let currentSkippedCardCount = 0;
-let currentCardViewMode = String(params.get('cardId') || '').trim() ? 'long' : 'short';
+let currentCardViewMode = 'short';
 let expandedCompactCardIds = new Set();
 let isBulkSkipActionInFlight = false;
 let isBulkDownloadInFlight = false;
@@ -228,10 +223,6 @@ let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
 let currentCardSortDirection = CARD_SORT_DIRECTION_DESC;
 let currentSourceDeckFilter = '';
-let focusedCardId = (() => {
-    const raw = String(params.get('cardId') || '').trim();
-    return raw || '';
-})();
 const ORPHAN_BUBBLE_ID = '__orphan__';
 const MAX_DECK_BUBBLE_COUNT = 0;
 const CHINESE_FIXED_FRONT_SIZE_REM = 1.4;

@@ -66,7 +66,6 @@ function syncType4RepresentativeCardsUi() {
         viewOrderSelect.value = 'added_time';
         syncSortMenuFromSelect();
     }
-    renderCardViewModeButtons();
     updateCardsQueueLegendVisibility(0);
 }
 

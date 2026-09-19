@@ -175,16 +175,8 @@
                         aria-label="Highest first"
                         title="Highest first"
                     ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-down-wide-narrow" data-icon-size="18" data-icon-stroke="2.3"></span></button>
-                    <button
-                        type="button"
-                        id="cardViewModeToggleBtn"
-                        class="toolbar-icon-toggle-btn card-view-mode-btn"
-                        data-card-view-mode-toggle
-                        title="Compact view"
-                        aria-label="Compact view"
-                        aria-pressed="false"
-                    ></button>
                     <button id="cardsSelectModeBtn" type="button" class="paradigm-btn" aria-pressed="false" aria-label="Select cards" title="Select cards">
+                        <span class="cards-select-mode-btn-icon" data-icon="box-select" data-icon-size="16" data-icon-stroke="2.4" aria-hidden="true"></span>
                         <span class="cards-select-mode-btn-label">Select</span>
                     </button>
                 </div>
@@ -201,13 +193,6 @@
             </div>
                 <div class="cards-bulk-action-message-wrap">
                     <div id="cardsBulkActionMessage" class="success hidden" aria-live="polite"></div>
-                </div>
-                <div id="cardFocusBanner" class="card-focus-banner hidden" aria-hidden="true">
-                    <span class="card-focus-banner-label">Focused on</span>
-                    <span id="cardFocusBannerText" class="card-focus-banner-text"></span>
-                    <button type="button" id="cardFocusBannerClear" class="card-focus-banner-clear" aria-label="Clear focus">
-                        <span data-icon="x" data-icon-size="14" data-icon-stroke="2.4"></span>
-                    </button>
                 </div>
                 <div id="cardsGrid" class="cards-grid"></div>
                 <div id="cardsStatsView" class="cards-stats-view"></div>

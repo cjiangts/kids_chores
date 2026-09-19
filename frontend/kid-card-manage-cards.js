@@ -15,7 +15,7 @@
  * Layout (search for `// === N. ` banners to jump between sections):
  *
  *     1. Card markup builders + format helpers
- *     2. Card list render loop + scroll/focus
+ *     2. Card list render loop
  *     3. Bulk-input parsers + preview helpers
  *     4. Shared-deck card mutations (skip, recording download)
  *     5. Personal card CRUD (preview, add, edit, delete)
@@ -26,6 +26,49 @@
 // =====================================================================
 // === 1. Card markup builders + format helpers
 // =====================================================================
+let compactPopoverFrozenOrderIds = null;
+let compactPopoverResortPending = false;
+
+function freezeCompactPopoverOrder(cards = currentCards) {
+    const cardsInDisplayOrder = Array.isArray(sortedCards) && sortedCards.length > 0
+        ? sortedCards
+        : getSortedCardsForDisplay(cards);
+    compactPopoverFrozenOrderIds = cardsInDisplayOrder
+        .map((card) => String(card && card.id ? card.id : '').trim())
+        .filter((cardId) => cardId.length > 0);
+}
+
+function getCompactPopoverFrozenOrder(cards) {
+    if (!Array.isArray(compactPopoverFrozenOrderIds) || compactPopoverFrozenOrderIds.length === 0) {
+        return cards;
+    }
+    const cardsById = new Map(
+        cards.map((card) => [String(card && card.id ? card.id : '').trim(), card])
+    );
+    const orderedCards = compactPopoverFrozenOrderIds
+        .map((cardId) => cardsById.get(cardId))
+        .filter(Boolean);
+    const includedIds = new Set(
+        orderedCards.map((card) => String(card && card.id ? card.id : '').trim())
+    );
+    return [
+        ...orderedCards,
+        ...cards.filter((card) => !includedIds.has(String(card && card.id ? card.id : '').trim())),
+    ];
+}
+
+async function closeCompactCardPopover() {
+    expandedCompactCardIds.clear();
+    compactPopoverFrozenOrderIds = null;
+    const shouldResort = compactPopoverResortPending;
+    compactPopoverResortPending = false;
+    if (shouldResort) {
+        await loadSharedDeckCards();
+        return;
+    }
+    displayCards(currentCards);
+}
+
 function buildCardReportHref(card) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
@@ -245,9 +288,6 @@ function buildCardMarkup(card, options = {}) {
     if (card.skip_practice) {
         classes.push('skipped');
     }
-    if (focusedCardId && String(card && card.id ? card.id : '') === String(focusedCardId)) {
-        classes.push('is-focused-card');
-    }
     const supportsSkipControl = !isType4Behavior();
     const primaryText = String(options.primaryText || '');
     const secondaryText = String(options.secondaryText || '');
@@ -267,31 +307,15 @@ function buildCardMarkup(card, options = {}) {
     const trailingActionHtml = String(options.trailingActionHtml || '');
     const collapseCardId = String(options.collapseCardId || '').trim();
     const sourceRaw = resolveCardSourceDeckName(card);
-    const sourceTitle = escapeHtml(sourceRaw);
     const sourceDisplay = escapeHtml(
         sourceRaw === getPersonalDeckDisplayName()
             ? sourceRaw
             : formatDeckPillName(sourceRaw)
     );
-    const addedDateText = window.PracticeManageCommon.formatAddedDate(card && card.created_at);
-    const firstPracticedDateText = card && card.first_practiced_at
-        ? window.PracticeManageCommon.formatAddedDate(card.first_practiced_at)
-        : 'Never';
-    const metaItems = [
-        { label: 'Added', value: String(addedDateText || '-') },
-        { label: 'First Practice', value: String(firstPracticedDateText || '-') },
-    ];
-    const metaHtml = metaItems
-        .map((item) => `
-            <div class="expanded-card-meta-item">
-                <span class="expanded-card-meta-label">${escapeHtml(item.label)}</span>
-                <span class="expanded-card-meta-value">${escapeHtml(item.value)}</span>
-            </div>
-        `)
-        .join('');
-
-    const inNextSession = String(options.queueHighlight || '').trim().length > 0;
-    const heroAsideHtml = buildPracticePriorityHeroAside(card, { inNextSession });
+    const rankMetaHtml = buildPracticePriorityRankMeta(card);
+    const heroAsideHtml = buildPracticePriorityHeroAside(card, {
+        actionControlsHtml: buildExpandedCardHeroActionsMarkup(card, supportsSkipControl, trailingActionHtml),
+    });
     const deckRowExtraHtml = String(options.deckRowExtraHtml || '');
     const showPreviewPill = options.showPreviewPill !== false;
     return `
@@ -303,7 +327,8 @@ function buildCardMarkup(card, options = {}) {
                     ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
                     ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}${cardBackSizeClass}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
                     <div class="card-deck-row">
-                        <span class="card-deck-pill" title="${sourceTitle}">${sourceDisplay}</span>
+                        <span class="card-deck-meta" title="${escapeHtml(sourceRaw)}">${icon('layers', { size: 13, strokeWidth: 2.3 })}<span>${sourceDisplay}</span></span>
+                        ${rankMetaHtml}
                         ${deckRowExtraHtml}
                     </div>
                 </div>
@@ -311,10 +336,7 @@ function buildCardMarkup(card, options = {}) {
             </div>
             ${extraSectionHtml}
             ${supportsSkipControl && card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            <div class="expanded-card-meta-row">
-                ${metaHtml}
-            </div>
-            <div class="card-actions">
+            ${heroAsideHtml ? '' : `<div class="card-actions">
                 <a class="paradigm-btn" href="${buildCardReportHref(card)}">${icon('history', { size: 16 })}<span>History</span></a>
                 ${supportsSkipControl ? `<a
                     class="paradigm-btn"
@@ -324,7 +346,7 @@ function buildCardMarkup(card, options = {}) {
                     data-skipped="${card.skip_practice ? 'true' : 'false'}"
                 >${card.skip_practice ? `${icon('undo-2', { size: 16 })}<span>Unskip</span>` : `${icon('ban', { size: 16 })}<span>Skip</span>`}</a>` : ''}
                 ${trailingActionHtml}
-            </div>
+            </div>`}
         </div>
     `;
 }
@@ -350,7 +372,6 @@ function buildType4RepresentativeCardMarkup(card) {
         showSecondary: false,
         showPreviewPill: false,
         deckRowExtraHtml: multichoiceChipHtml,
-        extraSectionHtml: buildType4PriorityDetailSection(card),
         trailingActionHtml: generatorBtnHtml,
     });
 }
@@ -464,13 +485,37 @@ function buildExpandedCardDeleteButtonMarkup(card) {
     return `
         <button
             type="button"
-            class="paradigm-btn is-danger"
+            class="paradigm-icon-btn is-danger expanded-card-hero-action"
             data-action="delete-personal-card"
             data-card-id="${escapeHtml(cardId)}"
             title="${escapeHtml(title)}"
             aria-label="${escapeHtml(title)}"
             ${isDisabled ? 'disabled aria-disabled="true"' : ''}
-        >Delete</button>
+        >${icon('trash', { size: 16 })}</button>
+    `;
+}
+
+function buildExpandedCardHeroActionsMarkup(card, supportsSkipControl, trailingActionHtml) {
+    const skipTitle = card.skip_practice ? 'Unskip from practice' : 'Skip from practice';
+    return `
+        <div class="expanded-card-hero-actions" aria-label="Card actions">
+            ${supportsSkipControl ? `<button
+                type="button"
+                class="paradigm-icon-btn expanded-card-hero-action"
+                data-action="toggle-skip"
+                data-card-id="${card.id}"
+                data-skipped="${card.skip_practice ? 'true' : 'false'}"
+                title="${skipTitle}"
+                aria-label="${skipTitle}"
+            >${card.skip_practice ? icon('eye', { size: 16 }) : icon('eye-off', { size: 16 })}</button>` : ''}
+            <a
+                class="paradigm-icon-btn expanded-card-hero-action"
+                href="${buildCardReportHref(card)}"
+                title="View history"
+                aria-label="View history"
+            >${icon('history', { size: 16 })}</a>
+            ${trailingActionHtml}
+        </div>
     `;
 }
 
@@ -487,7 +532,7 @@ function buildLongCardMarkup(card, options = {}) {
 }
 
 // =====================================================================
-// === 2. Card list render loop + scroll/focus
+// === 2. Card list render loop
 // =====================================================================
 function applyChineseCardFrontUniformSize() {
     if (!isChineseSpecificLogic || !cardsGrid) {
@@ -503,6 +548,58 @@ function applyChineseCardFrontUniformSize() {
 
 const CARD_RENDER_CHUNK_SIZE = 20;
 let activeCardChunkObserver = null;
+
+function renderCompactCardPopover(card, queueHighlight) {
+    if (!cardsGrid || !card) {
+        return;
+    }
+    const cardId = String(card.id || '').trim();
+    if (!cardId) {
+        return;
+    }
+    cardsGrid.insertAdjacentHTML('beforeend', `
+        <div class="short-expanded-popover" data-expanded-card-id="${escapeHtml(cardId)}">
+            ${buildLongCardMarkup(card, {
+                collapseCardId: cardId,
+                trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
+                queueHighlight,
+            })}
+        </div>
+    `);
+    const placePopover = () => {
+        const popover = cardsGrid.querySelector(`.short-expanded-popover[data-expanded-card-id="${CSS.escape(cardId)}"]`);
+        const trigger = cardsGrid.querySelector(`.card-compact-pill[data-card-id="${CSS.escape(cardId)}"]`);
+        if (!popover || !trigger) {
+            return;
+        }
+        const gridRect = cardsGrid.getBoundingClientRect();
+        const triggerRect = trigger.getBoundingClientRect();
+        const popoverWidth = popover.getBoundingClientRect().width;
+        const maxLeft = Math.max(0, gridRect.width - popoverWidth);
+        const preferredLeft = triggerRect.left - gridRect.left;
+        popover.style.left = `${Math.max(0, Math.min(preferredLeft, maxLeft))}px`;
+        const belowTop = triggerRect.bottom - gridRect.top + 8;
+        const mobileNav = window.matchMedia?.('(max-width: 899px)').matches
+            ? document.querySelector('.kid-app-nav')
+            : null;
+        const availableBottom = mobileNav
+            ? mobileNav.getBoundingClientRect().top - 8
+            : window.innerHeight - 12;
+        const popoverHeight = popover.getBoundingClientRect().height;
+        const belowBottom = gridRect.top + belowTop + popoverHeight;
+        const opensUp = belowBottom > availableBottom;
+        const top = opensUp
+            ? Math.max(0, triggerRect.top - gridRect.top - popoverHeight - 8)
+            : belowTop;
+        popover.classList.toggle('opens-up', opensUp);
+        popover.style.top = `${top}px`;
+    };
+    if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(placePopover);
+    } else {
+        placePopover();
+    }
+}
 
 function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook, options = {}) {
     if (activeCardChunkObserver) {
@@ -611,7 +708,10 @@ function displayCards(cards) {
         return;
     }
 
-    const visibleCards = sortedCards;
+    const hasCompactPopover = currentCardViewMode === 'short' && expandedCompactCardIds.size > 0;
+    const visibleCards = hasCompactPopover
+        ? getCompactPopoverFrozenOrder(sortedCards)
+        : sortedCards;
     if (currentCardViewMode === 'long') {
         cardsGrid.classList.remove('short-view');
         renderCardsInChunks(
@@ -641,7 +741,8 @@ function displayCards(cards) {
         }
     }
 
-    const hasExpandedCards = visibleCards.some((card) => expandedCompactCardIds.has(String(card && card.id ? card.id : '')));
+    const expandedCard = visibleCards.find((card) => expandedCompactCardIds.has(String(card && card.id ? card.id : '')));
+    const hasExpandedCards = Boolean(expandedCard);
     cardsGrid.classList.add('short-view');
     if (!hasExpandedCards) {
         cardsGrid.style.removeProperty('--type1-chinese-front-size-rem');
@@ -650,48 +751,26 @@ function displayCards(cards) {
         visibleCards.length,
         (index) => {
             const card = visibleCards[index];
-            const cardId = String(card && card.id ? card.id : '');
-            if (expandedCompactCardIds.has(cardId)) {
-                return `<div class="short-expanded-slot">${buildLongCardMarkup(card, {
-                    collapseCardId: cardId,
-                    trailingActionHtml: buildExpandedCardDeleteButtonMarkup(card),
-                    queueHighlight: queueHighlightMap.get(cardId) || '',
-                })}</div>`;
-            }
             return buildCompactCardMarkup(card, {
-                queueHighlight: queueHighlightMap.get(cardId) || '',
+                queueHighlight: queueHighlightMap.get(String(card && card.id ? card.id : '')) || '',
             });
         },
-        hasExpandedCards ? applyChineseCardFrontUniformSize : null,
+        null,
         { renderAll: true },
     );
+    if (expandedCard) {
+        renderCompactCardPopover(
+            expandedCard,
+            queueHighlightMap.get(String(expandedCard.id || '')) || '',
+        );
+        applyChineseCardFrontUniformSize();
+    }
     renderCardsSelectionBar();
 }
 
 function resetAndDisplayCards(cards) {
     refreshSourceDeckFilterMenu();
-    if (focusedCardId && !getFocusedCardLabel(cards)) {
-        focusedCardId = '';
-        const url = new URL(window.location.href);
-        url.searchParams.delete('cardId');
-        window.history.replaceState({}, '', url.toString());
-    }
-    syncCardFocusBanner();
     displayCards(cards);
-    scrollFocusedCardIntoView();
-}
-
-function scrollFocusedCardIntoView() {
-    if (!focusedCardId) return;
-    requestAnimationFrame(() => {
-        const el = cardsGrid && cardsGrid.querySelector('.card-item.is-focused-card');
-        if (!el) return;
-        try {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        } catch (_err) {
-            el.scrollIntoView();
-        }
-    });
 }
 
 // =====================================================================
@@ -1507,8 +1586,14 @@ async function handleCardsGridClick(event) {
         if (!cardId) {
             return;
         }
-        expandedCompactCardIds.add(cardId);
-        displayCards(currentCards);
+        if (expandedCompactCardIds.has(cardId)) {
+            await closeCompactCardPopover();
+        } else {
+            expandedCompactCardIds.clear();
+            freezeCompactPopoverOrder(currentCards);
+            expandedCompactCardIds.add(cardId);
+            displayCards(currentCards);
+        }
         return;
     }
 
@@ -1517,12 +1602,10 @@ async function handleCardsGridClick(event) {
         if (!cardId || !expandedCompactCardIds.has(cardId)) {
             return;
         }
-        expandedCompactCardIds.delete(cardId);
         if (currentCardViewMode === 'long') {
             currentCardViewMode = 'short';
-            renderCardViewModeButtons();
         }
-        displayCards(currentCards);
+        await closeCompactCardPopover();
         return;
     }
 
@@ -1585,12 +1668,26 @@ async function handleCardsGridClick(event) {
 
     const currentlySkipped = actionBtn.dataset.skipped === 'true';
     const targetSkipped = !currentlySkipped;
+    const keepCompactPopoverInPlace = currentCardViewMode === 'short'
+        && expandedCompactCardIds.has(String(cardId));
     try {
         actionBtn.disabled = true;
         if (isBulkSkipActionInFlight) {
             return;
         }
-        await updateSharedType1CardSkip(cardId, targetSkipped);
+        await updateSharedType1CardSkip(cardId, targetSkipped, {
+            reloadCards: !keepCompactPopoverInPlace,
+        });
+        if (keepCompactPopoverInPlace) {
+            for (const card of currentCards) {
+                if (String(card && card.id ? card.id : '') === String(cardId)) {
+                    card.skip_practice = targetSkipped;
+                }
+            }
+            currentSkippedCardCount = Math.max(0, currentSkippedCardCount + (targetSkipped ? 1 : -1));
+            compactPopoverResortPending = true;
+            displayCards(currentCards);
+        }
     } catch (error) {
         console.error('Error updating shared category card skip:', error);
         showError(error.message || 'Failed to update skip status.');

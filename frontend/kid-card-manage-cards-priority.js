@@ -5,15 +5,15 @@
  *
  * Practice-priority is the heart of this file: it scores each card with
  * a published reason ("Never seen", "Wrong recently", ...) and renders a
- * detail card with score donut/axis/learning-dots. Queue mix legend
- * tells the user how many cards of each priority bucket a session will
- * sample given the current session count.
+ * compact score bar with an explanatory legend. Queue mix legend tells the
+ * user how many cards of each priority bucket a session will sample given
+ * the current session count.
  *
  * Layout (search for `// === N. ` banners to jump between sections):
  *
- *     1. Filter + search (query, source-deck, focused-id)
+ *     1. Filter + search (query, source-deck)
  *     2. Sort: comparators + display ordering
- *     3. Practice priority scoring + segment helpers + detail markup
+ *     3. Practice priority scoring + segment helpers + compact summary
  *     4. Visible cards + queue highlight + queue mix legend
  *     5. Selection (bar, select mode, multi-select)
  *     6. UI controls (sort menu, view-mode buttons)
@@ -77,79 +77,11 @@ function filterCardsBySourceDeck(cards, filterKey) {
     return (Array.isArray(cards) ? cards : []).filter((card) => getCardSourceDeckFilterKey(card) === key);
 }
 
-function filterCardsByFocusedId(cards) {
-    const focus = String(focusedCardId || '').trim();
-    if (!focus) {
-        return Array.isArray(cards) ? cards : [];
-    }
-    return (Array.isArray(cards) ? cards : []).filter((card) => String(card && card.id ? card.id : '') === focus);
-}
-
-function getFocusedCardLabel(cards) {
-    const focus = String(focusedCardId || '').trim();
-    if (!focus) return '';
-    const match = (Array.isArray(cards) ? cards : []).find(
-        (card) => String(card && card.id ? card.id : '') === focus
-    );
-    if (!match) return '';
-    const front = String(match.front || '').trim();
-    if (front) return front;
-    const back = String(match.back || '').trim();
-    return back || `#${focus}`;
-}
-
-function syncCardFocusBanner() {
-    if (!cardFocusBanner) return;
-    const label = getFocusedCardLabel(currentCards);
-    if (!focusedCardId || !label) {
-        if (cardFocusBanner.contains(document.activeElement)) {
-            document.activeElement.blur();
-        }
-        cardFocusBanner.classList.add('hidden');
-        cardFocusBanner.setAttribute('aria-hidden', 'true');
-        if (cardFocusBannerText) cardFocusBannerText.textContent = '';
-        return;
-    }
-    if (cardFocusBannerText) cardFocusBannerText.textContent = label;
-    cardFocusBanner.classList.remove('hidden');
-    cardFocusBanner.setAttribute('aria-hidden', 'false');
-}
-
-function clearFocusedCard() {
-    if (!focusedCardId) return;
-    focusedCardId = '';
-    const url = new URL(window.location.href);
-    url.searchParams.delete('cardId');
-    window.history.replaceState({}, '', url.toString());
-    syncCardFocusBanner();
-    resetAndDisplayCards(currentCards);
-}
-
-function setFocusedCardById(cardId) {
-    const next = String(cardId || '').trim();
-    if (!next) return;
-    if (next !== focusedCardId) {
-        focusedCardId = next;
-        const url = new URL(window.location.href);
-        url.searchParams.set('cardId', next);
-        window.history.replaceState({}, '', url.toString());
-        syncCardFocusBanner();
-    }
-    expandedCompactCardIds.add(next);
-    setCardsViewMode('queue');
-    resetAndDisplayCards(currentCards);
-    scrollFocusedCardIntoView();
-}
-
 // =====================================================================
 // === 2. Sort: comparators + display ordering
 // =====================================================================
 function getSortedCardsForDisplay(cards) {
-    const focusFiltered = filterCardsByFocusedId(cards);
-    if (focusedCardId) {
-        return focusFiltered;
-    }
-    const sourceFiltered = filterCardsBySourceDeck(focusFiltered, currentSourceDeckFilter);
+    const sourceFiltered = filterCardsBySourceDeck(cards, currentSourceDeckFilter);
     if (isType4Behavior()) {
         return window.PracticeManageCommon.sortCardsForView(sourceFiltered, CARD_SORT_MODE_ADDED_TIME);
     }
@@ -599,258 +531,6 @@ function getPracticePriorityLastResultTone(card) {
     return 'neutral';
 }
 
-function clampPercent(value) {
-    const numeric = Number(value);
-    if (!Number.isFinite(numeric)) {
-        return 0;
-    }
-    return Math.max(0, Math.min(100, numeric));
-}
-
-function buildPracticePriorityDonutHtml(options = {}) {
-    const safePercent = clampPercent(options.correctPercent);
-    const toneClass = String(options.toneClass || '').trim();
-    const centerText = String(options.centerText || formatMetricPercent(safePercent));
-    const centerClass = String(options.centerClass || '').trim();
-    return `
-        <div class="practice-priority-donut ${escapeHtml(toneClass)}" style="--chart-percent:${safePercent.toFixed(2)}%">
-            <div class="practice-priority-donut-inner ${escapeHtml(centerClass)}">${escapeHtml(centerText)}</div>
-        </div>
-    `;
-}
-
-function buildPracticePriorityAxisHtml(options = {}) {
-    const rawPositionPct = Number(options.positionPct);
-    const positionPct = Number.isFinite(rawPositionPct) ? clampPercent(rawPositionPct) : null;
-    const valueText = String(options.valueText || '-');
-    const leftText = String(options.leftText || '-');
-    const rightText = String(options.rightText || '-');
-    const leftNote = String(options.leftNote || '');
-    const rightNote = String(options.rightNote || '');
-    const markerClass = String(options.markerClass || '').trim();
-    const leftNoteClass = String(options.leftNoteClass || '').trim();
-    const rightNoteClass = String(options.rightNoteClass || '').trim();
-    const tickCount = Math.max(2, Number.parseInt(options.tickCount, 10) || 6);
-    const ticksHtml = Array.from({ length: tickCount }, (_, index) => {
-        const pct = tickCount <= 1 ? 0 : (index / (tickCount - 1)) * 100;
-        return `<span class="practice-priority-axis-tick" style="left:${pct.toFixed(2)}%"></span>`;
-    }).join('');
-    const markerAnchorClass = positionPct === null
-        ? ''
-        : (positionPct <= 0 ? ' anchor-start' : (positionPct >= 100 ? ' anchor-end' : ' anchor-middle'));
-    const markerOverflowClass = positionPct === null || !Number.isFinite(rawPositionPct)
-        ? ''
-        : (rawPositionPct < 0 ? ' overflow-start' : (rawPositionPct > 100 ? ' overflow-end' : ''));
-    const markerCaption = String(options.markerCaption || '');
-    const markerHtml = positionPct === null
-        ? ''
-        : `
-            <span class="practice-priority-axis-marker ${escapeHtml(markerClass)}${escapeHtml(markerAnchorClass)}${escapeHtml(markerOverflowClass)}" style="left:${positionPct.toFixed(2)}%">
-                ${markerCaption ? `<span class="practice-priority-axis-marker-caption">${escapeHtml(markerCaption)}</span>` : ''}
-                <span class="practice-priority-axis-marker-label">${escapeHtml(valueText)}</span>
-            </span>
-        `;
-    return `
-        <div class="practice-priority-axis">
-            <div class="practice-priority-axis-track">
-                <span class="practice-priority-axis-line"></span>
-                ${ticksHtml}
-                ${markerHtml}
-            </div>
-            <div class="practice-priority-axis-labels">
-                <span class="practice-priority-axis-end">
-                    <span class="practice-priority-axis-end-value">${escapeHtml(leftText)}</span>
-                    ${leftNote ? `<span class="practice-priority-axis-end-note ${escapeHtml(leftNoteClass)}">${escapeHtml(leftNote)}</span>` : ''}
-                </span>
-                <span class="practice-priority-axis-end align-right">
-                    <span class="practice-priority-axis-end-value">${escapeHtml(rightText)}</span>
-                    ${rightNote ? `<span class="practice-priority-axis-end-note ${escapeHtml(rightNoteClass)}">${escapeHtml(rightNote)}</span>` : ''}
-                </span>
-            </div>
-        </div>
-    `;
-}
-
-function buildPracticePriorityLearningDotsHtml(attemptCount, targetAttempts) {
-    const safeTarget = Math.max(1, Number.parseInt(targetAttempts, 10) || 5);
-    const safeAttempts = Math.max(0, Number.parseInt(attemptCount, 10) || 0);
-    const filledCount = Math.max(0, Math.min(safeTarget, safeAttempts));
-    const dotsHtml = Array.from({ length: safeTarget }, (_, index) => (
-        `<span class="practice-priority-learning-dot${index < filledCount ? ' filled' : ''}"></span>`
-    )).join('');
-    return `
-        <div class="practice-priority-learning-visual">
-            <div class="practice-priority-learning-attempts">
-                <span class="practice-priority-learning-attempts-caption">Attempts</span>
-                <span class="practice-priority-learning-attempts-value">${escapeHtml(String(safeAttempts))}</span>
-            </div>
-            <div class="practice-priority-learning-dots" aria-hidden="true">${dotsHtml}</div>
-            <div class="practice-priority-learning-caption">
-                <span class="practice-priority-learning-caption-note">Target ${safeTarget}</span>
-            </div>
-        </div>
-    `;
-}
-
-function buildPracticePriorityDetailCards(card, options = {}) {
-    const showSlow = options.showSlow !== false && !isType2Behavior() && !isType3Behavior();
-    const showMissed = options.showMissed !== false && !isType3Behavior();
-    const showPoints = options.showPoints !== false;
-    const simpleSpeed = Boolean(options.simpleSpeed);
-    const segments = getPracticePrioritySegments(card);
-    const isNewCard = isNeverPracticedPriorityCard(card);
-    const correctStats = getPracticePriorityCorrectStats(card);
-    const correctCount = correctStats.correctCount;
-    const wrongCount = correctStats.wrongCount;
-    const correctRate = correctStats.correctRate;
-    const lifetimeAttempts = getPracticePriorityAttemptCount(card);
-    const incorrectRate = Number.isFinite(correctRate) ? Math.max(0, 100 - correctRate) : null;
-    const incorrectRateText = formatMetricPercent(incorrectRate);
-    const emaCorrectResponseRaw = Number.parseFloat(card && card.practice_priority_correct_time_ema);
-    const emaCorrectResponseValue = Number.isFinite(emaCorrectResponseRaw) && emaCorrectResponseRaw > 0
-        ? emaCorrectResponseRaw
-        : NaN;
-    const emaCorrectResponseTimeText = formatMillisecondsAsSecondsOrMinutes(emaCorrectResponseValue);
-    const subjectBaseline = currentPracticePrioritySubjectBaseline || {};
-    const subjectP50Text = formatMillisecondsAsSecondsOrMinutes(
-        Number(subjectBaseline.p50_correct_time)
-    );
-    const subjectP95Text = formatMillisecondsAsSecondsOrMinutes(
-        Number(subjectBaseline.p95_correct_time)
-    );
-    const lastResponseTimeText = formatMillisecondsAsSecondsOrMinutes(getCardLastResponseTimeValue(card));
-    const lastResultText = formatCardLastResult(card);
-    const lastResultTone = getPracticePriorityLastResultTone(card);
-    const subjectCorrectSampleCount = Math.max(
-        0,
-        Number.parseInt(subjectBaseline.correct_sample_count, 10) || 0
-    );
-    const p50Value = Number(subjectBaseline.p50_correct_time);
-    const p95Value = Number(subjectBaseline.p95_correct_time);
-    const slowRange = Number.isFinite(p50Value) && Number.isFinite(p95Value) && p95Value > p50Value
-        ? p95Value - p50Value
-        : null;
-    const slowBaselineReady = subjectCorrectSampleCount >= PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE
-        && Number.isFinite(p50Value)
-        && Number.isFinite(p95Value)
-        && p95Value > p50Value;
-    const slowMarkerPct = slowRange && Number.isFinite(emaCorrectResponseValue)
-        ? ((emaCorrectResponseValue - p50Value) / slowRange) * 100
-        : null;
-    const daysSinceLastSeen = getPracticePriorityDaysSinceLastSeenValue(card);
-    const dueMarkerPct = Number.isFinite(daysSinceLastSeen)
-        ? (daysSinceLastSeen / PRACTICE_PRIORITY_VERY_DUE_DAYS) * 100
-        : null;
-
-    const renderPointsHtml = (segment) => (showPoints
-        ? `<div class="practice-priority-detail-points">+${escapeHtml(formatPracticePriorityScore(segment.points))}</div>`
-        : '');
-
-    return `
-        ${!showMissed ? '' : `<div class="practice-priority-detail-card missed">
-            <div class="practice-priority-detail-missed-header">
-                <div class="practice-priority-detail-title">${icon('circle-x', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[0]))}</span></div>
-                ${renderPointsHtml(segments[0])}
-            </div>
-            <div class="practice-priority-detail-missed-content">
-                ${isNewCard
-                    ? '<div class="practice-priority-detail-empty">Not practiced yet — accuracy will appear after the first answer.</div>'
-                    : `<div class="practice-priority-detail-side">
-                        ${buildPracticePriorityDonutHtml({
-                            correctPercent: correctRate,
-                            toneClass: 'missed',
-                            centerText: formatMetricPercent(correctRate),
-                            centerClass: 'positive',
-                        })}
-                    </div>
-                    <div class="practice-priority-detail-body">
-                        <div class="practice-priority-detail-text">
-                            <div class="practice-priority-detail-sub">Correct ${escapeHtml(String(correctCount))}</div>
-                            <div class="practice-priority-detail-sub">Wrong ${escapeHtml(String(wrongCount))}</div>
-                            <div class="practice-priority-detail-sub">Last result: <span class="practice-priority-last-result ${escapeHtml(lastResultTone)}">${escapeHtml(lastResultText)}</span></div>
-                        </div>
-                    </div>`
-                }
-            </div>
-        </div>`}
-        ${!showSlow ? '' : `<div class="practice-priority-detail-card slow">
-            <div class="practice-priority-detail-slow-header">
-                <div class="practice-priority-detail-slow-header-left">
-                    <div class="practice-priority-detail-title">${icon('clock', { size: 14 })}<span>${escapeHtml(segments[1].label)}</span></div>
-                    ${renderPointsHtml(segments[1])}
-                </div>
-            </div>
-            <div class="practice-priority-detail-slow-content">
-                ${isNewCard
-                    ? '<div class="practice-priority-detail-empty">Not practiced yet — answer speed will appear after the first correct answer.</div>'
-                    : (simpleSpeed
-                        ? `<div class="practice-priority-detail-simple-speed">
-                            <div class="practice-priority-detail-simple-speed-value">${escapeHtml(emaCorrectResponseTimeText)}</div>
-                            <div class="practice-priority-detail-simple-speed-caption">EMA time</div>
-                        </div>`
-                        : `<div class="practice-priority-detail-visual">
-                            ${slowBaselineReady
-                                ? buildPracticePriorityAxisHtml({
-                                    positionPct: slowMarkerPct,
-                                    valueText: emaCorrectResponseTimeText,
-                                    markerCaption: 'EMA time',
-                                    leftText: subjectP50Text,
-                                    rightText: subjectP95Text,
-                                    leftNote: '(p50)',
-                                    rightNote: '(p95)',
-                                    leftNoteClass: 'positive',
-                                    rightNoteClass: 'negative',
-                                    markerClass: 'slow',
-                                    tickCount: 6,
-                                })
-                                : `<div class="practice-priority-detail-empty">Speed baseline pending — needs ${PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE} correct answers across this subject.</div>`
-                            }
-                        </div>`)
-                }
-            </div>
-        </div>`}
-        <div class="practice-priority-detail-card learning">
-            <div class="practice-priority-detail-learning-header">
-                <div class="practice-priority-detail-learning-header-left">
-                    <div class="practice-priority-detail-title">${icon('sparkles', { size: 14 })}<span>${escapeHtml(getPracticePrioritySegmentDisplayLabel(card, segments[2]))}</span></div>
-                    ${renderPointsHtml(segments[2])}
-                </div>
-            </div>
-            <div class="practice-priority-detail-learning-content">
-                ${buildPracticePriorityLearningDotsHtml(lifetimeAttempts, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS)}
-            </div>
-        </div>
-        <div class="practice-priority-detail-card due">
-            <div class="practice-priority-detail-due-header">
-                <div class="practice-priority-detail-due-header-left">
-                    <div class="practice-priority-detail-title">${icon('calendar-clock', { size: 14 })}<span>${escapeHtml(segments[3].label)}</span></div>
-                    ${renderPointsHtml(segments[3])}
-                </div>
-            </div>
-            <div class="practice-priority-detail-due-content">
-                ${isNewCard
-                    ? '<div class="practice-priority-detail-empty">Not practiced yet — recency will appear after the first practice.</div>'
-                    : `<div class="practice-priority-detail-visual">
-                        ${buildPracticePriorityAxisHtml({
-                            positionPct: dueMarkerPct,
-                            valueText: Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d ago` : 'Never',
-                            markerCaption: 'Last seen',
-                            leftText: '0d',
-                            rightText: `${PRACTICE_PRIORITY_VERY_DUE_DAYS}+d`,
-                            leftNote: '(today)',
-                            rightNote: '(very due)',
-                            leftNoteClass: 'positive',
-                            rightNoteClass: 'negative',
-                            markerClass: 'due',
-                            tickCount: 6,
-                        })}
-                    </div>`
-                }
-            </div>
-        </div>
-    `;
-}
-
 function getPracticePriorityRankText(card) {
     const order = Number(card && card.practice_priority_order);
     if (!Number.isFinite(order) || order <= 0) {
@@ -862,28 +542,57 @@ function getPracticePriorityRankText(card) {
     return `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`;
 }
 
+function buildPracticePriorityRankMeta(card) {
+    const rankText = getPracticePriorityRankText(card);
+    if (!rankText) {
+        return '';
+    }
+    const compactRankText = rankText
+        .replace(/^Rank\s+#?/i, '')
+        .replace(/\s+of\s+/i, ' / ');
+    return `<span class="card-priority-rank">${icon('list-ordered', { size: 13, strokeWidth: 2.3 })}<span>${escapeHtml(compactRankText)}</span></span>`;
+}
+
 function buildPracticePriorityHeroAside(card, options = {}) {
     if (!usesPracticePriorityDisplay()) {
         return '';
     }
-    const score = getPracticePriorityScoreValue(card);
-    if (!Number.isFinite(score) || score <= 0) {
-        return '';
-    }
-    const rankText = getPracticePriorityRankText(card);
-    const inNextSession = !!options.inNextSession;
-    const sessionLineClass = inNextSession
-        ? 'practice-priority-hero-session in'
-        : 'practice-priority-hero-session out';
-    const sessionLineText = inNextSession ? 'In next session' : 'Not in next session';
+    const actionControlsHtml = String(options.actionControlsHtml || '');
     return `
         <div class="practice-priority-hero-aside">
-            <span class="practice-priority-hero-caption">Practice Priority Score</span>
-            <span class="practice-priority-hero-value">${escapeHtml(formatPracticePriorityScore(score))}</span>
-            ${rankText ? `<span class="practice-priority-hero-rank">${escapeHtml(rankText)}</span>` : ''}
-            <span class="${sessionLineClass}">${escapeHtml(sessionLineText)}</span>
+            ${actionControlsHtml}
         </div>
     `;
+}
+
+function getPracticePriorityLegendDetail(card, segment) {
+    const key = String(segment && segment.key ? segment.key : '');
+    if (key === PRACTICE_PRIORITY_REASON_MISSED) {
+        const correctRate = getPracticePriorityCorrectStats(card).correctRate;
+        const wrongRate = Number.isFinite(correctRate) ? Math.max(0, 100 - correctRate) : 0;
+        const lastWrong = getPracticePriorityLastResultTone(card) === 'wrong';
+        return `${formatMetricPercent(wrongRate)} wrong${lastWrong ? ' · last wrong' : ''}`;
+    }
+    if (key === PRACTICE_PRIORITY_REASON_SLOW) {
+        const ema = Number(card && card.practice_priority_correct_time_ema);
+        const baseline = currentPracticePrioritySubjectBaseline || {};
+        const p50 = Number(baseline.p50_correct_time);
+        const p95 = Number(baseline.p95_correct_time);
+        if (!Number.isFinite(ema) || ema <= 0 || !Number.isFinite(p50) || !Number.isFinite(p95) || p95 <= p50) {
+            return 'p-';
+        }
+        const percentile = Math.round(Math.max(1, Math.min(99, 50 + ((ema - p50) / (p95 - p50)) * 45)));
+        return `p${percentile}`;
+    }
+    if (key === PRACTICE_PRIORITY_REASON_LEARNING) {
+        const remaining = Math.max(0, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS - getPracticePriorityAttemptCount(card));
+        return `${remaining} more`;
+    }
+    if (key === PRACTICE_PRIORITY_REASON_DUE) {
+        const daysSinceLastSeen = getPracticePriorityDaysSinceLastSeenValue(card);
+        return Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d` : 'Never';
+    }
+    return '';
 }
 
 function buildPracticePriorityScoreSection(card) {
@@ -905,43 +614,36 @@ function buildPracticePriorityScoreSection(card) {
             `<span class="practice-priority-score-segment ${segment.key}" style="width:${Math.max(0, Math.min(100, (segment.points / scaleBase) * 100)).toFixed(2)}%" title="${escapeHtml(`${segment.label}: +${formatPracticePriorityScore(segment.points)}`)}"></span>`
         ))
         .join('');
-    const totalPoints = positiveSegments.reduce((sum, segment) => sum + segment.points, 0);
-    const legendHtml = totalPoints > 0
+    const legendHtml = positiveSegments.length > 0
         ? positiveSegments.map((segment) => {
-            const percent = Math.round((segment.points / totalPoints) * 100);
+            const detail = getPracticePriorityLegendDetail(card, segment);
+            const isMissed = segment.key === PRACTICE_PRIORITY_REASON_MISSED;
+            const isSlow = segment.key === PRACTICE_PRIORITY_REASON_SLOW;
+            const isDue = segment.key === PRACTICE_PRIORITY_REASON_DUE;
+            const isLearning = segment.key === PRACTICE_PRIORITY_REASON_LEARNING;
             return `
                 <span class="practice-priority-score-legend-item ${segment.key}">
-                    <span class="practice-priority-score-legend-dot" aria-hidden="true"></span>
-                    <span class="practice-priority-score-legend-label">${escapeHtml(segment.label)}</span>
-                    <span class="practice-priority-score-legend-percent">${percent}%</span>
+                    ${isMissed
+                        ? `<span class="practice-priority-score-legend-icon" aria-hidden="true">${icon('circle-x', { size: 13 })}</span>`
+                        : (isSlow
+                            ? `<span class="practice-priority-score-legend-icon" aria-hidden="true">${icon('clock', { size: 13 })}</span>`
+                            : (isDue
+                                ? `<span class="practice-priority-score-legend-icon" aria-hidden="true">${icon('calendar-clock', { size: 13 })}</span>`
+                                : (isLearning
+                                    ? `<span class="practice-priority-score-legend-icon" aria-hidden="true">${icon('repeat', { size: 13 })}</span>`
+                                    : '<span class="practice-priority-score-legend-dot" aria-hidden="true"></span>')))}
+                    ${isMissed || isSlow || isDue || isLearning ? '' : `<span class="practice-priority-score-legend-label">${escapeHtml(segment.label)}</span>`}
+                    ${detail ? `<span class="practice-priority-score-legend-detail">${escapeHtml(detail)}</span>` : ''}
                 </span>
             `;
         }).join('')
         : '';
-    const detailCardsHtml = buildPracticePriorityDetailCards(card);
     return `
         <div class="practice-priority-score-block">
             <div class="practice-priority-score-bar" aria-hidden="true">
                 ${barHtml}
             </div>
             ${legendHtml ? `<div class="practice-priority-score-legend">${legendHtml}</div>` : ''}
-            ${detailCardsHtml ? `<div class="practice-priority-detail-grid">${detailCardsHtml}</div>` : ''}
-        </div>
-    `;
-}
-
-function buildType4PriorityDetailSection(card) {
-    const detailCardsHtml = buildPracticePriorityDetailCards(card, {
-        showSlow: true,
-        showPoints: false,
-        simpleSpeed: true,
-    });
-    if (!detailCardsHtml || !detailCardsHtml.trim()) {
-        return '';
-    }
-    return `
-        <div class="practice-priority-score-block type4-detail-only">
-            <div class="practice-priority-detail-grid">${detailCardsHtml}</div>
         </div>
     `;
 }
@@ -1221,7 +923,6 @@ function setCardsSelectMode(on) {
         if (currentCardViewMode !== 'short') {
             currentCardViewMode = 'short';
             expandedCompactCardIds.clear();
-            renderCardViewModeButtons();
         }
         showCardsBulkActionMessage('');
         resetAndDisplayCards(currentCards);
@@ -1232,7 +933,6 @@ function setCardsSelectMode(on) {
         viewModeBeforeSelectMode = null;
         if (currentCardViewMode !== restoreMode) {
             currentCardViewMode = restoreMode;
-            renderCardViewModeButtons();
         }
         resetAndDisplayCards(currentCards);
     }
@@ -1366,40 +1066,6 @@ function setSortMenuOpen(open) {
 
 function isSortMenuOpen() {
     return !!(sortMenuPopover && !sortMenuPopover.classList.contains('hidden'));
-}
-
-function renderCardViewModeButtons() {
-    const isCompact = currentCardViewMode === 'short';
-    const lockToCompact = isCardsSelectModeOn;
-    if (cardViewModeToggleBtn) {
-        const label = isCompact ? 'Compact view selected' : 'Switch to compact view';
-        cardViewModeToggleBtn.innerHTML = icon('layout-grid', { size: 18 });
-        cardViewModeToggleBtn.classList.toggle('active', isCompact);
-        cardViewModeToggleBtn.setAttribute('aria-pressed', isCompact ? 'true' : 'false');
-        cardViewModeToggleBtn.setAttribute('aria-label', label);
-        cardViewModeToggleBtn.title = label;
-        cardViewModeToggleBtn.disabled = lockToCompact;
-    }
-}
-
-function setCardViewMode(nextMode) {
-    if (isCardsSelectModeOn) {
-        return;
-    }
-    const mode = String(nextMode || '').trim().toLowerCase();
-    const resolved = isType4Behavior()
-        ? 'long'
-        : (mode === 'short' ? 'short' : 'long');
-    const hadExpanded = expandedCompactCardIds.size > 0;
-    if (resolved === currentCardViewMode && !(resolved === 'short' && hadExpanded)) {
-        return;
-    }
-    currentCardViewMode = resolved;
-    if (resolved !== 'long') {
-        expandedCompactCardIds.clear();
-    }
-    renderCardViewModeButtons();
-    resetAndDisplayCards(currentCards);
 }
 
 // =====================================================================

@@ -70,7 +70,14 @@ async function loadCardReport() {
     try {
         showError('');
         await loadReportTimezone();
-        const response = await fetch(`${API_BASE}/kids/${kidId}/report/cards/${cardId}`);
+        const reportParams = new URLSearchParams();
+        if (categoryKey) {
+            reportParams.set('categoryKey', categoryKey);
+        }
+        const reportQuery = reportParams.toString();
+        const response = await fetch(
+            `${API_BASE}/kids/${kidId}/report/cards/${cardId}${reportQuery ? `?${reportQuery}` : ''}`
+        );
         if (!response.ok) {
             throw new Error(`HTTP ${response.status}`);
         }
@@ -93,7 +100,7 @@ async function loadCardReport() {
         });
         document.title = `${kidName || 'Kid'} - Card History - The Mommy App`;
 
-        renderHero(card, attempts);
+        renderHero(card, attempts, data.queue_preview);
         renderTrend(attempts);
         renderHistory(attempts);
         scrollToTargetAttempt();
@@ -122,7 +129,7 @@ async function loadReportTimezone() {
 // === 3. Hero block (card header + stats card)
 // =====================================================================
 
-function renderHero(card, attempts) {
+function renderHero(card, attempts, queuePreview) {
     if (!cardReportHero) return;
 
     const cardLabel = getCardDisplayLabel(card?.front, card?.back)
@@ -160,17 +167,38 @@ function renderHero(card, attempts) {
         const pageIcon = window.icon ? window.icon('file-text', { size: 12, strokeWidth: 2.4 }) : '';
         metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${pageIcon}</span><span class="report-hero-meta-value">${escapeHtml(currentCardBack)}</span></span>`);
     }
+    const addedDate = formatHeroDate(card?.created_at);
+    if (addedDate) {
+        const calendarIcon = window.icon ? window.icon('calendar', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${calendarIcon}</span><span class="report-hero-meta-value">Added ${escapeHtml(addedDate)}</span></span>`);
+    }
+    const lastPracticeAgo = formatDaysAgo(attempts.at(-1)?.timestamp);
+    if (lastPracticeAgo) {
+        const historyIcon = window.icon ? window.icon('history', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${historyIcon}</span><span class="report-hero-meta-value">${escapeHtml(lastPracticeAgo)}</span></span>`);
+    }
+    const speedPercentile = Number(queuePreview?.speed_percentile);
+    if (Number.isFinite(speedPercentile)) {
+        const speedIcon = window.icon ? window.icon('clock', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${speedIcon}</span><span class="report-hero-meta-value">p${escapeHtml(String(speedPercentile))}</span></span>`);
+    }
+    const queueRank = Number(queuePreview?.queue_rank);
+    const queueTotal = Number(queuePreview?.queue_total);
+    if (Number.isInteger(queueRank) && queueRank > 0 && Number.isInteger(queueTotal) && queueTotal > 0) {
+        const queueIcon = window.icon ? window.icon('list-ordered', { size: 12, strokeWidth: 2.4 }) : '';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${queueIcon}</span><span class="report-hero-meta-value">${escapeHtml(`${queueRank} / ${queueTotal}`)}</span></span>`);
+    }
+    if (typeof queuePreview?.in_next_session === 'boolean') {
+        const statusIcon = window.icon
+            ? window.icon(queuePreview.in_next_session ? 'circle-check' : 'circle-x', { size: 12, strokeWidth: 2.4 })
+            : '';
+        const statusText = queuePreview.in_next_session ? 'In next session' : 'Not in next session';
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${statusIcon}</span><span class="report-hero-meta-value">${statusText}</span></span>`);
+    }
     metaBits.push(...buildCardReportStatMetaItems(counts));
     const metaHtml = metaBits.length
         ? `<div class="report-hero-meta">${metaBits.join('')}</div>`
         : '';
-
-    const manageBtnHtml = window.ReportHeroAction.renderActionLinkHtml({
-        id: 'cardStatsBtn',
-        href: buildCardStatsHref(card),
-        label: 'stats',
-        leadingIcon: 'bar-chart-3',
-    });
 
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
@@ -180,9 +208,6 @@ function renderHero(card, attempts) {
             <div class="card-report-hero-content">
                 <div class="report-hero-meta-row">
                     ${metaHtml}
-                </div>
-                <div class="card-report-hero-action-row">
-                    ${manageBtnHtml}
                 </div>
             </div>
         </div>
@@ -217,19 +242,6 @@ function buildCardReportStatMetaItem({ tone, iconName, value, label }) {
             <span class="report-hero-meta-value"><span class="card-report-meta-number">${count}</span></span>
         </span>
     `;
-}
-
-function buildCardStatsHref(card) {
-    const qs = new URLSearchParams();
-    qs.set('id', String(kidId || ''));
-    if (categoryKey) {
-        qs.set('categoryKey', categoryKey);
-    }
-    const focusId = String(card?.id || cardId || '').trim();
-    if (focusId) {
-        qs.set('cardId', focusId);
-    }
-    return `/kid-card-manage.html?${qs.toString()}`;
 }
 
 function resolveSubjectDisplayName(attempts) {
@@ -880,6 +892,17 @@ function formatDateTime(iso) {
         minute: '2-digit',
         second: '2-digit',
         hour12: false,
+    });
+}
+
+function formatHeroDate(iso) {
+    const dt = parseUtcTimestamp(iso);
+    if (Number.isNaN(dt.getTime())) return '';
+    return dt.toLocaleDateString(undefined, {
+        timeZone: reportTimezone,
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
     });
 }
 
