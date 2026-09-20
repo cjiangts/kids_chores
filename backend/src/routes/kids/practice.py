@@ -78,7 +78,6 @@ from src.services.practice_session import (
 from src.services.session_grading import (
     append_type1_result_submitted_answer,
     insert_type1_result_item,
-    update_card_correct_time_ema,
 )
 from src.services.type4_session import (
     build_type_iv_continue_count_by_source_key,
@@ -1591,7 +1590,6 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                     [continue_source_session_id, card_id, correct_value, response_time_ms, completed_at_utc]
                 ).fetchone()
                 result_id = int(result_row[0])
-                update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)
                 if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
                     insert_type1_result_item(conn, result_id, answer, correct_value)
 
@@ -1707,7 +1705,6 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                 [session_id, card_id, correct_value, response_time_ms, completed_at_utc]
             ).fetchone()
             result_id = int(result_row[0])
-            update_card_correct_time_ema(conn, card_id, correct_value, response_time_ms)
             if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_I:
                 insert_type1_result_item(conn, result_id, answer, correct_value)
 

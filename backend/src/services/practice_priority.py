@@ -15,16 +15,15 @@ Inputs:
 
 The single SQL statement is one 6-stage CTE — read top-to-bottom:
 
-  1. subject_cards   — non-skipped cards in the selected decks, with Adam
-                       bias-corrected `correct_time_ema` (raw / (1-(1-α)^n))
+  1. subject_cards   — non-skipped cards in the selected decks
   2. card_records    — session_results joined for `session_type`
   3. per_card        — aggregate attempt/correct/wrong/avg/last per card
   4. speed_baseline  — subject-wide p50/p95 of per-card avg_correct_response_time
                        (per-card averages, not per-attempt — avoids single-attempt
                        outliers blowing out the band).
   5. score_terms     — derive missed/slow/learning/due NEED values.
-                       slow_need = clamp((ema − p50) / (p95 − p50), 0, 1)
-                       compares the card's smoothed EMA against the subject's
+                       slow_need = clamp((avg − p50) / (p95 − p50), 0, 1)
+                       compares the card's average correct time against the subject's
                        per-card avg p50/p95 band.
   6. scored          — combine NEEDs × weights into priority_score
   Final SELECT       — emit ordered rows + primary_reason label
@@ -34,7 +33,6 @@ The weights live in `kids_constants`:
   - PRACTICE_PRIORITY_LAST_FAILED_BOOST — pumps "missed" if last attempt failed
   - PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS — learning need = 1 - attempts/target
   - PRACTICE_PRIORITY_VERY_DUE_DAYS — due_need saturates at this many days
-  - PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA — EMA α (half-life ≈ 10 attempts)
   - PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE — min number
     of cards with a non-null avg_correct_response_time required before the
     per-card avg p50/p95 band is considered trustworthy; below that
@@ -47,7 +45,6 @@ order by card_id + per-card detail dict) plus the subject baseline.
 from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
-    PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA,
     PRACTICE_PRIORITY_DUE_WEIGHT,
     PRACTICE_PRIORITY_LAST_FAILED_BOOST,
     PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS,
@@ -109,15 +106,7 @@ def build_practice_priority_preview_for_decks(
         f"""
         WITH subject_cards AS (
             SELECT
-                c.id AS card_id,
-                CASE
-                    WHEN c.correct_time_ema IS NULL
-                      OR COALESCE(c.correct_time_ema_count, 0) <= 0
-                    THEN NULL
-                    ELSE c.correct_time_ema
-                        / (1.0 - power(1.0 - {PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA:.6f},
-                                       COALESCE(c.correct_time_ema_count, 0)))
-                END AS correct_time_ema
+                c.id AS card_id
             FROM cards c
             WHERE c.deck_id IN ({deck_placeholders})
               AND COALESCE(c.skip_practice, FALSE) = FALSE
@@ -173,14 +162,14 @@ def build_practice_priority_preview_for_decks(
                 END AS last_wrong,
                 CASE
                     WHEN b.correct_sample_count < {PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE}
-                      OR c.correct_time_ema IS NULL
+                      OR p.avg_correct_response_time IS NULL
                       OR b.p50_correct_time IS NULL
                       OR b.p95_correct_time IS NULL
                       OR b.p95_correct_time <= b.p50_correct_time
                     THEN 0.0
                     ELSE LEAST(
                         GREATEST(
-                            (c.correct_time_ema - b.p50_correct_time)
+                            (p.avg_correct_response_time - b.p50_correct_time)
                             / (b.p95_correct_time - b.p50_correct_time),
                             0.0
                         ),
@@ -217,7 +206,6 @@ def build_practice_priority_preview_for_decks(
                 COALESCE(p.wrong_count, 0) AS wrong_count,
                 COALESCE(p.attempt_count, 0) AS attempt_count,
                 p.avg_correct_response_time,
-                c.correct_time_ema,
                 b.p50_correct_time,
                 b.p95_correct_time,
                 COALESCE(b.correct_sample_count, 0) AS correct_sample_count,
@@ -248,7 +236,6 @@ def build_practice_priority_preview_for_decks(
                 wrong_count,
                 attempt_count,
                 avg_correct_response_time,
-                correct_time_ema,
                 p50_correct_time,
                 p95_correct_time,
                 correct_sample_count,
@@ -273,7 +260,6 @@ def build_practice_priority_preview_for_decks(
             correct_sample_count,
             days_since_last_seen,
             last_practiced_at,
-            correct_time_ema,
             CASE
                 WHEN missed_points >= slow_points
                   AND missed_points >= learning_points
@@ -327,8 +313,7 @@ def build_practice_priority_preview_for_decks(
             'avg_correct_response_time': float(row[10]) if row[10] is not None else None,
             'days_since_last_seen': int(row[14]) if row[14] is not None else None,
             'last_practiced_at': row[15].isoformat() if row[15] else None,
-            'correct_time_ema': float(row[16]) if row[16] is not None else None,
-            'primary_reason': str(row[17] or PRACTICE_PRIORITY_REASON_LEARNING),
+            'primary_reason': str(row[16] or PRACTICE_PRIORITY_REASON_LEARNING),
         }
         if index == 1:
             subject_baseline = {

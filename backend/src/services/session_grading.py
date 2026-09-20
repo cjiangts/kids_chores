@@ -10,41 +10,12 @@ Layout:
   3. Submitted-answer appenders (append to existing result row)
 """
 from src.routes.kids_constants import (
-    PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA,
     SESSION_RESULT_CORRECT,
     SESSION_RESULT_PARTIAL,
     SESSION_RESULT_WRONG_UNRESOLVED,
     TYPE_I_RESULT_GRADE_IDK,
     TYPE_I_RESULT_GRADE_IDK_AUDIO,
 )
-
-
-def update_card_correct_time_ema(conn, card_id, correct, response_time_ms):
-    """Incrementally update one card's correct-response-time EMA after an attempt.
-
-    Stores the **raw Adam-style accumulator** (seeded at 0, no first-value anchor).
-    Bias correction is applied at read time as `raw / (1 - (1-α)^count)`.
-    Skips updates for wrong attempts or non-positive response times.
-    """
-    try:
-        card_id_int = int(card_id)
-        correct_int = int(correct or 0)
-        rt_ms = int(response_time_ms or 0)
-    except (TypeError, ValueError):
-        return
-    if card_id_int <= 0 or correct_int <= 0 or rt_ms <= 0:
-        return
-    alpha = float(PRACTICE_PRIORITY_CORRECT_TIME_EMA_ALPHA)
-    conn.execute(
-        """
-        UPDATE cards
-        SET
-            correct_time_ema = ? * ? + (1.0 - ?) * COALESCE(correct_time_ema, 0),
-            correct_time_ema_count = COALESCE(correct_time_ema_count, 0) + 1
-        WHERE id = ?
-        """,
-        [alpha, float(rt_ms), alpha, card_id_int],
-    )
 
 
 # =====================================================================

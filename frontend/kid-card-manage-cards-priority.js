@@ -221,10 +221,10 @@ function getCardIncorrectRateSortValue(card) {
     return Number.isFinite(value) ? value : null;
 }
 
-function getCardEmaResponseTimeSortValue(card) {
-    const ema = Number(card && card.practice_priority_correct_time_ema);
-    if (Number.isFinite(ema) && ema > 0) {
-        return ema;
+function getCardAvgResponseTimeSortValue(card) {
+    const avg = Number(card && card.practice_priority_avg_correct_response_time);
+    if (Number.isFinite(avg) && avg > 0) {
+        return avg;
     }
     const fallback = getCardLastResponseTimeValue(card);
     return Number.isFinite(fallback) && fallback > 0 ? fallback : null;
@@ -285,10 +285,10 @@ function compareMetricCards(a, b, mode, direction) {
             direction,
             'last'
         );
-    } else if (mode === CARD_SORT_MODE_EMA_RESPONSE_TIME) {
+    } else if (mode === CARD_SORT_MODE_AVG_RESPONSE_TIME) {
         comparison = compareNullableSortValues(
-            getCardEmaResponseTimeSortValue(a),
-            getCardEmaResponseTimeSortValue(b),
+            getCardAvgResponseTimeSortValue(a),
+            getCardAvgResponseTimeSortValue(b),
             direction,
             'last'
         );
@@ -574,14 +574,14 @@ function getPracticePriorityLegendDetail(card, segment) {
         return `${formatMetricPercent(wrongRate)} wrong${lastWrong ? ' · last wrong' : ''}`;
     }
     if (key === PRACTICE_PRIORITY_REASON_SLOW) {
-        const ema = Number(card && card.practice_priority_correct_time_ema);
+        const avg = Number(card && card.practice_priority_avg_correct_response_time);
         const baseline = currentPracticePrioritySubjectBaseline || {};
         const p50 = Number(baseline.p50_correct_time);
         const p95 = Number(baseline.p95_correct_time);
-        if (!Number.isFinite(ema) || ema <= 0 || !Number.isFinite(p50) || !Number.isFinite(p95) || p95 <= p50) {
+        if (!Number.isFinite(avg) || avg <= 0 || !Number.isFinite(p50) || !Number.isFinite(p95) || p95 <= p50) {
             return 'p-';
         }
-        const percentile = Math.round(Math.max(1, Math.min(99, 50 + ((ema - p50) / (p95 - p50)) * 45)));
+        const percentile = Math.round(Math.max(1, Math.min(99, 50 + ((avg - p50) / (p95 - p50)) * 45)));
         return `p${percentile}`;
     }
     if (key === PRACTICE_PRIORITY_REASON_LEARNING) {

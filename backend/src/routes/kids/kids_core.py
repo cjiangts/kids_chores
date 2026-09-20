@@ -1012,12 +1012,10 @@ def get_kid_report_session_detail(kid_id, session_id):
 
 @kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>', methods=['DELETE'])
 def delete_kid_report_session(kid_id, session_id):
-    """Delete one session + its result rows and recompute affected card EMA.
+    """Delete one session + its result rows.
 
     Critical-password-gated. Used by parents to remove an unwanted session
-    (e.g. one the kid abandoned or that the parent considers invalid). EMA is
-    rebuilt from a chronological replay of the remaining correct attempts so
-    the per-card priority signal stays consistent.
+    (e.g. one the kid abandoned or that the parent considers invalid).
     """
     try:
         auth_err = require_critical_password()
@@ -1201,18 +1199,18 @@ def get_kid_report_card_detail(kid_id, card_id):
                 details = priority_preview['details_by_card_id'].get(card_id_int) or {}
                 queue_rank = details.get('order')
                 queue_total = len(priority_preview['order_by_card_id'])
-                ema = details.get('correct_time_ema')
+                avg_correct_time = details.get('avg_correct_response_time')
                 baseline = priority_preview.get('subject_baseline') or {}
                 p50 = baseline.get('p50_correct_time')
                 p95 = baseline.get('p95_correct_time')
                 speed_percentile = None
                 if (
-                    isinstance(ema, (int, float)) and ema > 0
+                    isinstance(avg_correct_time, (int, float)) and avg_correct_time > 0
                     and isinstance(p50, (int, float))
                     and isinstance(p95, (int, float))
                     and p95 > p50
                 ):
-                    speed_percentile = round(max(1, min(99, 50 + ((ema - p50) / (p95 - p50)) * 45)))
+                    speed_percentile = round(max(1, min(99, 50 + ((avg_correct_time - p50) / (p95 - p50)) * 45)))
                 session_card_count = min(
                     get_category_session_card_count_for_kid(kid, category_key),
                     queue_total,

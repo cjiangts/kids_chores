@@ -43,8 +43,6 @@ const trendLegend = document.getElementById('trendLegend');
 const trendPeriodBtns = document.getElementById('trendPeriodBtns');
 const trendFootnote = document.getElementById('trendFootnote');
 const historyList = document.getElementById('historyList');
-const TREND_EMA_ALPHA = 0.067;
-const TREND_EMA_HALF_LIFE_ATTEMPTS = Math.round(Math.log(0.5) / Math.log(1 - TREND_EMA_ALPHA));
 let currentTrendAttempts = [];
 let currentTrendPeriodDays = 0;
 let reportTimezone = '';
@@ -363,34 +361,6 @@ function renderTrend(attempts) {
     const finalAvgMs = avgCount ? avgSum / avgCount : 0;
     const finalAvgLabel = avgCount ? formatTrendResponseTime(finalAvgMs, useMinutesUnit) : '';
 
-    let emaRaw = 0;
-    let emaCount = 0;
-    let emaCorrected = null;
-    const emaPoints = chronoItems.map((it) => {
-        const isCorrect = it.correctness === 'right';
-        if (isCorrect && it.ms > 0) {
-            emaRaw = TREND_EMA_ALPHA * it.ms + (1 - TREND_EMA_ALPHA) * emaRaw;
-            emaCount += 1;
-            emaCorrected = emaRaw / (1 - Math.pow(1 - TREND_EMA_ALPHA, emaCount));
-        }
-        if (emaCorrected === null) return null;
-        const x = it.xPct;
-        const y = stageHeight - (emaCorrected / yMax) * MAX_OFFSET_PX;
-        return { x, y };
-    }).filter((p) => p !== null);
-    if (emaPoints.length && emaPoints[emaPoints.length - 1].x < 100) {
-        const last = emaPoints[emaPoints.length - 1];
-        emaPoints.push({ x: 100, y: last.y });
-    }
-    const emaPathPoints = emaPoints.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(1)}`).join(' ');
-    const showEmaLine = emaPoints.length >= 2;
-    const emaLineHtml = showEmaLine
-        ? `<svg preserveAspectRatio="none" viewBox="0 0 100 ${stageHeight}" style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-            <polyline points="${emaPathPoints}" fill="none" stroke="#e07a3d" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" opacity="0.9" />
-           </svg>`
-        : '';
-    const finalEmaLabel = emaCorrected !== null ? formatTrendResponseTime(emaCorrected, useMinutesUnit) : '';
-
     const tickSegments = 6;
     const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
         const pct = (i / tickSegments) * 100;
@@ -432,14 +402,11 @@ function renderTrend(attempts) {
     if (showAvgLine) {
         legendParts.push(`<span><span class="trend-legend-line"></span>Avg <span style="color: #5b6acf;">${escapeHtml(finalAvgLabel)}</span></span>`);
     }
-    if (showEmaLine) {
-        legendParts.push(`<span><span class="trend-legend-line ema"></span>EMA <span style="color: #e07a3d;">${escapeHtml(finalEmaLabel)}</span></span>`);
-    }
     if (trendLegend) {
         trendLegend.innerHTML = legendParts.join('');
     }
     if (trendFootnote) {
-        trendFootnote.textContent = `Avg and EMA include only fully-correct (green) attempts. EMA half-life ≈ ${TREND_EMA_HALF_LIFE_ATTEMPTS} attempts.`;
+        trendFootnote.textContent = 'Avg includes only fully-correct (green) attempts.';
     }
 
     trendChart.innerHTML = `
@@ -452,7 +419,6 @@ function renderTrend(attempts) {
                     <div class="trend-numberline-arrows" style="height:${stageHeight}px;">
                         <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
                         ${avgLineHtml}
-                        ${emaLineHtml}
                         ${markerHtml}
                     </div>
                     <div class="trend-numberline-axis"></div>
@@ -554,10 +520,6 @@ function renderHistory(attempts) {
             const lessonReadingAudioAttrs = from === 'lesson-reading'
                 ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
                 : '';
-            const goToSessionIcon = window.icon ? window.icon('arrow-right', { size: 14, strokeWidth: 2.4 }) : '';
-            const goToSessionButtonHtml = sessionUrl
-                ? `<a class="go-to-session-btn paradigm-btn" href="${escapeHtml(sessionUrl)}">${goToSessionIcon}<span>Session</span></a>`
-                : '';
             const audioBlockHtml = window.AudioHistoryCommon.renderRow({
                 item,
                 audioExtraAttrs: lessonReadingAudioAttrs,
@@ -568,9 +530,6 @@ function renderHistory(attempts) {
                         <div class="history-status-side">
                             <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
                             ${daysAgoBadge}
-                        </div>
-                        <div class="answer-head-actions">
-                            ${goToSessionButtonHtml}
                         </div>
                     </div>
                     ${audioBlockHtml}

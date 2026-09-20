@@ -296,12 +296,6 @@ function formatSessionCount(value) {
     return `${count.toLocaleString()} ${count === 1 ? 'session' : 'sessions'}`;
 }
 
-function formatSessionCardMeta(sessionCount, cardCount) {
-    const sessionsText = formatSessionCount(sessionCount);
-    const cards = Number.parseInt(cardCount, 10) || 0;
-    return `${sessionsText}  ${cards.toLocaleString()} ${cards === 1 ? 'card' : 'cards'}`;
-}
-
 function sessionCardCount(session) {
     const answerCount = Number.parseInt(session?.answer_count, 10);
     if (Number.isFinite(answerCount) && answerCount > 0) return answerCount;
@@ -556,7 +550,9 @@ function renderHero() {
                                 <span>
                                     <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
                                     <span class="point-activity-kid-points">${escapeHtml(isSessionsMetricView() ? formatActiveMinutes(sessionTotals.activeMinutes) : formatPoints(pointTotal(kidEvents)))}</span>
-                                    <span class="point-activity-kid-count">${escapeHtml(isSessionsMetricView() ? formatSessionCardMeta(sessionTotals.count, sessionCardTotal) : `${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>
+                                    ${isSessionsMetricView()
+                                        ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
+                                        : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
                                 </span>
                                 ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
                             </button>
@@ -623,6 +619,7 @@ function calendarLevel(total, maxTotal) {
 
 function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const key = `${displayedMonthKey}-${String(dayNumber).padStart(2, '0')}`;
+    const isToday = key === getTodayDateKeyInTimezone(familyTimezone());
     const hasTotal = totals.has(key);
     const hasNote = noteDays.has(key);
     const isSessionCalendar = isInAppChore();
@@ -646,7 +643,7 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
         ? `type="button" data-calendar-day="${escapeHtml(key)}" aria-label="${escapeHtml(`${shortDateLabel(key)} ${ariaMetric}`)}"`
         : '';
     return `
-        <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
+        <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${isToday ? ' is-today' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
             <span class="point-activity-day-number">${dayNumber}</span>
             <span class="point-activity-day-metrics${isSessionCalendar ? ' point-activity-day-metrics--session' : ''}">
                 <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : Math.abs(pointTotalValue).toLocaleString()) : '0'}</span>
@@ -673,6 +670,18 @@ function sessionsForSelectedDay() {
         .sort((a, b) => parseDate(a?.started_at || a?.completed_at).getTime() - parseDate(b?.started_at || b?.completed_at).getTime());
 }
 
+function selectTodayWhenItHasActivity() {
+    const todayKey = getTodayDateKeyInTimezone(familyTimezone());
+    if (!todayKey) return false;
+    const hasActivity = isInAppChore()
+        ? visibleSessions().some((session) => dayKey(parseDate(session?.started_at || session?.completed_at), familyTimezone()) === todayKey)
+        : visibleEvents().some((event) => dayKey(parseDate(event?.createdAt), familyTimezone()) === todayKey);
+    if (!hasActivity) return false;
+    selectedCalendarDayKey = todayKey;
+    displayedMonthKey = todayKey.slice(0, 7);
+    return true;
+}
+
 function sessionDetailKey(session) {
     const kidId = String(session?.kidId || session?.kid?.id || '').trim();
     const sessionId = String(session?.id || '').trim();
@@ -689,7 +698,6 @@ function nonGreenSessionCards(session) {
 }
 
 function sessionSubjectIconHtml(session) {
-    if (!isAllInAppMode()) return '';
     const categoryKey = normalizeCategoryKey(session?.type);
     if (!categoryKey || typeof window.subjectIcon !== 'function') return '';
     return `<span class="point-activity-event-subject-icon" aria-hidden="true">${window.subjectIcon(categoryKey, { size: 18 })}</span>`;
@@ -749,10 +757,12 @@ function renderSessionDayDetails() {
                     const kid = session?.kid || {};
                     const nonGreenCards = nonGreenSessionCards(session);
                     return `
-                        <a class="point-activity-event-row point-activity-event-row--session point-activity-event-row-link" href="${escapeHtml(sessionReportHref(session))}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        <a class="point-activity-event-row point-activity-event-row--session point-activity-event-row--has-subject point-activity-event-row-link" href="${escapeHtml(sessionReportHref(session))}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                             <span class="point-activity-event-time">${escapeHtml(timeLabel(session?.started_at || session?.completed_at))}</span>
                             ${avatarHtml(kid)}
-                            <span class="point-activity-event-name"><span>${escapeHtml(kid?.name || 'Kid')}</span>${sessionSubjectIconHtml(session)}</span>
+                            <span class="point-activity-event-subject-column">${sessionSubjectIconHtml(session)}</span>
+                            <span class="point-activity-event-card-count" aria-label="${escapeHtml(`${sessionCardCount(session)} cards`)}"><span class="icon" data-icon="layers" data-icon-size="12" data-icon-stroke="2.3" aria-hidden="true"></span><span>${escapeHtml(sessionCardCount(session).toLocaleString())}</span></span>
+                            <span class="point-activity-event-card-count" aria-label="${escapeHtml(`${formatCalendarMinutes(sessionActiveMinutes(session))} minutes`)}"><span class="icon" data-icon="clock" data-icon-size="12" data-icon-stroke="2.3" aria-hidden="true"></span><span>${escapeHtml(`${formatCalendarMinutes(sessionActiveMinutes(session))}m`)}</span></span>
                             <span class="point-activity-event-wrong-pills"${nonGreenCards.length ? '' : ' aria-hidden="true"'}>${nonGreenCards.map((label) => `<span class="point-rule-delta paradigm-pill negative point-activity-event-wrong-pill">${escapeHtml(label)}</span>`).join('')}</span>
                             <span class="icon point-activity-event-chevron" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.7" aria-hidden="true"></span>
                         </a>
@@ -1239,6 +1249,8 @@ async function loadInitialData() {
         reportDataByKid = new Map(reportEntries);
         if (!isAllInAppMode()) await loadProgressData();
     }
+    const selectedToday = selectTodayWhenItHasActivity();
+    if (selectedToday && isInAppChore()) await loadSelectedSessionDetails();
     render();
 }
 

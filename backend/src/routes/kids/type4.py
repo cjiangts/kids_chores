@@ -57,7 +57,6 @@ from src.services.session_grading import (
     grade_type_iv_answer,
     insert_type4_result_item,
     normalize_type_iv_submitted_answer,
-    update_card_correct_time_ema,
 )
 from src.type4_generator_preview import run_type4_generator
 
@@ -1001,12 +1000,6 @@ def complete_type_iv_session_internal(
                         completed_at_utc,
                     ],
                 ).fetchone()
-                update_card_correct_time_ema(
-                    conn,
-                    representative_card_id,
-                    correct_value,
-                    int(answer['response_time_ms'] or 0),
-                )
                 insert_type4_result_item(
                     conn,
                     int(result_row[0]),
@@ -1120,12 +1113,6 @@ def complete_type_iv_session_internal(
                     completed_at_utc,
                 ],
             ).fetchone()
-            update_card_correct_time_ema(
-                conn,
-                representative_card_id,
-                correct_value,
-                int(answer['response_time_ms'] or 0),
-            )
             insert_type4_result_item(
                 conn,
                 int(result_row[0]),

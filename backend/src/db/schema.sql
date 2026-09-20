@@ -23,11 +23,13 @@ CREATE TABLE IF NOT EXISTS cards (
   front VARCHAR NOT NULL,
   back VARCHAR NOT NULL,
   skip_practice BOOLEAN NOT NULL DEFAULT FALSE,
-  correct_time_ema DOUBLE,
-  correct_time_ema_count INTEGER DEFAULT 0,
   thumb_down_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Legacy EMA fields are no longer used; speed is calculated from average correct time.
+ALTER TABLE cards DROP COLUMN IF EXISTS correct_time_ema;
+ALTER TABLE cards DROP COLUMN IF EXISTS correct_time_ema_count;
 
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
