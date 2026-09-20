@@ -486,6 +486,27 @@ function formatTrendResponseTime(ms, useMinutesUnit) {
 // === 5. History list rendering
 // =====================================================================
 
+function formatHistoryElapsedSeconds(ms) {
+    const seconds = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
+    return `${seconds}s`;
+}
+
+function renderCompactHistoryAttempt({ itemOpen, itemClose, correctness, daysAgoLabel, rawMs, pillsHtml, isLink }) {
+    const historyIcon = window.icon ? window.icon('history', { size: 13, strokeWidth: 2.4 }) : '';
+    const clockIcon = window.icon ? window.icon('clock', { size: 13, strokeWidth: 2.4 }) : '';
+    return `
+        ${itemOpen}
+            <div class="history-attempt-row">
+                <span class="history-result-dot tone-${escapeHtml(correctness || 'pending')}" aria-label="${escapeHtml(correctness || 'pending')}"></span>
+                <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${historyIcon}</span><span>${escapeHtml(daysAgoLabel || '-')}</span></span>
+                <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${clockIcon}</span><span>${escapeHtml(formatHistoryElapsedSeconds(rawMs))}</span></span>
+                <span class="history-detail-group submitted-group">${pillsHtml}</span>
+                ${isLink ? '<span class="history-attempt-chevron" aria-hidden="true">›</span>' : ''}
+            </div>
+        ${itemClose}
+    `;
+}
+
 function renderHistory(attempts) {
     if (!attempts.length) {
         historyList.innerHTML = `<div class="chart-empty">No practice history yet.</div>`;
@@ -507,9 +528,10 @@ function renderHistory(attempts) {
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
         const isToday = daysAgoLabel === 'today';
-        const daysAgoBadge = daysAgoLabel ? `<span class="history-days-badge paradigm-pill${isToday ? ' is-today' : ''}">${escapeHtml(daysAgoLabel)}</span>` : '';
+        const daysAgoBadge = daysAgoLabel
+            ? `<span class="history-days-badge paradigm-pill${isToday ? ' is-today' : ''}">${escapeHtml(daysAgoLabel)}</span>`
+            : '';
         const sessionUrl = buildSessionReportUrl(item);
-        const chevronHtml = sessionUrl ? '<span class="history-chevron" aria-hidden="true">›</span>' : '';
         const isCurrentSession = currentSessionId !== null
             && Number.isFinite(currentSessionId)
             && Number(item?.session_id) === currentSessionId;
@@ -544,22 +566,15 @@ function renderHistory(attempts) {
                 ? `<a class="history-item history-item-link${currentSessionClass}${toneClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
                 : `<div class="history-item${currentSessionClass}${toneClass}"${idAttrPart}>`;
             const itemClose = sessionUrl ? '</a>' : '</div>';
-            return `
-                ${itemOpen}
-                    <div class="history-type4-details">
-                        <span class="history-details-main">
-                            <span class="history-detail-group submitted-group">
-                                ${submittedPills}
-                            </span>
-                        </span>
-                        <span class="history-detail-group history-time-group">
-                            <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
-                            ${daysAgoBadge}
-                        </span>
-                    </div>
-                    ${chevronHtml}
-                ${itemClose}
-            `;
+            return renderCompactHistoryAttempt({
+                itemOpen,
+                itemClose,
+                correctness,
+                daysAgoLabel,
+                rawMs,
+                pillsHtml: submittedPills,
+                isLink: Boolean(sessionUrl),
+            });
         }
         const answer = getType1AttemptAnswer(item) || 'n/a';
         const isType2 = String(item?.session_behavior_type || '').trim().toLowerCase() === BEHAVIOR_TYPE_II;
@@ -572,22 +587,15 @@ function renderHistory(attempts) {
             ? `<a class="history-item history-item-link${currentSessionClass}${toneClass}"${idAttrPart} href="${escapeHtml(sessionUrl)}">`
             : `<div class="history-item${currentSessionClass}${toneClass}"${idAttrPart}>`;
         const itemClose = sessionUrl ? '</a>' : '</div>';
-        return `
-            ${itemOpen}
-                <div class="history-type4-details">
-                    <span class="history-details-main">
-                        <span class="history-detail-group submitted-group">
-                            ${mainPillsHtml}
-                        </span>
-                    </span>
-                    <span class="history-detail-group history-time-group">
-                        <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
-                        ${daysAgoBadge}
-                    </span>
-                </div>
-                ${chevronHtml}
-            ${itemClose}
-        `;
+        return renderCompactHistoryAttempt({
+            itemOpen,
+            itemClose,
+            correctness,
+            daysAgoLabel,
+            rawMs,
+            pillsHtml: mainPillsHtml,
+            isLink: Boolean(sessionUrl),
+        });
     }).join('');
 
     if (from === 'lesson-reading' && window.LessonReadingDurationBackfill) {
