@@ -278,15 +278,16 @@
     justify-content: center;
     gap: 0.35rem;
     width: 100%;
-    min-height: 36px;
+    height: var(--paradigm-input-height);
+    min-height: var(--paradigm-input-height);
     padding: 0.2rem 0.5rem 0.2rem 0.6rem;
     border: 1px solid #d8dff1;
     border-radius: 999px;
     background: #fff;
     color: #445279;
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 700;
+    font-size: var(--paradigm-input-font-size);
+    font-weight: var(--paradigm-input-font-weight);
     cursor: pointer;
 }
 
@@ -324,22 +325,23 @@
     justify-content: center;
     gap: 0.45rem;
     width: 100%;
-    min-height: 36px;
-    padding: 0.35rem 0.72rem;
-    border: 1px solid #6255df;
-    border-radius: 9px;
-    background: #655df0;
+    height: var(--paradigm-input-height);
+    min-height: var(--paradigm-input-height);
+    padding: 0 var(--paradigm-input-padding, 0.72rem);
+    border: 1px solid #198253;
+    border-radius: 999px;
+    background: #1f8f5f;
     box-shadow: 0 3px 7px rgba(69, 57, 182, 0.2);
     color: #fff;
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 700;
-    line-height: 1.15;
+    font-size: var(--paradigm-input-font-size);
+    font-weight: var(--paradigm-input-font-weight);
+    line-height: 1;
     cursor: pointer;
 }
 
 .point-log-submit-btn:hover:not(:disabled) {
-    background: #584ee1;
+    background: #187a50;
 }
 
 .point-log-submit-btn:disabled {
