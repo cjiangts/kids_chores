@@ -3,13 +3,14 @@ const POINT_HISTORY_LIMIT = 500;
 
 const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
 const logError = document.getElementById('logError');
+const pointLogSuccess = document.getElementById('pointLogSuccess');
 const pointLogForm = document.getElementById('pointLogForm');
 const pointEmoji = document.getElementById('pointEmoji');
 const pointRuleName = document.getElementById('pointRuleName');
 const pointPoints = document.getElementById('pointPoints');
 const pointNote = document.getElementById('pointNote');
 const submitPointLogBtn = document.getElementById('submitPointLogBtn');
-const applyAllPointLogBtn = document.getElementById('applyAllPointLogBtn');
+const pointLogKidPicker = document.getElementById('pointLogKidPicker');
 const templateList = document.getElementById('templateList');
 const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
@@ -36,13 +37,15 @@ const MODE_META = {
 let kids = [];
 let rules = [];
 let selectedKidId = '';
+let selectedLogKidIds = new Set();
 let activeMode = '';
 let selectedRuleId = 0;
 let activeRewardType = '';
 let inactiveRulesExpanded = false;
-let pointDraft = { emoji: '', name: '', points: '', note: '' };
+let pointDraft = { emoji: '', name: '', points: '0', note: '' };
 let pointData = { totalPoints: 0, events: [] };
 let selectedHistoryDayKey = '';
+let pointLogSuccessTimer = null;
 
 function escapeHtml(value) {
     return String(value || '')
@@ -61,6 +64,24 @@ function showMessage(node, text) {
 
 function showError(text) {
     showMessage(logError, text || '');
+}
+
+function showSuccess(text) {
+    if (!pointLogSuccess) return;
+    if (pointLogSuccessTimer) window.clearTimeout(pointLogSuccessTimer);
+    const message = String(text || '').trim();
+    if (!message) {
+        pointLogSuccess.innerHTML = '';
+        pointLogSuccess.classList.add('hidden');
+        return;
+    }
+    const checkIcon = typeof window.icon === 'function'
+        ? window.icon('check', { size: 18, strokeWidth: 3 })
+        : '<span class="icon" data-icon="check" data-icon-size="18"></span>';
+    pointLogSuccess.innerHTML = `<span aria-hidden="true">${checkIcon}</span><span>${escapeHtml(message)}</span>`;
+    pointLogSuccess.classList.remove('hidden');
+    window.hydrateIcons?.(pointLogSuccess);
+    pointLogSuccessTimer = window.setTimeout(() => showSuccess(''), 3600);
 }
 
 async function fetchJson(url, options = {}) {
@@ -204,19 +225,11 @@ function selectedRule() {
     return rules.find((rule) => Number(rule.ruleId) === Number(selectedRuleId)) || null;
 }
 
-function checkIconHtml(size = 17, strokeWidth = 2.7) {
-    if (typeof window.icon === 'function') {
-        return window.icon('check', { className: 'point-apply-icon icon', size, strokeWidth });
-    }
-    return '<span class="point-apply-icon icon" data-icon="check" data-icon-size="17" data-icon-stroke="2.7"></span>';
-}
-
 function setSubmitButtonLabel(label) {
     if (!submitPointLogBtn) return;
     submitPointLogBtn.setAttribute('aria-label', label);
     submitPointLogBtn.title = label;
-    submitPointLogBtn.innerHTML = checkIconHtml();
-    if (window.hydrateIcons) window.hydrateIcons(submitPointLogBtn);
+    submitPointLogBtn.textContent = label;
 }
 
 function hasActiveSelection() {
@@ -241,10 +254,10 @@ function clearSelection() {
 
 function clearDraft() {
     selectedRuleId = 0;
-    pointDraft = { emoji: '', name: '', points: '', note: '' };
+    pointDraft = { emoji: '', name: '', points: '0', note: '' };
     if (pointEmoji) pointEmoji.value = '';
     if (pointRuleName) pointRuleName.value = '';
-    if (pointPoints) pointPoints.value = '';
+    if (pointPoints) pointPoints.value = '0';
     if (pointNote) pointNote.value = '';
 }
 
@@ -274,8 +287,8 @@ function populateDraftFromRule(rule) {
 function stepPoints(delta) {
     if (!pointPoints) return;
     const current = Number.parseInt(pointPoints.value, 10);
-    const base = Number.isInteger(current) && current > 0 ? current : 1;
-    const next = Math.max(1, base + delta);
+    const base = Number.isInteger(current) && current >= 0 ? current : 0;
+    const next = Math.max(0, base + delta);
     pointPoints.value = String(next);
     syncDraftFromInputs();
     renderTemplates();
@@ -320,6 +333,35 @@ function renderKids() {
             }
         },
     });
+}
+
+function logKidAvatarHtml(kid) {
+    const avatarUrl = String(kid?.avatarUrl || '').trim();
+    if (avatarUrl) {
+        return `<span class="kid-initial-avatar kid-initial-avatar--photo" style="background-image:url('${avatarUrl.replace(/'/g, '%27')}')" aria-hidden="true"></span>`;
+    }
+    const name = kidName(kid);
+    const seed = String(kid?.id || name);
+    const tone = [...seed].reduce((total, char) => total + char.charCodeAt(0), 0) % 6;
+    return `<span class="kid-initial-avatar kid-initial-avatar--tone-${tone}" aria-hidden="true">${escapeHtml([...name][0] || '?')}</span>`;
+}
+
+function selectedLogKids() {
+    return kids.filter((kid) => selectedLogKidIds.has(String(kid?.id || '')));
+}
+
+function renderLogKidPicker() {
+    if (!pointLogKidPicker) return;
+    pointLogKidPicker.innerHTML = kids.map((kid) => {
+        const id = String(kid?.id || '').trim();
+        const isSelected = selectedLogKidIds.has(id);
+        return `
+            <button type="button" class="point-log-kid-option${isSelected ? ' selected' : ''}" data-log-kid-id="${escapeHtml(id)}" aria-pressed="${isSelected ? 'true' : 'false'}">
+                ${logKidAvatarHtml(kid)}
+                <span>${escapeHtml(kidName(kid))}</span>
+            </button>
+        `;
+    }).join('');
 }
 
 function renderModeTabs() {
@@ -455,21 +497,27 @@ function updateSubmitState() {
     const hasPositivePoints = Number.isInteger(points) && points > 0;
     const rule = draftRuleForSubmit();
     const canCreate = Boolean(name && emoji && hasPositivePoints);
-    const canSubmit = Boolean(selectedKidId && hasPositivePoints && (rule || canCreate));
+    const selectedKids = selectedLogKids();
+    const canSubmit = Boolean(selectedKids.length && hasPositivePoints && (rule || canCreate));
     const cannotAfford = cannotAffordSelectedReward();
     submitPointLogBtn.disabled = !canSubmit || cannotAfford;
-    if (applyAllPointLogBtn) {
-        applyAllPointLogBtn.classList.toggle('hidden', kids.length <= 1);
-        const canSubmitAll = Boolean(hasPositivePoints && (rule || canCreate));
-        applyAllPointLogBtn.disabled = !canSubmitAll;
-    }
-    if (!name) {
-        setSubmitButtonLabel('Confirm');
+    const missing = [];
+    if (!selectedKids.length) missing.push('Kids');
+    if (!rule && !name) missing.push('Activity');
+    if (!rule && name && !emoji) missing.push('Emoji');
+    if (!hasPositivePoints) missing.push('Points');
+    if (missing.length) {
+        setSubmitButtonLabel(`Select ${missing.join(' · ')}`);
         return;
     }
-    setSubmitButtonLabel(rule
-        ? `Confirm ${formatDelta(signedPointValueForRule(rule, hasPositivePoints ? points : 1))}`
-        : `Create ${activeMode === 'deduction' || activeMode === 'rewards' ? '-' : '+'}${hasPositivePoints ? points : 1}`);
+    const signedPoints = rule
+        ? signedPointValueForRule(rule, hasPositivePoints ? points : 1)
+        : (activeMode === 'deduction' || activeMode === 'rewards' ? -1 : 1) * (hasPositivePoints ? points : 1);
+    const verb = signedPoints < 0 ? (activeMode === 'rewards' ? 'Redeem' : 'Remove') : 'Add';
+    const recipients = selectedKids.map(kidName).join(', ');
+    setSubmitButtonLabel(recipients
+        ? `${verb} ${formatDelta(signedPoints)} to ${recipients}`
+        : 'Choose kids');
 }
 
 function render() {
@@ -477,6 +525,7 @@ function render() {
         activeRewardType = defaultRewardTypeFromRules();
     }
     renderKids();
+    renderLogKidPicker();
     renderModeTabs();
     renderTemplates();
     renderSelectionPanel();
@@ -487,6 +536,7 @@ function render() {
 
 function renderWorkbench() {
     renderModeTabs();
+    renderLogKidPicker();
     renderTemplates();
     renderSelectionPanel();
     updateSubmitState();
@@ -511,6 +561,7 @@ async function loadInitialData() {
     kids = Array.isArray(kidsData) ? kidsData : [];
     rules = Array.isArray(rulesData.rules) ? rulesData.rules : [];
     selectedKidId = initialKidId();
+    selectedLogKidIds = new Set();
     activeRewardType = defaultRewardTypeFromRules();
     syncSelectedKidNavigation();
     selectedHistoryDayKey = '';
@@ -679,34 +730,40 @@ pointLogForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     submitPointLogBtn.disabled = true;
     showError('');
+    showSuccess('');
     try {
-        if (!selectedKidId) return;
+        const targetKidIds = [...selectedLogKidIds];
+        if (!targetKidIds.length) return;
+        const targetKids = selectedLogKids();
         const rule = await resolveSubmitRule();
-        await awardDraftToKid(selectedKidId, rule);
+        for (const kidId of targetKidIds) {
+            await awardDraftToKid(kidId, rule);
+        }
+        const signedPoints = signedPointValueForRule(rule, Number.parseInt(pointDraft.points, 10));
+        const names = targetKids.map(kidName).join(', ');
+        const ruleName = String(rule?.name || '').trim();
+        const verb = signedPoints < 0 ? (activeMode === 'rewards' ? 'Redeemed' : 'Removed') : 'Added';
+        const preposition = activeMode === 'rewards' ? 'for' : (signedPoints < 0 ? 'from' : 'to');
         clearDraft();
+        selectedLogKidIds.clear();
+        activeMode = '';
         await refreshAfterMutation();
+        showSuccess(`${verb} ${formatDelta(signedPoints)}${ruleName ? ` · ${ruleName}` : ''} ${preposition} ${names}.`);
     } catch (error) {
         showError(error.message || 'Failed to log points.');
         updateSubmitState();
     }
 });
 
-applyAllPointLogBtn?.addEventListener('click', async () => {
-    if (!kids.length) return;
-    applyAllPointLogBtn.disabled = true;
-    submitPointLogBtn.disabled = true;
-    showError('');
-    try {
-        const rule = await resolveSubmitRule();
-        for (const kid of kids) {
-            await awardDraftToKid(String(kid?.id || ''), rule);
-        }
-        clearDraft();
-        await refreshAfterMutation();
-    } catch (error) {
-        showError(error.message || 'Failed to log points.');
-        updateSubmitState();
-    }
+pointLogKidPicker?.addEventListener('click', (event) => {
+    const option = event.target.closest('[data-log-kid-id]');
+    if (!option) return;
+    const kidId = String(option.dataset.logKidId || '').trim();
+    if (!kidId) return;
+    if (selectedLogKidIds.has(kidId)) selectedLogKidIds.delete(kidId);
+    else selectedLogKidIds.add(kidId);
+    renderLogKidPicker();
+    updateSubmitState();
 });
 
 pointHistory.addEventListener('click', async (event) => {

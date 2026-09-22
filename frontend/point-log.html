@@ -36,6 +36,7 @@
 
         <main class="point-log-layout">
             <div id="logError" class="error hidden"></div>
+            <div id="pointLogSuccess" class="point-log-success-banner hidden" role="status" aria-live="polite"></div>
 
             <section class="settings-card settings-section point-log-workbench is-mode-unselected">
                 <div class="settings-card-body">
@@ -67,7 +68,7 @@
                                     <button type="button" class="point-log-stepper-btn" data-point-step="-1" aria-label="Decrease points">
                                         <span class="icon" data-icon="minus"></span>
                                     </button>
-                                    <input id="pointPoints" class="point-log-stepper-input" type="number" autocomplete="off" inputmode="numeric" min="1" step="1" placeholder="1">
+                                    <input id="pointPoints" class="point-log-stepper-input" type="number" autocomplete="off" inputmode="numeric" min="0" step="1" value="0" placeholder="0">
                                     <button type="button" class="point-log-stepper-btn" data-point-step="1" aria-label="Increase points">
                                         <span class="icon" data-icon="plus"></span>
                                     </button>
@@ -77,11 +78,9 @@
                                 <label for="pointNote">Note <span>(optional)</span></label>
                                 <input id="pointNote" class="paradigm-input" type="text" autocomplete="off" placeholder="Add note (optional)">
                             </div>
-                            <div class="point-log-actions">
-                                <button id="submitPointLogBtn" type="submit" class="paradigm-decision-btn paradigm-decision-btn--confirm point-apply-btn" aria-label="Confirm" disabled><span class="point-apply-icon icon" data-icon="check" data-icon-size="17" data-icon-stroke="2.7"></span></button>
-                                <button id="applyAllPointLogBtn" type="button" class="paradigm-decision-btn paradigm-decision-btn--all point-apply-btn" aria-label="Log for all kids" disabled><span class="point-apply-icon icon" data-icon="users" data-icon-size="17" data-icon-stroke="2.4"></span></button>
-                            </div>
                         </div>
+                        <div id="pointLogKidPicker" class="point-log-kid-picker" role="group" aria-label="Choose kids"></div>
+                        <button id="submitPointLogBtn" type="submit" class="point-log-submit-btn" aria-label="Confirm" disabled></button>
                     </form>
 
                     <div id="templateList" class="point-template-list"></div>

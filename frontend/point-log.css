@@ -8,6 +8,28 @@
     gap: 0.95rem;
 }
 
+.point-log-success-banner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.42rem;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 0.7rem;
+    padding: 0.62rem 0.9rem;
+    border: 1px solid #4bb47b;
+    border-radius: 10px;
+    background: #e8f8ed;
+    box-shadow: 0 5px 16px rgba(28, 111, 68, 0.2);
+    color: #176b2e;
+    font-size: 0.85rem;
+    font-weight: 720;
+}
+
+.point-log-success-banner > span:first-child {
+    display: inline-flex;
+}
+
 .point-log-workbench.is-mode-unselected .point-log-entry-content {
     display: none;
 }
@@ -73,7 +95,7 @@
 .point-inactive-rules-toggle-icon {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
     width: var(--paradigm-disclosure-link-icon-box-size);
     height: var(--paradigm-disclosure-link-icon-box-size);
     flex: 0 0 var(--paradigm-disclosure-link-icon-box-size);
@@ -128,9 +150,9 @@
 }
 
 .point-template-icon-link {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: 27px minmax(0, 1fr);
     align-items: center;
-    justify-content: center;
 }
 
 .point-template-row--pending {
@@ -214,6 +236,118 @@
 
 .point-log-form.paradigm-editing-row {
     padding: 0.45rem 0.55rem 0.5rem 0.65rem;
+}
+
+@media (min-width: 900px) {
+    .point-log-form {
+        grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.72fr);
+        grid-template-areas:
+            "entry kids"
+            "entry submit";
+        column-gap: 0.8rem;
+        align-items: stretch;
+    }
+
+    .point-log-entry-row {
+        grid-area: entry;
+        align-content: center;
+    }
+
+    .point-log-kid-picker {
+        grid-area: kids;
+    }
+
+    .point-log-submit-btn {
+        grid-area: submit;
+    }
+}
+
+.point-log-kid-picker {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+    gap: 0.3rem;
+    align-items: center;
+    width: 100%;
+}
+
+.point-log-kid-option {
+    appearance: none;
+    -webkit-appearance: none;
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    gap: 0.35rem;
+    width: 100%;
+    min-height: 36px;
+    padding: 0.2rem 0.5rem 0.2rem 0.6rem;
+    border: 1px solid #d8dff1;
+    border-radius: 999px;
+    background: #fff;
+    color: #445279;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.point-log-kid-option .kid-initial-avatar {
+    width: 28px;
+    height: 28px;
+    min-width: 28px;
+    font-size: 0.68rem;
+}
+
+.point-log-kid-option > span:last-child {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.point-log-kid-option.selected {
+    border-color: #6b5cf6;
+    background: #f0eeff;
+    color: #4539b6;
+    box-shadow: inset 0 0 0 1px rgba(107, 92, 246, 0.1);
+}
+
+.point-log-kid-option:focus-visible {
+    outline: 2px solid #6b5cf6;
+    outline-offset: 2px;
+}
+
+.point-log-submit-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    width: 100%;
+    min-height: 36px;
+    padding: 0.35rem 0.72rem;
+    border: 1px solid #6255df;
+    border-radius: 9px;
+    background: #655df0;
+    box-shadow: 0 3px 7px rgba(69, 57, 182, 0.2);
+    color: #fff;
+    font: inherit;
+    font-size: 0.78rem;
+    font-weight: 700;
+    line-height: 1.15;
+    cursor: pointer;
+}
+
+.point-log-submit-btn:hover:not(:disabled) {
+    background: #584ee1;
+}
+
+.point-log-submit-btn:disabled {
+    border-color: #d8d5f7;
+    background: #ecebfa;
+    box-shadow: none;
+    color: #8d89bd;
+    cursor: not-allowed;
 }
 
 .point-log-mode-row {
