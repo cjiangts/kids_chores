@@ -635,7 +635,15 @@ function renderMatrix(options = {}) {
 
     const matrixKids = getSelectedAdminKids(list);
     const showTodayStatusColumn = matrixKids.length === 1;
+    const columnHtml = `
+        <colgroup>
+            <col class="admin-matrix-subject-col">
+            ${matrixKids.map(() => '<col class="admin-matrix-target-col"><col class="admin-matrix-opt-col">').join('')}
+            ${showTodayStatusColumn ? '<col class="admin-matrix-status-col">' : ''}
+        </colgroup>
+    `;
     const headerHtml = `
+        ${columnHtml}
         <thead>
             <tr>
                 <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${(typeof window.icon === 'function') ? window.icon('smartphone', { strokeWidth: 2 }) : ''}</span><span class="paradigm-panel-heading">In-App Chores</span></span></th>
@@ -659,7 +667,7 @@ function renderMatrix(options = {}) {
         ? buildUnaddedSubjectToggleRow(
             unaddedRows.length,
             inAppUnaddedExpanded,
-            matrixKids.length + 1 + (showTodayStatusColumn ? 1 : 0),
+            matrixKids.length * 2 + 1 + (showTodayStatusColumn ? 1 : 0),
         )
         : '';
     adminOptinPanel.classList.toggle('has-unadded-toggle', unaddedRows.length > 0);
@@ -1119,6 +1127,11 @@ function buildAdminOffAppTable(bodyHtml) {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { strokeWidth: 2 }) : '';
     return `
         <table class="admin-matrix admin-off-app-matrix">
+            <colgroup>
+                <col class="admin-matrix-subject-col">
+                <col class="admin-off-app-opt-col">
+                <col class="admin-matrix-status-col">
+            </colgroup>
             <thead>
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
@@ -1297,17 +1310,8 @@ function renderAdminOffAppSection(kids) {
 }
 
 function syncAdminStatusColumnWidth() {
-    if (!adminMatrix) return;
-    const statusCell = adminMatrix.querySelector('tbody td.paradigm-status-column')
-        || adminMatrix.querySelector('thead .admin-matrix-status-head');
-    const width = statusCell ? Math.ceil(statusCell.getBoundingClientRect().width) : 0;
     [adminOptinPanel, adminOffAppPanel].forEach((panel) => {
-        if (!panel) return;
-        if (width > 0) {
-            panel.style.setProperty('--admin-status-column-width', `${width}px`);
-        } else {
-            panel.style.removeProperty('--admin-status-column-width');
-        }
+        panel?.style.removeProperty('--admin-status-column-width');
     });
 }
 
@@ -1315,7 +1319,7 @@ function buildKidColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '');
     if (!editMode) {
-        return `<th class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}"></th>`;
+        return `<th colspan="2" class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}"></th>`;
     }
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
@@ -1351,7 +1355,7 @@ function buildKidColumnHeader(kid) {
         interactiveHtml = `<span class="admin-matrix-kid-head-static">${avatarHtml}</span>`;
     }
     return `
-        <th class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
+        <th colspan="2" class="admin-matrix-kid-head${savingClass}" data-kid-id="${escapeHtml(kidId)}">
             ${interactiveHtml}
         </th>
     `;
@@ -1577,18 +1581,18 @@ function buildMatrixCell(row, kid) {
         const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
         const valueClass = `admin-matrix-value admin-matrix-value--link${baselineOptedIn ? '' : ' is-off'}`;
         const kidLabel = String(kid?.name || kidId || 'this kid');
-        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="${valueClass}" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}" aria-label="Configure ${escapeHtml(row.displayName)} for ${escapeHtml(kidLabel)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a>${rowCheckboxHtml}</div></td>`;
+        return `<td class="admin-matrix-target-cell admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="${valueClass}" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}" aria-label="Configure ${escapeHtml(row.displayName)} for ${escapeHtml(kidLabel)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td><td class="admin-matrix-opt-cell admin-matrix-cell">${rowCheckboxHtml}</td>`;
     }
 
     const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';
     const label = optedIn ? 'On' : 'Off';
     return `
-        <td class="admin-matrix-cell">
+        <td class="admin-matrix-target-cell admin-matrix-cell">
             <div class="admin-matrix-value-wrap">
                 <button type="button" class="${valueClass}" data-cell-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-pressed="${optedIn ? 'true' : 'false'}">${label}</button>
-                ${rowCheckboxHtml}
             </div>
         </td>
+        <td class="admin-matrix-opt-cell admin-matrix-cell">${rowCheckboxHtml}</td>
     `;
 }
 

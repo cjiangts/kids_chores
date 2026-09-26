@@ -26,6 +26,7 @@
             --admin-pill-font-weight: 400;
             --admin-pill-line-height: 1.2;
             --admin-off-app-pill-height: var(--admin-pill-height);
+            --admin-status-column-width: 32%;
             position: relative;
         }
         @media (min-width: 900px) {
@@ -38,6 +39,12 @@
             .parent-admin-page .admin-chore-section-stack:has(> #adminOptinPanel:not(.hidden)):has(> #adminOffAppPanel:not(.hidden)) > .admin-optin-panel {
                 min-width: 0;
                 margin-bottom: 0;
+            }
+            .parent-admin-page .admin-chore-section-stack:has(> #adminOptinPanel:not(.hidden)):has(> #adminOffAppPanel:not(.hidden)) > #adminOffAppPanel {
+                --admin-status-column-width: 45%;
+            }
+            .parent-admin-page .admin-chore-section-stack:has(> #adminOptinPanel:not(.hidden)):has(> #adminOffAppPanel:not(.hidden)) > #adminOffAppPanel .admin-matrix-status-col {
+                width: 45%;
             }
         }
         .parent-admin-page .admin-panel-menu-btn {
@@ -93,6 +100,19 @@
             border-spacing: 0;
             width: 100%;
             min-width: 100%;
+            table-layout: fixed;
+        }
+        .parent-admin-page .admin-matrix-target-col {
+            width: 20%;
+        }
+        .parent-admin-page .admin-matrix-opt-col {
+            width: 42px;
+        }
+        .parent-admin-page .admin-matrix-status-col {
+            width: 32%;
+        }
+        .parent-admin-page .admin-off-app-opt-col {
+            width: 42px;
         }
         .parent-admin-page .admin-matrix th,
         .parent-admin-page .admin-matrix td {
@@ -498,8 +518,9 @@
             gap: 0.35rem;
             white-space: nowrap;
         }
-        .parent-admin-page .admin-off-app-matrix {
-            table-layout: fixed;
+        .parent-admin-page .admin-matrix-opt-cell {
+            padding-left: 0;
+            padding-right: 0;
         }
         .parent-admin-page .admin-off-app-name-cell {
             color: #071545;
@@ -525,6 +546,13 @@
         }
         .parent-admin-page .admin-off-app-action-cell {
             width: var(--admin-status-column-width, var(--paradigm-status-column-width));
+            padding-left: 0;
+        }
+        .parent-admin-page .admin-matrix :is(.paradigm-status-column, .admin-matrix-status-head) {
+            width: var(--admin-status-column-width, var(--paradigm-status-column-width));
+            min-width: var(--admin-status-column-width, var(--paradigm-status-column-width));
+            max-width: var(--admin-status-column-width, var(--paradigm-status-column-width));
+            box-sizing: border-box;
         }
         .parent-admin-page .admin-off-app-edit-stack {
             display: grid;
