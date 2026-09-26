@@ -194,6 +194,7 @@ def map_card_row(row, preview_order, practice_priority_preview_by_card_id=None):
         'practice_priority_wrong_count': practice_priority_preview.get('wrong_count'),
         'practice_priority_attempt_count': practice_priority_preview.get('attempt_count'),
         'practice_priority_avg_correct_response_time': practice_priority_preview.get('avg_correct_response_time'),
+        'practice_priority_fastest_correct_response_time': practice_priority_preview.get('fastest_correct_response_time'),
         'practice_priority_days_since_last_seen': practice_priority_preview.get('days_since_last_seen'),
         'practice_priority_last_practiced_at': practice_priority_preview.get('last_practiced_at'),
         'practice_priority_primary_reason': practice_priority_preview.get('primary_reason'),

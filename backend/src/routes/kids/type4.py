@@ -131,6 +131,7 @@ def get_type4_print_config(kid_id):
             kid,
             request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
         shared_conn = None
         kid_conn = None
@@ -199,6 +200,7 @@ def create_type4_print_sheet(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
         layout_format = str(payload.get('layoutFormat') or 'vertical').strip().lower()
         if layout_format not in ('vertical', 'inline'):
@@ -312,6 +314,7 @@ def list_type4_print_sheets(kid_id):
             kid,
             request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
 
         conn = None

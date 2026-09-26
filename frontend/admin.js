@@ -1494,19 +1494,23 @@ function buildTodayStatusCell(row, kid) {
     const leadingIconHtml = leadingIconName && typeof window.icon === 'function'
         ? window.icon(leadingIconName, { size: 15, strokeWidth: 2.8 })
         : '';
-    const resultPhrase = needsReview ? 'review' : (mistakeCount > 0 ? `${mistakeCount} wrong` : 'all good');
+    const hasMistakes = status === 'done' && !needsReview && mistakeCount > 0;
+    const resultPhrase = needsReview ? 'review' : (hasMistakes ? `${mistakeCount} wrong` : '');
     const resultClassName = needsReview
         ? 'admin-today-pill-review'
-        : (mistakeCount > 0 ? 'admin-today-pill-wrong' : 'admin-today-pill-allright');
-    const resultLabelHtml = status === 'done'
-        ? `<span class="admin-today-pill-sep" aria-hidden="true">·</span><span class="${resultClassName}">${resultPhrase}</span>`
+        : 'admin-today-pill-wrong';
+    const mistakeIconHtml = hasMistakes && typeof window.icon === 'function'
+        ? window.icon('x', { size: 13, strokeWidth: 3 })
+        : '×';
+    const resultLabelHtml = status === 'done' && resultPhrase
+        ? `<span class="admin-today-pill-sep" aria-hidden="true">·</span><span class="${resultClassName}">${hasMistakes ? `${mistakeIconHtml}<span>${mistakeCount}</span>` : resultPhrase}</span>`
         : '';
     const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>${resultLabelHtml}`;
     const viewIconHtml = (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
     if (Number.isInteger(sessionId) && sessionId > 0) {
         const href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}`;
         const ariaLabel = status === 'done'
-            ? `Done, ${earnedPoints} points, ${resultPhrase}. View latest session.`
+            ? `Done, ${earnedPoints} points${resultPhrase ? `, ${resultPhrase}` : ''}. View latest session.`
             : `${label}. View session.`;
         const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
         return `
@@ -1566,15 +1570,14 @@ function buildMatrixCell(row, kid) {
     const rowCheckboxHtml = buildRowOptInCheckbox(row, kid);
 
     if (!editMode) {
-        if (!baselineOptedIn) {
-            return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><span class="admin-matrix-value is-off">Off</span>${rowCheckboxHtml}</div></td>`;
-        }
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
         const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
         const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey, view: 'queue' });
         const href = `/kid-card-manage.html?${params.toString()}`;
         const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
-        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="admin-matrix-value admin-matrix-value--link" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a>${rowCheckboxHtml}</div></td>`;
+        const valueClass = `admin-matrix-value admin-matrix-value--link${baselineOptedIn ? '' : ' is-off'}`;
+        const kidLabel = String(kid?.name || kidId || 'this kid');
+        return `<td class="admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="${valueClass}" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}" aria-label="Configure ${escapeHtml(row.displayName)} for ${escapeHtml(kidLabel)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a>${rowCheckboxHtml}</div></td>`;
     }
 
     const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';

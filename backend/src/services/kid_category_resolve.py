@@ -2,7 +2,8 @@
 
 Helpers that:
   - Look up one category by key, check its behavior + chinese-logic flags,
-    confirm the kid's family has access, and confirm the kid is opted in.
+    confirm the kid's family has access, and, where required, confirm the kid
+    is opted in.
   - Handle the default-when-unique fallback for callers that don't pass an
     explicit category key.
   - Provide per-behavior thin wrappers (type-I, type-II, type-III, type-IV)
@@ -39,6 +40,7 @@ def resolve_kid_deck_category_key_for_behavior(
     expected_behavior_type,
     expected_has_chinese_specific_logic,
     conn=None,
+    require_opt_in=True,
 ):
     """Resolve and validate one requested category key for a behavior family."""
     key = normalize_shared_deck_tag(raw_category_key)
@@ -60,9 +62,10 @@ def resolve_kid_deck_category_key_for_behavior(
     if not can_family_access_deck_category(category_meta, family_id=family_id):
         raise ValueError(f'categoryKey "{key}" is not shared with this family')
 
-    opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid, conn=conn))
-    if key not in opted_in_keys:
-        raise ValueError(f'Kid is not opted-in to categoryKey: {key}')
+    if require_opt_in:
+        opted_in_keys = set(get_kid_opted_in_deck_category_keys(kid, conn=conn))
+        if key not in opted_in_keys:
+            raise ValueError(f'Kid is not opted-in to categoryKey: {key}')
     return key
 
 
@@ -72,6 +75,7 @@ def resolve_kid_type_i_category_key(
     *,
     has_chinese_specific_logic,
     allow_default,
+    require_opt_in=True,
 ):
     """Resolve category key for one type-I mode, optionally defaulting when unique."""
     key = normalize_shared_deck_tag(raw_category_key)
@@ -81,6 +85,7 @@ def resolve_kid_type_i_category_key(
             key,
             expected_behavior_type=DECK_CATEGORY_BEHAVIOR_TYPE_I,
             expected_has_chinese_specific_logic=has_chinese_specific_logic,
+            require_opt_in=require_opt_in,
         )
 
     if not allow_default:
@@ -108,13 +113,16 @@ def resolve_kid_type_i_category_key(
     raise ValueError('categoryKey is required when multiple matching type-I categories are opted-in')
 
 
-def resolve_kid_type_i_chinese_category_key(kid, raw_category_key, *, allow_default=True):
+def resolve_kid_type_i_chinese_category_key(
+    kid, raw_category_key, *, allow_default=True, require_opt_in=True
+):
     """Resolve category key for type-I Chinese-specific deck management."""
     return resolve_kid_type_i_category_key(
         kid,
         raw_category_key,
         has_chinese_specific_logic=True,
         allow_default=allow_default,
+        require_opt_in=require_opt_in,
     )
 
 
@@ -133,6 +141,7 @@ def resolve_kid_category_with_mode(
     no_match_error='Kid is not opted-in to a matching category',
     multiple_match_error='categoryKey is required when multiple matching categories are opted-in',
     conn=None,
+    require_opt_in=True,
 ):
     """Resolve category key for one or more behavior types and return chinese-specific mode."""
     if isinstance(expected_behavior_types, str):
@@ -165,6 +174,7 @@ def resolve_kid_category_with_mode(
             expected_behavior_type=behavior_type,
             expected_has_chinese_specific_logic=has_chinese_specific_logic,
             conn=conn,
+            require_opt_in=require_opt_in,
         )
         return resolved_category_key, has_chinese_specific_logic
 
@@ -195,7 +205,7 @@ def resolve_kid_category_with_mode(
 # === 3. Per-behavior thin wrappers (type-I/II/III/IV with custom error messages)
 # =====================================================================
 
-def resolve_kid_type_i_category_with_mode(kid, raw_category_key, *, conn=None):
+def resolve_kid_type_i_category_with_mode(kid, raw_category_key, *, conn=None, require_opt_in=True):
     """Resolve explicit type-I/type-III category key and return its chinese-specific mode flag."""
     return resolve_kid_category_with_mode(
         kid,
@@ -204,10 +214,13 @@ def resolve_kid_type_i_category_with_mode(kid, raw_category_key, *, conn=None):
         allow_default=False,
         wrong_type_error='categoryKey must be a type-I or type-III deck category',
         conn=conn,
+        require_opt_in=require_opt_in,
     )
 
 
-def resolve_kid_type_iii_category_with_mode(kid, raw_category_key, *, allow_default=True):
+def resolve_kid_type_iii_category_with_mode(
+    kid, raw_category_key, *, allow_default=True, require_opt_in=True
+):
     """Resolve explicit type-III category key and return its chinese-specific mode flag."""
     return resolve_kid_category_with_mode(
         kid,
@@ -217,10 +230,13 @@ def resolve_kid_type_iii_category_with_mode(kid, raw_category_key, *, allow_defa
         wrong_type_error='categoryKey must be a type-III deck category',
         no_match_error='Kid is not opted-in to a type-III category',
         multiple_match_error='categoryKey is required when multiple type-III categories are opted-in',
+        require_opt_in=require_opt_in,
     )
 
 
-def resolve_kid_type_ii_category_with_mode(kid, raw_category_key, *, allow_default=True):
+def resolve_kid_type_ii_category_with_mode(
+    kid, raw_category_key, *, allow_default=True, require_opt_in=True
+):
     """Resolve explicit type-II category key and return its chinese-specific mode flag."""
     return resolve_kid_category_with_mode(
         kid,
@@ -230,10 +246,13 @@ def resolve_kid_type_ii_category_with_mode(kid, raw_category_key, *, allow_defau
         wrong_type_error='categoryKey must be a type-II deck category',
         no_match_error='Kid is not opted-in to a type-II category',
         multiple_match_error='categoryKey is required when multiple type-II categories are opted-in',
+        require_opt_in=require_opt_in,
     )
 
 
-def resolve_kid_type_iv_category_with_mode(kid, raw_category_key, *, allow_default=False):
+def resolve_kid_type_iv_category_with_mode(
+    kid, raw_category_key, *, allow_default=False, require_opt_in=True
+):
     """Resolve explicit type-IV category key and return its mode flag."""
     return resolve_kid_category_with_mode(
         kid,
@@ -243,4 +262,5 @@ def resolve_kid_type_iv_category_with_mode(kid, raw_category_key, *, allow_defau
         wrong_type_error='categoryKey must be a type-IV deck category',
         no_match_error='Kid is not opted-in to a type-IV category',
         multiple_match_error='categoryKey is required when multiple type-IV categories are opted-in',
+        require_opt_in=require_opt_in,
     )

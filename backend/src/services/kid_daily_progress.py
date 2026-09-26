@@ -32,6 +32,7 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPES,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     DECK_CATEGORY_BEHAVIOR_TYPE_IV,
+    SESSION_CARD_COUNT_BY_CATEGORY_FIELD,
     SESSION_RESULT_PARTIAL,
     SESSION_RESULT_WRONG_UNRESOLVED,
 )
@@ -789,9 +790,18 @@ def get_kid_practice_target_by_deck_category(
     *,
     conn=None,
 ):
-    """Build per-category daily target counts for one kid."""
+    """Build configured daily target counts, including categories currently turned off."""
     targets = {}
-    keys = [normalize_shared_deck_tag(key) for key in list(opted_in_category_keys or [])]
+    configured_targets = kid.get(SESSION_CARD_COUNT_BY_CATEGORY_FIELD)
+    configured_keys = configured_targets.keys() if isinstance(configured_targets, dict) else []
+    keys = []
+    seen_keys = set()
+    for raw_key in [*list(opted_in_category_keys or []), *configured_keys]:
+        key = normalize_shared_deck_tag(raw_key)
+        if not key or key in seen_keys:
+            continue
+        seen_keys.add(key)
+        keys.append(key)
     owned_conn = None
     for key in keys:
         if not key:

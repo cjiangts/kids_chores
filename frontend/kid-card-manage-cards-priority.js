@@ -595,6 +595,17 @@ function getPracticePriorityLegendDetail(card, segment) {
     return '';
 }
 
+function formatFastestCorrectResponseTime(responseTimeMs) {
+    const milliseconds = Number(responseTimeMs);
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+        return '';
+    }
+    const totalSeconds = Math.max(1, Math.ceil(milliseconds / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 function buildPracticePriorityScoreSection(card) {
     if (!usesPracticePriorityDisplay()) {
         return '';
@@ -638,12 +649,22 @@ function buildPracticePriorityScoreSection(card) {
             `;
         }).join('')
         : '';
+    const isType3FastestTimeVisible = isType3Behavior();
+    const fastestCorrectTime = isType3FastestTimeVisible
+        ? formatFastestCorrectResponseTime(card && card.practice_priority_fastest_correct_response_time)
+        : '';
+    const fastestCorrectLegendHtml = isType3FastestTimeVisible
+        ? `<span class="practice-priority-score-legend-item fastest-correct">
+                <span class="practice-priority-score-legend-icon" aria-hidden="true">${icon('clock', { size: 13 })}</span>
+                <span class="practice-priority-score-legend-detail">${escapeHtml(fastestCorrectTime || '—')}</span>
+            </span>`
+        : '';
     return `
         <div class="practice-priority-score-block">
             <div class="practice-priority-score-bar" aria-hidden="true">
                 ${barHtml}
             </div>
-            ${legendHtml ? `<div class="practice-priority-score-legend">${legendHtml}</div>` : ''}
+            ${legendHtml || fastestCorrectLegendHtml ? `<div class="practice-priority-score-legend">${legendHtml}${fastestCorrectLegendHtml}</div>` : ''}
         </div>
     `;
 }

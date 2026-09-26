@@ -2160,6 +2160,11 @@
             color: #d38714;
         }
 
+        .practice-priority-score-legend-item.fastest-correct .practice-priority-score-legend-icon,
+        .practice-priority-score-legend-item.fastest-correct .practice-priority-score-legend-detail {
+            color: #d38714;
+        }
+
         .practice-priority-score-legend-item.due .practice-priority-score-legend-icon {
             color: #7b53c7;
         }

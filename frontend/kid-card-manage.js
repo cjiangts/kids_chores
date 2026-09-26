@@ -208,6 +208,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     applyCategoryUiText();
 
     cardsGrid.addEventListener('click', handleCardsGridClick);
+    document.addEventListener('click', handleCompactCardPopoverOutsideClick);
     window.addEventListener('resize', () => {
         applyChineseCardFrontUniformSize();
     });

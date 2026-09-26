@@ -133,6 +133,10 @@ def build_practice_priority_preview_for_decks(
                     WHEN correct > 0 AND response_time_ms > 0
                     THEN response_time_ms
                 END) AS avg_correct_response_time,
+                MIN(CASE
+                    WHEN correct > 0 AND response_time_ms > 0
+                    THEN response_time_ms
+                END) AS fastest_correct_response_time,
                 MAX(practiced_at) AS last_practiced_at,
                 arg_max(correct, practiced_at) AS last_result_correct
             FROM card_records
@@ -206,6 +210,7 @@ def build_practice_priority_preview_for_decks(
                 COALESCE(p.wrong_count, 0) AS wrong_count,
                 COALESCE(p.attempt_count, 0) AS attempt_count,
                 p.avg_correct_response_time,
+                p.fastest_correct_response_time,
                 b.p50_correct_time,
                 b.p95_correct_time,
                 COALESCE(b.correct_sample_count, 0) AS correct_sample_count,
@@ -236,6 +241,7 @@ def build_practice_priority_preview_for_decks(
                 wrong_count,
                 attempt_count,
                 avg_correct_response_time,
+                fastest_correct_response_time,
                 p50_correct_time,
                 p95_correct_time,
                 correct_sample_count,
@@ -271,7 +277,8 @@ def build_practice_priority_preview_for_decks(
                 WHEN learning_points >= due_points
                 THEN '{PRACTICE_PRIORITY_REASON_LEARNING}'
                 ELSE '{PRACTICE_PRIORITY_REASON_DUE}'
-            END AS primary_reason
+            END AS primary_reason,
+            fastest_correct_response_time
         FROM scored
         ORDER BY
             priority_score DESC,
@@ -314,6 +321,7 @@ def build_practice_priority_preview_for_decks(
             'days_since_last_seen': int(row[14]) if row[14] is not None else None,
             'last_practiced_at': row[15].isoformat() if row[15] else None,
             'primary_reason': str(row[16] or PRACTICE_PRIORITY_REASON_LEARNING),
+            'fastest_correct_response_time': float(row[17]) if row[17] is not None else None,
         }
         if index == 1:
             subject_baseline = {

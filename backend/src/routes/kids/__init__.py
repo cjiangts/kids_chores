@@ -261,6 +261,7 @@ def get_shared_type1_cards(kid_id):
                 kid,
                 request.args.get('categoryKey'),
                 conn=conn,
+                require_opt_in=False,
             )
             payload = build_type_i_shared_cards_payload(
                 kid,
@@ -370,6 +371,7 @@ def resolve_type2_scope_context(kid, raw_category_key):
     category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
         kid,
         raw_category_key,
+        require_opt_in=False,
     )
     return {
         'category_key': category_key,
@@ -391,6 +393,7 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
         category_key, has_chinese_specific_logic = resolve_kid_type_iv_category_with_mode(
             kid,
             raw_category_key,
+            require_opt_in=False,
         )
         return {
             'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_IV,
@@ -403,6 +406,7 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
         category_key, has_chinese_specific_logic = resolve_kid_type_i_category_with_mode(
             kid,
             raw_category_key,
+            require_opt_in=False,
         )
         return {
             'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_I,
@@ -416,6 +420,7 @@ def resolve_shared_scope_management_context(kid, category, raw_category_key):
         category_key, _ = resolve_kid_type_iii_category_with_mode(
             kid,
             raw_category_key,
+            require_opt_in=False,
         )
         return {
             'management_type': SHARED_SCOPE_MANAGEMENT_TYPE_I,
@@ -941,6 +946,7 @@ def get_shared_type3_cards(kid_id):
         category_key, _ = resolve_kid_type_iii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         payload = build_type_i_shared_cards_payload(
             kid,
@@ -963,6 +969,7 @@ def get_shared_type4_cards(kid_id):
         category_key, _ = resolve_kid_type_iv_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         payload = build_type_iv_shared_cards_payload(
             kid,
@@ -984,6 +991,7 @@ def get_shared_type2_cards(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         category_display_name = get_deck_category_display_name(
             category_key,

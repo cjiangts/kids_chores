@@ -70,6 +70,7 @@ def add_writing_cards(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         if has_chinese_specific_logic:
             answer_text = (
@@ -177,6 +178,7 @@ def update_writing_card(kid_id, card_id):
         category_key, _has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             data.get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         next_back = str(data.get('back') or '').strip()
         if not next_back:
@@ -262,6 +264,7 @@ def add_writing_cards_bulk(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         raw_text = payload.get('text', '')
         rows_to_insert = split_type2_bulk_rows(raw_text, has_chinese_specific_logic)
@@ -359,6 +362,7 @@ def get_writing_audio(kid_id, file_name):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         if file_name != os.path.basename(file_name):
             return jsonify({'error': 'Invalid file name'}), 400
@@ -437,6 +441,7 @@ def get_type1_chinese_prompt_audio(kid_id, file_name):
         category_key = resolve_kid_type_i_chinese_category_key(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
             allow_default=False,
         )
         if file_name != os.path.basename(file_name):
@@ -507,6 +512,7 @@ def delete_writing_card(kid_id, card_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         conn = get_kid_connection_for(kid)
         deck_id = get_or_create_category_orphan_deck(conn, category_key)
@@ -567,6 +573,7 @@ def create_chinese_print_sheet(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         if not has_chinese_specific_logic:
             return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
@@ -692,6 +699,7 @@ def list_chinese_print_sheets(kid_id):
         category_key, has_chinese_specific_logic = resolve_kid_type_ii_category_with_mode(
             kid,
             request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         if not has_chinese_specific_logic:
             return jsonify({'error': 'Practice sheets are only available for Chinese-specific type-II categories'}), 400
@@ -860,5 +868,4 @@ def withdraw_chinese_print_sheet(kid_id, sheet_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 

@@ -81,6 +81,7 @@ def get_cards(kid_id):
             kid,
             request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
 
         conn = get_kid_connection_for(kid)
@@ -128,6 +129,7 @@ def add_card(kid_id):
             kid,
             data.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
         chinese_back_content = get_category_chinese_back_content(category_key)
 
@@ -209,6 +211,7 @@ def add_cards_bulk(kid_id):
             kid,
             data.get('categoryKey') or request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
         chinese_back_content = get_category_chinese_back_content(category_key)
 
@@ -276,6 +279,7 @@ def delete_card(kid_id, card_id):
             kid,
             request.args.get('categoryKey'),
             allow_default=True,
+            require_opt_in=False,
         )
 
         conn = get_kid_connection_for(kid)
@@ -422,6 +426,7 @@ def preview_type4_generator_for_card(kid_id, card_id):
         category_key, _ = resolve_kid_type_iv_category_with_mode(
             kid,
             (request.get_json(silent=True) or {}).get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         try:
             card_id_int = int(card_id)
@@ -505,6 +510,7 @@ def update_type4_shared_deck_daily_targets(kid_id):
         category_key, _ = resolve_kid_type_iv_category_with_mode(
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
+            require_opt_in=False,
         )
         raw_counts = payload.get('dailyCountsByDeckId')
         if raw_counts is None:
@@ -594,5 +600,4 @@ def update_type4_shared_deck_daily_targets(kid_id):
         return jsonify({'error': str(e)}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 

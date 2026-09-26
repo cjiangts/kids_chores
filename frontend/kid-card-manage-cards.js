@@ -69,6 +69,24 @@ async function closeCompactCardPopover() {
     displayCards(currentCards);
 }
 
+function handleCompactCardPopoverOutsideClick(event) {
+    if (currentCardViewMode !== 'short' || expandedCompactCardIds.size === 0) {
+        return;
+    }
+    const target = event.target;
+    if (!(target instanceof Element)) {
+        return;
+    }
+    if (target.closest('.short-expanded-popover')) {
+        return;
+    }
+    // Let another compact card take over the popover in the grid click handler.
+    if (target.closest('.card-compact-pill')) {
+        return;
+    }
+    void closeCompactCardPopover();
+}
+
 function buildCardReportHref(card) {
     const qs = new URLSearchParams();
     qs.set('id', String(kidId || ''));
