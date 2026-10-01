@@ -426,6 +426,65 @@
             background: #c82333;
         }
 
+        .recording-countdown {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            background: rgba(255, 255, 255, 0.96);
+            color: #24375e;
+            text-align: center;
+        }
+
+        .recording-countdown-kicker {
+            font-size: clamp(1.05rem, 3vw, 1.35rem);
+            font-weight: 750;
+            letter-spacing: 0.02em;
+        }
+
+        .recording-countdown-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: clamp(100px, 18vw, 132px);
+            height: clamp(100px, 18vw, 132px);
+            border-radius: 50%;
+            background: #f1a51b;
+            color: #fff;
+            font-size: clamp(4.2rem, 10vw, 6rem);
+            font-weight: 800;
+            line-height: 1;
+            box-shadow: 0 0 0 10px rgba(241, 165, 27, 0.15);
+        }
+
+        .recording-countdown-hint {
+            font-size: 0.95rem;
+            font-weight: 650;
+            color: #697896;
+        }
+
+        .recording-countdown-number.is-popping {
+            animation: recordingCountdownPop 0.38s cubic-bezier(0.18, 0.9, 0.28, 1.25);
+        }
+
+        @keyframes recordingCountdownPop {
+            0% {
+                transform: scale(0.56);
+                opacity: 0.3;
+            }
+            72% {
+                transform: scale(1.12);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
         .review-controls {
             gap: 0.65rem;
         }
@@ -835,6 +894,11 @@
                         <div class="tap-hint hidden" id="tapHint">Tap card to replay prompt</div>
                         <div class="card-answer hidden" id="cardAnswer"></div>
                         <div id="pauseMask" class="pause-mask hidden">Paused</div>
+                        <div id="recordingCountdown" class="recording-countdown hidden" aria-live="assertive">
+                            <span class="recording-countdown-kicker">Get ready to read</span>
+                            <strong id="recordingCountdownNumber" class="recording-countdown-number">2</strong>
+                            <span class="recording-countdown-hint">Start when this disappears</span>
+                        </div>
                         <div id="recordingViz" class="recording-viz hidden" aria-live="polite">
                             <div class="recording-viz-header">
                                 <span class="recording-dot"></span>

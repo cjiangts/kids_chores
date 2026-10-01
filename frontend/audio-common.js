@@ -139,7 +139,7 @@ window.AudioCommon = {
      * before a recording starts. This keeps the quiet input ramp out of the
      * saved reading audio.
      */
-    MIC_WARM_UP_MS: 2200,
+    MIC_WARM_UP_MS: 3200,
 
     async warmUpMic(stream, warmUpMs = this.MIC_WARM_UP_MS) {
         const hasLiveAudio = Boolean(stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));

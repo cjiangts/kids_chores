@@ -112,6 +112,7 @@ function showCurrentType3Card() {
 
     clearPendingRecordingPreview();
 
+    recordingCountdown?.classList.add('hidden');
     recordRow.classList.remove('hidden');
     reviewControls.classList.add('hidden');
     recordBtn.disabled = false;
@@ -158,6 +159,32 @@ function syncSessionPauseLockUi() {
 // === 3. Recording start/stop + capture + visualizer
 // =====================================================================
 
+function showMicrophoneWarmupCountdown() {
+    const durationMs = Math.max(1, Number(window.AudioCommon?.MIC_WARM_UP_MS) || 2200);
+    const endAt = Date.now() + durationMs;
+    recordRow.classList.add('hidden');
+    recordingCountdown?.classList.remove('hidden');
+    let previousSeconds = '';
+    const update = () => {
+        const seconds = Math.max(1, Math.ceil((endAt - Date.now() - 250) / 1000));
+        const nextText = String(seconds);
+        if (recordingCountdownNumber && nextText !== previousSeconds) {
+            previousSeconds = nextText;
+            recordingCountdownNumber.textContent = nextText;
+            recordingCountdownNumber.classList.remove('is-popping');
+            void recordingCountdownNumber.offsetWidth;
+            recordingCountdownNumber.classList.add('is-popping');
+        }
+    };
+    update();
+    const timer = window.setInterval(update, 120);
+    return () => {
+        window.clearInterval(timer);
+        recordingCountdown?.classList.add('hidden');
+        recordRow.classList.remove('hidden');
+    };
+}
+
 async function toggleRecord() {
     if (!isType(BEHAVIOR_TYPE_III)) {
         return;
@@ -185,9 +212,14 @@ async function toggleRecord() {
         }
 
         recordBtn.disabled = true;
-        recordBtnLabel.textContent = 'Preparing microphone...';
+        recordBtnLabel.textContent = 'Preparing microphone…';
         state.mediaStream = await window.AudioCommon.getMicStream();
-        await window.AudioCommon.warmUpMic(state.mediaStream);
+        const finishWarmupUi = showMicrophoneWarmupCountdown();
+        try {
+            await window.AudioCommon.warmUpMic(state.mediaStream);
+        } finally {
+            finishWarmupUi();
+        }
         if (state.isSessionPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
             resetRecordingState();
             return;
