@@ -184,7 +184,14 @@ async function toggleRecord() {
             return;
         }
 
+        recordBtn.disabled = true;
+        recordBtnLabel.textContent = 'Preparing microphone...';
         state.mediaStream = await window.AudioCommon.getMicStream();
+        await window.AudioCommon.warmUpMic(state.mediaStream);
+        if (state.isSessionPaused || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
+            resetRecordingState();
+            return;
+        }
         state.mediaRecorder = new MediaRecorder(state.mediaStream, window.AudioCommon.getRecorderOptions());
         state.recordingChunks = [];
         state.recordingMimeType = state.mediaRecorder.mimeType || '';

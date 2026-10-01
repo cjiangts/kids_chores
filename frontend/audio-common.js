@@ -134,6 +134,21 @@ window.AudioCommon = {
     /** Recommended timeslice (ms) for MediaRecorder.start(). */
     TIMESLICE_MS: 1000,
 
+    /**
+     * Let Safari/macOS bring a newly opened microphone up to a stable level
+     * before a recording starts. This keeps the quiet input ramp out of the
+     * saved reading audio.
+     */
+    MIC_WARM_UP_MS: 900,
+
+    warmUpMic(stream, warmUpMs = this.MIC_WARM_UP_MS) {
+        const hasLiveAudio = Boolean(stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
+        if (!hasLiveAudio) return Promise.resolve();
+        return new Promise((resolve) => {
+            window.setTimeout(resolve, Math.max(0, Number(warmUpMs) || 0));
+        });
+    },
+
     /** Small stop delay to reduce tail clipping when user stops right after speaking. */
     STOP_GRACE_MS: 280,
 

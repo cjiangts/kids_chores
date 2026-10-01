@@ -795,6 +795,11 @@ pointHistory.addEventListener('click', async (event) => {
     }
 });
 
+pointHistory.addEventListener('point-history-active-day-change', (event) => {
+    const dayKey = String(event.detail?.dayKey || '').trim();
+    if (dayKey) selectedHistoryDayKey = dayKey;
+});
+
 pointHistory.addEventListener('point-history-edit-note', async (event) => {
     const detail = event.detail || {};
     const eventId = Number.parseInt(detail.eventId, 10);

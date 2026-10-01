@@ -477,9 +477,11 @@
                     ` : ''}
                     ${isEditingTime ? `
                     <div class="point-history-time-editor">
-                        <button type="button" class="paradigm-decision-btn" data-history-time-step="-1" aria-label="Move event one hour earlier">${icon('minus')}</button>
+                        <button type="button" class="paradigm-decision-btn point-history-time-day-step" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">−1d</button>
+                        <button type="button" class="paradigm-decision-btn" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">−1h</button>
                         <span class="activity-timeline-time">${escapeHtml(timeLabel)}</span>
-                        <button type="button" class="paradigm-decision-btn" data-history-time-step="1" aria-label="Move event one hour later">${icon('plus')}</button>
+                        <button type="button" class="paradigm-decision-btn" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">+1h</button>
+                        <button type="button" class="paradigm-decision-btn point-history-time-day-step" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">+1d</button>
                         <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-history-time-save aria-label="Save time">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
                         <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-history-time-cancel aria-label="Cancel time edit">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
                     </div>
@@ -500,6 +502,17 @@
         if (focusSelector) {
             row.querySelector(focusSelector)?.focus?.({ preventScroll: true });
         }
+    }
+
+    function syncDraftDay(container, draft) {
+        const timezone = String(container?.__pointHistoryLastOptions?.familyTimezone || '').trim();
+        const dayKey = dateKeyInTimezone(parseHistoryDate(draft?.createdAt), timezone);
+        if (!dayKey) return;
+        container.dataset.pointHistoryWeekAnchorDayKey = dayKey;
+        container.dispatchEvent(new CustomEvent('point-history-active-day-change', {
+            bubbles: true,
+            detail: { dayKey },
+        }));
     }
 
     function openNoteEditor(row) {
@@ -609,8 +622,22 @@
                 const beforeTop = stepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
                 const step = stepBtn.dataset.historyTimeStep;
                 draft.createdAt = shiftIsoHours(draft.createdAt, step);
+                syncDraftDay(container, draft);
                 render(container, container.__pointHistoryLastOptions || {});
                 keepDraftRowInView(container, beforeTop, `[data-history-time-step="${step}"]`);
+                return;
+            }
+            const dayStepBtn = event.target.closest('[data-history-time-day-step]');
+            if (dayStepBtn) {
+                event.preventDefault();
+                const draft = container.__pointHistoryTimeDraft;
+                if (!draft?.eventId) return;
+                const beforeTop = dayStepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
+                const dayStep = Number.parseInt(dayStepBtn.dataset.historyTimeDayStep, 10) || 0;
+                draft.createdAt = shiftIsoHours(draft.createdAt, dayStep * 24);
+                syncDraftDay(container, draft);
+                render(container, container.__pointHistoryLastOptions || {});
+                keepDraftRowInView(container, beforeTop, `[data-history-time-day-step="${dayStep}"]`);
                 return;
             }
             const timeSaveBtn = target.closest('[data-history-time-save]');
@@ -725,9 +752,12 @@
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
-        const requestedActiveDayKey = String(opts.selectedDayKey || '').trim();
+        const draftDayKey = timeDraft?.eventId
+            ? dateKeyInTimezone(parseHistoryDate(timeDraft.createdAt), timezone)
+            : '';
+        const requestedActiveDayKey = draftDayKey || String(opts.selectedDayKey || '').trim();
         const todayDayKey = dateKeyInTimezone(new Date(), timezone);
-        const requestedAnchorDayKey = String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
+        const requestedAnchorDayKey = draftDayKey || String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
         const anchorDayKey = requestedAnchorDayKey || requestedActiveDayKey || todayDayKey;
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;

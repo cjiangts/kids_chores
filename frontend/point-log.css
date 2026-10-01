@@ -1027,6 +1027,15 @@
     margin-left: auto;
 }
 
+.point-history-time-editor :is([data-history-time-step], [data-history-time-day-step]) {
+    width: auto;
+    min-width: 36px;
+    padding: 0 0.3rem;
+    border-radius: 11px;
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
 .point-empty {
     border: 1px dashed #cfd8ef;
     border-radius: 8px;
