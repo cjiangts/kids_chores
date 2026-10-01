@@ -139,14 +139,37 @@ window.AudioCommon = {
      * before a recording starts. This keeps the quiet input ramp out of the
      * saved reading audio.
      */
-    MIC_WARM_UP_MS: 900,
+    MIC_WARM_UP_MS: 2200,
 
-    warmUpMic(stream, warmUpMs = this.MIC_WARM_UP_MS) {
+    async warmUpMic(stream, warmUpMs = this.MIC_WARM_UP_MS) {
         const hasLiveAudio = Boolean(stream?.getAudioTracks?.().some((track) => track.readyState === 'live'));
-        if (!hasLiveAudio) return Promise.resolve();
-        return new Promise((resolve) => {
-            window.setTimeout(resolve, Math.max(0, Number(warmUpMs) || 0));
-        });
+        if (!hasLiveAudio) return;
+        const waitMs = Math.max(0, Number(warmUpMs) || 0);
+        const wait = () => new Promise((resolve) => window.setTimeout(resolve, waitMs));
+        if (typeof MediaRecorder === 'undefined') {
+            await wait();
+            return;
+        }
+
+        // Safari's input level settles only once its MediaRecorder pipeline is
+        // active. Record and discard that settling window on the same stream;
+        // the subsequent real recorder then starts with a stable input level.
+        let warmUpRecorder = null;
+        try {
+            warmUpRecorder = new MediaRecorder(stream, this.getRecorderOptions());
+            warmUpRecorder.start(this.TIMESLICE_MS);
+            await wait();
+            await this.gracefulStopRecorder(warmUpRecorder, 0);
+        } catch (error) {
+            console.warn('[AudioCommon] Microphone recorder warm-up skipped.', error);
+            if (warmUpRecorder?.state === 'recording') {
+                try {
+                    warmUpRecorder.stop();
+                } catch (stopError) {
+                    // Best effort: the real recorder below can still use the live stream.
+                }
+            }
+        }
     },
 
     /** Small stop delay to reduce tail clipping when user stops right after speaking. */
