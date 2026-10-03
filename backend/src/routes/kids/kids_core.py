@@ -26,6 +26,8 @@ from src.routes.kids_constants import (
     MIN_DRILL_SPEED_CUTOFF_MS,
     SESSION_CARD_COUNT_BY_CATEGORY_FIELD,
     SESSION_RESULT_RETRY_FIXED_FIRST,
+    SESSION_RESULT_PARTIAL,
+    SESSION_RESULT_WRONG_UNRESOLVED,
     TYPE_I_NON_CHINESE_DECK_MIX_FIELD,
 )
 from flask import send_file
@@ -82,7 +84,14 @@ from src.services.practice_mode import (
     is_drill_session_practice_mode,
     normalize_session_practice_mode,
 )
-from src.services.points import delete_in_app_chore_events_for_session
+from src.services.points import (
+    RULE_KIND_IN_APP_CHORE,
+    delete_in_app_chore_events_for_session,
+    has_session_finalization_point_event,
+    insert_point_event,
+    list_family_rules,
+    session_finalization_note,
+)
 from src.services.session_delete import delete_session_with_recompute
 from src.services.shared_deck_category import (
     get_session_behavior_type,
@@ -900,12 +909,50 @@ def get_kid_report_session_detail(kid_id, session_id):
             """,
             [session_id_int]
         ).fetchall()
-        conn.close()
+        parent_finalized = has_session_finalization_point_event(conn, session_row[3])
         session_type = normalize_shared_deck_tag(session_row[1])
         session_behavior_type = get_session_behavior_type(session_type)
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         session_category_meta = category_meta_by_key.get(session_type) or {}
         session_category_display_name = get_deck_category_display_name(session_type, category_meta_by_key)
+        cards_per_point = 0
+        awarded_points = None
+        family_id = str(kid.get('familyId') or '').strip()
+        if family_id:
+            shared_conn = get_shared_decks_connection(read_only=True)
+            try:
+                in_app_rules = list_family_rules(
+                    shared_conn,
+                    family_id,
+                    rule_kind=RULE_KIND_IN_APP_CHORE,
+                    include_inactive=True,
+                )
+                matching_rules = [
+                    rule for rule in in_app_rules
+                    if normalize_shared_deck_tag(rule.get('triggerKey')) == session_type
+                ]
+                matching_rule = next(
+                    (rule for rule in matching_rules if bool(rule.get('isActive'))),
+                    None,
+                )
+                if matching_rule and matching_rule.get('maxPoint') is not None:
+                    cards_per_point = max(1, int(matching_rule['maxPoint']))
+                rule_ids = [int(rule['ruleId']) for rule in matching_rules if rule.get('ruleId') is not None]
+                if session_row[3] is not None and rule_ids:
+                    placeholders = ', '.join(['?'] * len(rule_ids))
+                    event_row = conn.execute(
+                        f"""
+                        SELECT COUNT(*), COALESCE(SUM(points_delta), 0)
+                        FROM point_event
+                        WHERE created_at = ? AND rule_id IN ({placeholders})
+                        """,
+                        [session_row[3], *rule_ids],
+                    ).fetchone()
+                    if event_row and int(event_row[0] or 0) > 0:
+                        awarded_points = int(event_row[1] or 0)
+            finally:
+                shared_conn.close()
+        conn.close()
 
         answers = []
         right_cards = []
@@ -1001,11 +1048,147 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'answer_count': len(answers),
                 'right_count': len(right_cards),
                 'wrong_count': len(wrong_cards),
+                'cards_per_point': cards_per_point,
+                # Early finalization credits answered cards except unresolved
+                # wrong / partial answers. A normally completed clean session
+                # still credits all of its cards through the usual path.
+                'point_eligible_card_count': len(answers) - len(wrong_cards),
+                'projected_points': (
+                    (len(answers) - len(wrong_cards)) // cards_per_point
+                    if cards_per_point else 0
+                ),
+                'awarded_points': awarded_points,
+                'parent_finalized': parent_finalized,
             },
             'right_cards': right_cards,
             'wrong_cards': wrong_cards,
             'answers': answers,
         }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/kids/<kid_id>/report/sessions/<session_id>/finish-here', methods=['POST'])
+def finish_kid_report_session_here(kid_id, session_id):
+    """End a saved session and write its ledger receipt exactly once.
+
+    The point event (including a zero-point event) is the durable finalization
+    marker. No session-schema column is needed.
+    """
+    try:
+        kid = get_kid_for_family(kid_id)
+        if not kid:
+            return jsonify({'error': 'Kid not found'}), 404
+        try:
+            session_id_int = int(session_id)
+        except (TypeError, ValueError):
+            return jsonify({'error': 'Invalid session id'}), 400
+
+        family_id = str(kid.get('familyId') or '').strip()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
+
+        shared_conn = get_shared_decks_connection(read_only=True)
+        try:
+            all_rules = list_family_rules(
+                shared_conn,
+                family_id,
+                rule_kind=RULE_KIND_IN_APP_CHORE,
+                include_inactive=True,
+            )
+        finally:
+            shared_conn.close()
+
+        conn = get_kid_connection_for(kid)
+        try:
+            conn.execute('BEGIN TRANSACTION')
+            row = conn.execute(
+                """
+                SELECT
+                    s.type,
+                    s.completed_at,
+                    COALESCE(s.planned_count, 0) AS planned_count,
+                    COUNT(sr.id) AS answer_count,
+                    COALESCE(SUM(CASE
+                        WHEN sr.correct = ? OR sr.correct = ? THEN 1
+                        ELSE 0
+                    END), 0) AS unresolved_count
+                FROM sessions s
+                LEFT JOIN session_results sr ON sr.session_id = s.id
+                WHERE s.id = ?
+                GROUP BY s.type, s.completed_at, s.planned_count
+                """,
+                [SESSION_RESULT_WRONG_UNRESOLVED, SESSION_RESULT_PARTIAL, session_id_int],
+            ).fetchone()
+            if row is None:
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'Session not found'}), 404
+
+            session_type, completed_at, planned_count, answer_count, unresolved_count = row
+            planned_count = max(0, int(planned_count or 0))
+            answer_count = max(0, int(answer_count or 0))
+            unresolved_count = max(0, int(unresolved_count or 0))
+            if completed_at is None:
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'Only saved sessions can be ended here'}), 409
+            if answer_count <= 0:
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'Finish at least one card before ending this session'}), 409
+            if planned_count <= answer_count and unresolved_count <= 0:
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'This session is already complete'}), 409
+            if has_session_finalization_point_event(conn, completed_at):
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'This session has already been ended'}), 409
+
+            session_key = normalize_shared_deck_tag(session_type)
+            active_rule = next((
+                rule for rule in all_rules
+                if bool(rule.get('isActive'))
+                and normalize_shared_deck_tag(rule.get('triggerKey')) == session_key
+            ), None)
+            marker_rule = active_rule or next((
+                rule for rule in all_rules
+                if normalize_shared_deck_tag(rule.get('triggerKey')) == session_key
+            ), None)
+            if not marker_rule:
+                conn.execute('ROLLBACK')
+                return jsonify({'error': 'This activity needs a point rule before it can be ended'}), 409
+
+            cards_per_point = max(1, int(active_rule.get('maxPoint') or 1)) if active_rule else 0
+            point_eligible_card_count = max(0, answer_count - unresolved_count)
+            awarded_points = (
+                point_eligible_card_count // cards_per_point
+                if cards_per_point else 0
+            )
+            insert_point_event(
+                conn,
+                marker_rule['ruleId'],
+                awarded_points,
+                note=session_finalization_note(answer_count, planned_count),
+                created_at=completed_at,
+            )
+
+            conn.execute(
+                'UPDATE sessions SET planned_count = ? WHERE id = ?',
+                [answer_count, session_id_int],
+            )
+            conn.execute('COMMIT')
+            return jsonify({
+                'message': 'Session ended',
+                'plannedCount': answer_count,
+                'answerCount': answer_count,
+                'pointEligibleCardCount': point_eligible_card_count,
+                'pointsAwarded': awarded_points,
+            }), 200
+        except Exception:
+            try:
+                conn.execute('ROLLBACK')
+            except Exception:
+                pass
+            raise
+        finally:
+            conn.close()
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

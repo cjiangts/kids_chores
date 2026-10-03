@@ -599,16 +599,16 @@ function renderOffAppTaskIcon(chore) {
 
 function formatDonePointsStatus(pointsValue) {
     const points = Number.parseInt(pointsValue, 10);
-    if (!Number.isInteger(points) || points === 0) return 'Done';
-    return `Done ${points > 0 ? '+' : ''}${points}`;
+    if (!Number.isInteger(points)) return 'Done';
+    return `Done ${points >= 0 ? '+' : ''}${points}`;
 }
 
 function formatCreditedOffAppStatus(event) {
     const points = Number.parseInt(event?.pointsDelta, 10);
-    if (!Number.isInteger(points) || points === 0) {
+    if (!Number.isInteger(points)) {
         return 'Done Today';
     }
-    return `Done ${points > 0 ? '+' : ''}${points}`;
+    return `Done ${points >= 0 ? '+' : ''}${points}`;
 }
 
 function renderOffAppTaskRow(chore) {

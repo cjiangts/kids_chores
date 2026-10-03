@@ -11,6 +11,7 @@ RULE_KIND_OFF_APP_CHORE = 'off_app_chore'
 RULE_KIND_BONUS_EVENT = 'bonus_event'
 RULE_KIND_DEDUCTION_EVENT = 'deduction_event'
 RULE_KIND_REDEEMED_REWARD = 'redeemed_reward'
+SESSION_FINALIZATION_NOTE_PREFIX = 'Finished early · '
 RULE_KINDS = {
     RULE_KIND_IN_APP_CHORE,
     RULE_KIND_OFF_APP_CHORE,
@@ -18,6 +19,31 @@ RULE_KINDS = {
     RULE_KIND_DEDUCTION_EVENT,
     RULE_KIND_REDEEMED_REWARD,
 }
+
+
+def session_finalization_note(answer_count, planned_count):
+    """Human-readable receipt note for a parent-ended session."""
+    return (
+        f'{SESSION_FINALIZATION_NOTE_PREFIX}'
+        f'{max(0, int(answer_count or 0))} of {max(0, int(planned_count or 0))} cards'
+    )
+
+
+def has_session_finalization_point_event(kid_conn, completed_at):
+    """Whether a finalization receipt exists at this session's completion time."""
+    if completed_at is None:
+        return False
+    row = kid_conn.execute(
+        """
+        SELECT 1
+        FROM point_event
+        WHERE created_at = ?
+          AND note LIKE ?
+        LIMIT 1
+        """,
+        [completed_at, f'{SESSION_FINALIZATION_NOTE_PREFIX}%'],
+    ).fetchone()
+    return row is not None
 
 
 def _utc_isoformat(value):

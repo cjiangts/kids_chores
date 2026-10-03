@@ -96,6 +96,66 @@ function bindDeleteSessionButton() {
     });
 }
 
+function getFinishHereState(session, answers) {
+    const plannedCount = Math.max(0, Number.parseInt(session?.planned_count, 10) || 0);
+    const answerCount = Array.isArray(answers) ? answers.length : 0;
+    const todoCount = Math.max(0, plannedCount - answerCount);
+    const unresolvedCount = (Array.isArray(answers) ? answers : []).filter((answer) => {
+        const score = Number.parseInt(answer?.correct_score, 10);
+        return score === -1 || score === 2;
+    }).length;
+    return {
+        plannedCount,
+        answerCount,
+        todoCount,
+        unresolvedCount,
+        canFinish: !session?.parent_finalized
+            && answerCount > 0
+            && (todoCount > 0 || unresolvedCount > 0),
+    };
+}
+
+function bindFinishHereButton(session, answers) {
+    const btn = document.getElementById('finishSessionBtn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+        void handleFinishSessionHere(btn, session, answers);
+    });
+}
+
+async function handleFinishSessionHere(btn, session, answers) {
+    const state = getFinishHereState(session, answers);
+    if (!state.canFinish) return;
+    const cardsPerPoint = Math.max(0, Number.parseInt(session?.cards_per_point, 10) || 0);
+    const points = Math.max(0, Number.parseInt(session?.projected_points, 10) || 0);
+    const eligibleCards = Math.max(0, Number.parseInt(session?.point_eligible_card_count, 10) || 0);
+    const remaining = state.todoCount;
+    const kidLabel = String(currentKidName || 'Your child').trim() || 'Your child';
+    const awardLine = cardsPerPoint > 0
+        ? `${kidLabel} will earn +${points} pts (${eligibleCards} corrected cards at ${cardsPerPoint} cards per point).`
+        : `${kidLabel} will earn +0 pts because this activity has no active point rule.`;
+    const confirmed = window.confirm(
+        `End this session?\n\n${state.answerCount} of ${state.plannedCount} cards are answered.${remaining > 0 ? ` The remaining ${remaining} card${remaining === 1 ? '' : 's'} will not be assigned today.` : ''}\n\nWrong cards stay in the history, but will not require correction today.\n\n${awardLine}`
+    );
+    if (!confirmed) return;
+    btn.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/kids/${kidId}/report/sessions/${sessionId}/finish-here`, {
+            method: 'POST',
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.error || 'Failed to finish this session.');
+        }
+        await loadSessionDetail();
+    } catch (error) {
+        console.error('Error finishing session here:', error);
+        showError(error.message || 'Failed to finish this session.');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
 async function handleDeleteSession(btn) {
     if (!kidId || !sessionId) return;
     if (!window.PracticeManageCommon?.requestWithPasswordDialog) return;
@@ -192,6 +252,7 @@ async function loadSessionDetail() {
         currentAnswers = answers;
         currentSession = session;
         renderSummary(session, answers);
+        bindFinishHereButton(session, answers);
         renderAnswerSections(answers);
         if (shouldShowSpeedDistribution()) {
             renderSpeedDistribution(answers);
@@ -215,6 +276,7 @@ function renderSummary(session, answers) {
     const relativeDay = formatRelativeDay(startedRaw);
     const counts = currentSessionIsDrill ? null : countAnswersByOutcome(answers);
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
+    const finishHereState = getFinishHereState(session, answers);
     const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
     const showModeMeta = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
     const metaItems = [];
@@ -226,6 +288,23 @@ function renderSummary(session, answers) {
         drillCardCounts,
         totalActiveMs,
     }));
+    const awardedPoints = Number.parseInt(session?.awarded_points, 10);
+    if (Number.isInteger(awardedPoints)) {
+        metaItems.push({
+            className: 'session-summary-meta-points',
+            ariaLabel: `Points awarded ${awardedPoints}`,
+            icon: 'award',
+            value: `${awardedPoints >= 0 ? '+' : ''}${awardedPoints} pts`,
+        });
+    }
+    if (finishHereState.todoCount > 0) {
+        metaItems.push({
+            className: 'session-summary-meta-todo',
+            ariaLabel: `${finishHereState.todoCount} cards left to do`,
+            icon: 'list-ordered',
+            value: `${finishHereState.todoCount} todo`,
+        });
+    }
     const metaHtml = metaItems.map((item) => {
         const iconHtml = item.iconHtml || (window.icon ? window.icon(item.icon, { size: 12, strokeWidth: 2.4 }) : '');
         const className = item.className ? ` ${escapeHtml(item.className)}` : '';
@@ -234,11 +313,11 @@ function renderSummary(session, answers) {
         return `<span class="report-hero-meta-item${className}"${ariaLabel}><span class="report-hero-meta-icon">${iconHtml}</span><span class="report-hero-meta-value">${valueHtml}</span></span>`;
     }).join('');
     summaryCard.innerHTML = `
-        ${renderSummaryHero(metaHtml)}
+        ${renderSummaryHero(metaHtml, finishHereState.canFinish)}
     `;
 }
 
-function renderSummaryHero(metaHtml) {
+function renderSummaryHero(metaHtml, canFinish) {
     const key = String(currentSessionType || '').trim();
     const hasIcon = key && window.SUBJECT_ICONS && window.SUBJECT_ICONS[key];
     const title = currentSessionCategoryDisplayName
@@ -253,6 +332,7 @@ function renderSummaryHero(metaHtml) {
             <div class="session-summary-hero-text">
                 <div class="report-hero-meta">${subjectMetaHtml}${metaHtml}</div>
             </div>
+            ${canFinish ? '<button id="finishSessionBtn" type="button" class="session-finish-btn">End session</button>' : ''}
         </div>
     `;
 }
@@ -1184,6 +1264,7 @@ document.addEventListener('click', async (event) => {
 
             if (currentSession) {
                 renderSummary(currentSession, currentAnswers);
+                bindFinishHereButton(currentSession, currentAnswers);
             }
             hideSpeedDistribution();
         }

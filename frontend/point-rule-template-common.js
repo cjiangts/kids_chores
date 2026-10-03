@@ -10,7 +10,7 @@
 
     function formatDelta(value) {
         const delta = Number.parseInt(value, 10) || 0;
-        return `${delta > 0 ? '+' : ''}${delta}`;
+        return `${delta >= 0 ? '+' : ''}${delta}`;
     }
 
     function isRewardRule(rule) {

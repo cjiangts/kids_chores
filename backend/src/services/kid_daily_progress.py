@@ -46,6 +46,7 @@ from src.services.kid_category_config import (
     get_category_session_card_count_for_kid,
     hydrate_kid_category_config_from_db,
 )
+from src.services.points import has_session_finalization_point_event
 from src.services.shared_deck_category import (
     get_session_behavior_type,
     get_shared_deck_category_meta_by_key,
@@ -562,7 +563,10 @@ def get_kid_today_session_status_by_deck_category(
                 completed_at is not None
                 and (planned_count <= 0 or answer_count >= planned_count)
             )
-            if session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
+            parent_finalized = has_session_finalization_point_event(local_conn, completed_at)
+            if parent_finalized:
+                done = True
+            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
                 done = has_completed_all_planned
             else:
                 done = has_completed_all_planned and wrong_count <= 0
@@ -573,6 +577,7 @@ def get_kid_today_session_status_by_deck_category(
                 'mistakeCount': mistake_count,
                 'ungradedCount': ungraded_count,
                 'earnedPoints': points_by_key.get(category_key, 0),
+                'parentFinalized': parent_finalized,
             }
         return status_by_key
     except Exception:

@@ -105,7 +105,7 @@ function formatPoints(value) {
 
 function formatSignedPoints(value) {
     const number = Number.parseInt(value, 10) || 0;
-    return `${number > 0 ? '+' : ''}${number.toLocaleString()} pts`;
+    return `${number >= 0 ? '+' : ''}${number.toLocaleString()} pts`;
 }
 
 function formatPercent(value) {
