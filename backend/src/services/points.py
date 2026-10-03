@@ -202,13 +202,14 @@ def _normalize_rule_payload(payload, *, existing=None):
         if not trigger_key:
             raise ValueError('triggerKey is required for in_app_chore rules')
 
+    point_field_label = 'Cards per point' if rule_kind == RULE_KIND_IN_APP_CHORE else 'Default points'
     max_point = _coerce_int(
         data.get('maxPoint', base.get('maxPoint')),
-        field_name='Default points',
+        field_name=point_field_label,
         required=False,
     )
     if max_point is not None and max_point <= 0:
-        raise ValueError('Default points must be positive')
+        raise ValueError(f'{point_field_label} must be positive')
 
     reward_type = None
     if rule_kind == RULE_KIND_REDEEMED_REWARD:
@@ -833,7 +834,8 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
     rows = kid_conn.execute(
         f"""
         SELECT s.id,
-               s.completed_at
+               s.completed_at,
+               COUNT(sr.id) AS completed_card_count
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
@@ -856,6 +858,7 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
         {
             'sessionId': int(row[0] or 0),
             'completedAt': row[1],
+            'completedCardCount': int(row[2] or 0),
         }
         for row in rows
         if row and int(row[0] or 0) > 0 and row[1] is not None
@@ -885,7 +888,7 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
                 continue
             if allowed_keys is not None and normalize_shared_deck_tag(rule.get('triggerKey')) not in allowed_keys:
                 continue
-            points_delta = _event_delta_for_rule(rule)
+            cards_per_point = max(1, int(rule.get('maxPoint') or 1))
             sessions = list_app_category_strictly_done_sessions_today(
                 kid_conn,
                 family_id,
@@ -897,6 +900,10 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
                 if has_point_event_for_rule_at_timestamp(kid_conn, rule['ruleId'], completed_at):
                     skipped_count += 1
                     continue
+                completed_card_count = max(0, int(session.get('completedCardCount') or 0))
+                # In-app maxPoint is the number of completed cards required for
+                # one point. Credit each session independently and round down.
+                points_delta = completed_card_count // cards_per_point
                 event = insert_point_event(
                     kid_conn,
                     rule['ruleId'],
@@ -905,6 +912,7 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
                 )
                 event['rule'] = rule
                 event['sessionId'] = session['sessionId']
+                event['completedCardCount'] = completed_card_count
                 awarded.append(event)
         kid_conn.execute('COMMIT')
     except Exception:

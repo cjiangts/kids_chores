@@ -66,7 +66,6 @@
         return document.body.classList.contains('parent-admin-page')
             || path.endsWith('/admin.html')
             || path.endsWith('/point-log.html')
-            || path.endsWith('/point-rules.html')
             || path.endsWith('/parent-rewards.html')
             || path.endsWith('/parent-settings.html');
     }
@@ -121,10 +120,7 @@
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
         if (path.endsWith('/point-log.html')) return 'rewards';
         if (path.endsWith('/stats2.html')) return 'stats';
-        if (
-            path.endsWith('/parent-settings.html')
-            || path.endsWith('/point-rules.html')
-        ) return 'settings';
+        if (path.endsWith('/parent-settings.html')) return 'settings';
         if (
             path.endsWith('/kid-rewards.html')
             || path.endsWith('/parent-rewards.html')

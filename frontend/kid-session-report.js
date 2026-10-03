@@ -135,7 +135,7 @@ function resolveBackHref() {
     }
     if (from === 'point-activity-report') {
         const ruleId = String(params.get('ruleId') || '').trim();
-        return ruleId ? `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}` : '/point-rules.html';
+        return `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId || '0')}`;
     }
     return `/kid-practice-home.html?id=${encodeURIComponent(String(kidId))}`;
 }

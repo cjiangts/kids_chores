@@ -6,7 +6,6 @@
         return document.body.classList.contains('parent-admin-page')
             || path.endsWith('/admin.html')
             || path.endsWith('/point-log.html')
-            || path.endsWith('/point-rules.html')
             || path.endsWith('/parent-rewards.html')
             || path.endsWith('/parent-settings.html');
     }

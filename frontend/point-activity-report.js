@@ -77,6 +77,11 @@ function formatPoints(value) {
     return `${number.toLocaleString()} pts`;
 }
 
+function formatCardsPerPoint(value) {
+    const number = Number.parseInt(value, 10) || 0;
+    return `${number.toLocaleString()} cards per point`;
+}
+
 function formatSignedPoints(value) {
     const number = Number.parseInt(value, 10) || 0;
     return `${number > 0 ? '+' : ''}${number.toLocaleString()} pts`;
@@ -490,8 +495,8 @@ function renderHero() {
         : isEditingRule
         ? `
             <span class="point-activity-rule-meta point-activity-rule-meta--editing">
-                <input class="point-activity-points-edit" data-rule-edit-points type="number" min="1" step="1" value="${rule.maxPoint == null ? '' : escapeHtml(rule.maxPoint)}" aria-label="Default points">
-                <span>pts</span>
+                <input class="point-activity-points-edit" data-rule-edit-points type="number" min="1" step="1" value="${rule.maxPoint == null ? '' : escapeHtml(rule.maxPoint)}" aria-label="${isInAppRule ? 'Cards per point' : 'Default points'}">
+                <span>${isInAppRule ? 'cards / pt' : 'pts'}</span>
                 ${isInAppRule ? '' : `
                     <label class="point-activity-rule-status-editor">
                         <input data-rule-edit-active type="checkbox" ${rule.isActive ? 'checked' : ''}>
@@ -502,7 +507,7 @@ function renderHero() {
         `
         : `
             <span class="point-activity-rule-meta">
-                <span>${escapeHtml(formatPoints(rule.maxPoint))}</span>
+                <span>${escapeHtml(isInAppRule ? formatCardsPerPoint(rule.maxPoint) : formatPoints(rule.maxPoint))}</span>
                 ${isInAppRule ? '' : `<span class="point-activity-rule-status">${rule.isActive ? 'Active' : 'Inactive'}</span>`}
             </span>
         `;
@@ -1305,7 +1310,7 @@ pointActivityHero?.addEventListener('click', async (event) => {
                 return;
             }
             if (pointsText && (!Number.isInteger(maxPoint) || maxPoint <= 0)) {
-                showError('Default points must be a positive whole number.');
+                showError(`${String(currentRule?.ruleKind || '') === 'in_app_chore' ? 'Cards per point' : 'Default points'} must be a positive whole number.`);
                 pointsInput?.focus();
                 return;
             }
