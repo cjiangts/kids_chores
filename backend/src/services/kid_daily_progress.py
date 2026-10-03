@@ -577,7 +577,6 @@ def get_kid_today_session_status_by_deck_category(
                 'mistakeCount': mistake_count,
                 'ungradedCount': ungraded_count,
                 'earnedPoints': points_by_key.get(category_key, 0),
-                'parentFinalized': parent_finalized,
             }
         return status_by_key
     except Exception:

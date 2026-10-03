@@ -517,8 +517,8 @@ function renderHero() {
         ? `
             <span class="point-activity-rule-edit-actions">
                 ${canDeleteRule ? `<button type="button" class="point-activity-rule-edit-action is-delete" data-rule-edit-action="delete" aria-label="Delete rule" title="Delete rule"><span class="icon" data-icon="trash" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>` : ''}
-                <button type="button" class="point-activity-rule-edit-action is-save" data-rule-edit-action="save" aria-label="Save rule" title="Save rule"><span class="icon" data-icon="save" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>
-                <button type="button" class="point-activity-rule-edit-action is-cancel" data-rule-edit-action="cancel" aria-label="Cancel editing" title="Cancel editing"><span class="icon" data-icon="x" data-icon-size="15" data-icon-stroke="2.8" aria-hidden="true"></span></button>
+                <button type="button" class="point-activity-rule-edit-action is-save" data-rule-edit-action="save">Save</button>
+                <button type="button" class="point-activity-rule-edit-action is-cancel" data-rule-edit-action="cancel">Cancel</button>
             </span>
         `
         : `<button type="button" class="point-activity-rules-link" data-rule-edit-action="start" aria-label="Edit point rule" title="Edit rule"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></button>`;
