@@ -188,6 +188,12 @@
             margin-bottom: 0;
             vertical-align: middle;
         }
+        .parent-admin-page .admin-off-app-add-head {
+            padding-top: 0.42rem !important;
+            padding-bottom: 0.42rem !important;
+            text-align: right !important;
+            vertical-align: middle !important;
+        }
         .parent-admin-page .admin-matrix-subject-head .admin-panel-menu-btn {
             vertical-align: middle;
             margin-left: 0.03rem;
@@ -238,8 +244,10 @@
             color: #2f4cb5;
             outline: none;
         }
-        .parent-admin-page .admin-matrix-all-report-link {
+        .parent-admin-page :is(.admin-matrix-all-report-link, .admin-off-app-add-btn) {
             box-sizing: border-box;
+            display: inline-flex;
+            align-items: center;
             justify-content: center;
             width: 42px;
             height: 42px;
@@ -249,14 +257,21 @@
             background: #fff;
             box-shadow: 0 1px 3px rgba(47, 61, 118, 0.14);
             margin-left: auto;
+            color: #3267d6;
+        }
+        .parent-admin-page .admin-off-app-add-btn {
+            cursor: pointer;
         }
         .parent-admin-page .admin-matrix-all-report-link:hover,
-        .parent-admin-page .admin-matrix-all-report-link:focus-visible {
+        .parent-admin-page .admin-matrix-all-report-link:focus-visible,
+        .parent-admin-page .admin-off-app-add-btn:hover,
+        .parent-admin-page .admin-off-app-add-btn:focus-visible {
             border-color: #8175f7;
             color: #3267d6;
             box-shadow: 0 3px 8px rgba(107, 92, 246, 0.16);
+            outline: none;
         }
-        .parent-admin-page .admin-matrix-all-report-icon {
+        .parent-admin-page :is(.admin-matrix-all-report-icon, .admin-off-app-add-icon) {
             display: grid;
             grid-template-rows: 1fr auto;
             place-items: center;
@@ -267,7 +282,7 @@
             color: #3267d6;
             line-height: 1;
         }
-        .parent-admin-page .admin-matrix-all-report-phone {
+        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol) {
             display: inline-flex;
             align-items: end;
             height: 19px;
@@ -278,7 +293,7 @@
             height: 14px;
             stroke: currentColor;
         }
-        .parent-admin-page .admin-matrix-all-report-label {
+        .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label) {
             margin-bottom: 4px;
             font-size: 0.46rem;
             font-weight: 850;
@@ -473,40 +488,6 @@
         }
         .parent-admin-page .admin-matrix-row-check:focus-visible {
             outline: none;
-        }
-        .parent-admin-page .admin-subject-menu {
-            position: absolute;
-            background: #fff;
-            border-radius: 12px;
-            border: 1px solid rgba(125, 138, 184, 0.24);
-            box-shadow: 0 8px 24px rgba(31, 41, 80, 0.18);
-            z-index: 30;
-            min-width: 200px;
-            padding: 0.35rem 0;
-        }
-        .parent-admin-page .admin-subject-menu-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            width: 100%;
-            background: none;
-            border: none;
-            text-align: left;
-            padding: 0.55rem 0.85rem;
-            font-size: 0.9rem;
-            color: #1f2950;
-            text-decoration: none;
-            cursor: pointer;
-        }
-        .parent-admin-page .admin-subject-menu-item:hover {
-            background: #f3f5fb;
-        }
-        .parent-admin-page .admin-subject-menu-item-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            line-height: 1;
-            color: #4d84e3;
         }
         .parent-admin-page .admin-matrix-cell {
             text-align: center;
@@ -828,6 +809,75 @@
         .parent-admin-page .admin-off-app-note-input:disabled {
             opacity: 0.62;
         }
+        .parent-admin-page .admin-off-app-create-row > td {
+            padding: 0.38rem 0 0.32rem;
+        }
+        .parent-admin-page .admin-off-app-create-form {
+            display: grid;
+            grid-template-columns: 2.6rem minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.42rem;
+        }
+        .parent-admin-page :is(.admin-off-app-create-emoji, .admin-off-app-create-name) {
+            box-sizing: border-box;
+            height: var(--admin-off-app-pill-height);
+            border: 1px solid #d8def0;
+            border-radius: 999px;
+            background: #fff;
+            color: #1f2950;
+            font: inherit;
+            font-size: 0.84rem;
+            outline: none;
+        }
+        .parent-admin-page .admin-off-app-create-emoji {
+            padding: 0 0.3rem;
+            text-align: center;
+        }
+        .parent-admin-page .admin-off-app-create-name {
+            min-width: 0;
+            padding: 0 0.65rem;
+        }
+        .parent-admin-page :is(.admin-off-app-create-emoji, .admin-off-app-create-name):focus {
+            box-shadow: inset 0 0 0 2px rgba(77, 132, 227, 0.16);
+        }
+        .parent-admin-page .admin-off-app-create-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+        }
+        .parent-admin-page .admin-off-app-visibility-row > td {
+            padding-top: 0.22rem;
+        }
+        .parent-admin-page .admin-off-app-visibility-tools {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+        }
+        .parent-admin-page .admin-off-app-inactive-toggle {
+            appearance: none;
+            -webkit-appearance: none;
+            border: 0;
+            padding: 0.15rem 0;
+            background: transparent;
+            color: #6b5cf6;
+            font: inherit;
+            font-size: var(--paradigm-list-item-sub-font-size);
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .parent-admin-page .admin-off-app-inactive-toggle:hover,
+        .parent-admin-page .admin-off-app-inactive-toggle:focus-visible {
+            color: #3f31d7;
+            outline: none;
+            text-decoration: underline;
+        }
+        .parent-admin-page .admin-off-app-row.is-inactive {
+            opacity: 0.58;
+        }
+        .parent-admin-page .admin-off-app-row.is-inactive .admin-off-app-tile {
+            filter: grayscale(1);
+        }
         .parent-admin-page .admin-off-app-empty {
             padding: 0.75rem 0 0.15rem;
             color: #6c7794;
@@ -1103,32 +1153,6 @@
 
             <div id="errorMessage" class="error hidden"></div>
         </main>
-    </div>
-
-    <div id="deckBrowseModal" class="modal hidden manage-popup-modal deck-tree-modal" aria-hidden="true">
-        <div class="modal-content modal-large" role="dialog" aria-modal="true" aria-labelledby="deckBrowseHeading">
-            <div class="deck-tree-header">
-                <div class="deck-tree-header-left">
-                    <h2 id="deckBrowseHeading" style="margin:0"><span class="icon" data-icon="layers" data-icon-size="22"></span> <span id="deckBrowseTitle">Browse Decks</span></h2>
-                    <span id="deckBrowseCounter" class="deck-tree-counter"></span>
-                </div>
-                <div class="deck-tree-search-row">
-                    <div class="search-bar deck-tree-search-wrap">
-                        <input id="deckBrowseSearchInput" type="text" class="paradigm-search-input" placeholder="Search decks or card content...">
-                    </div>
-                    <button id="deckBrowseNewDeckBtn" type="button" class="paradigm-icon-btn" title="Create a new deck at the subject root" aria-label="New deck"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.4"></span></button>
-                    <button id="deckBrowseExpansionToggleBtn" type="button" class="paradigm-icon-btn"><span data-icon="chevrons-up-down" data-icon-size="14" data-icon-stroke="2.2"></span></button>
-                </div>
-            </div>
-            <div class="manage-popup-modal-body">
-                <div id="deckBrowseContainer" class="deck-tree-container"></div>
-                <div class="deck-v2-actions deck-tree-actions">
-                    <div class="deck-v2-action-row manage-modal-action-row">
-                        <button id="closeDeckBrowseModalBtn" type="button" class="paradigm-icon-btn manage-modal-close-btn" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span></button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- PWA Install Prompt (iOS Safari only, shown once) -->

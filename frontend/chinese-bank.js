@@ -57,7 +57,6 @@ const pendingCount = document.getElementById('pendingCount');
 const saveChangesBtn = document.getElementById('saveChangesBtn');
 const errorMessage = document.getElementById('errorMessage');
 const refreshUsedBtn = document.getElementById('refreshUsedBtn');
-const forceSyncBacksBtn = document.getElementById('forceSyncBacksBtn');
 const sortUpdatedTh = document.getElementById('sortUpdatedTh');
 const csvToggleBtn = document.getElementById('csvToggleBtn');
 const csvPreviewBtn = document.getElementById('csvPreviewBtn');
@@ -76,6 +75,7 @@ let sortUpdated = ''; // '', 'asc', 'desc'
 let currentPageRows = [];
 let csvVisible = false;
 let isSuper = false;
+let saveReturnCountdownTimer = null;
 
 // =====================================================================
 // === 2. Mode chrome + super-family visibility + util helpers
@@ -90,7 +90,7 @@ function applyModeChrome() {
     document.title = `${cfg.title} - The Mommy App`;
     const h1 = document.querySelector('h1');
     if (h1) {
-        h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.title)}`;
+        h1.innerHTML = `<span class="icon page-title-icon" data-icon="book-text" data-icon-size="28"></span> ${escapeHtml(cfg.title)}`;
         if (typeof hydrateIcons === 'function') hydrateIcons(h1);
     }
 }
@@ -104,7 +104,7 @@ function applySuperVisibility() {
     if (!isSuper) {
         const h1 = document.querySelector('h1');
         if (h1) {
-            h1.innerHTML = `<span class="icon page-title-icon" data-icon="book" data-icon-size="28"></span> ${escapeHtml(cfg.viewTitle)}`;
+            h1.innerHTML = `<span class="icon page-title-icon" data-icon="book-text" data-icon-size="28"></span> ${escapeHtml(cfg.viewTitle)}`;
             if (typeof hydrateIcons === 'function') hydrateIcons(h1);
         }
         document.title = `${cfg.viewTitle} - The Mommy App`;
@@ -311,8 +311,30 @@ function handleFieldChange(tr, field, value) {
 // === 5. Save changes (bulk PATCH)
 // =====================================================================
 
+function returnToPreviousPageAfterSave() {
+    if (!saveChangesBtn || !saveBar || !pendingCount) return;
+    if (saveReturnCountdownTimer !== null) {
+        window.clearTimeout(saveReturnCountdownTimer);
+    }
+    let seconds = 3;
+    const tick = () => {
+        saveBar.classList.remove('hidden');
+        pendingCount.textContent = `Saved · Return to previous page in ${seconds}s`;
+        saveChangesBtn.disabled = true;
+        saveChangesBtn.textContent = 'Saved';
+        if (seconds <= 1) {
+            saveReturnCountdownTimer = window.setTimeout(() => window.history.back(), 1000);
+            return;
+        }
+        seconds -= 1;
+        saveReturnCountdownTimer = window.setTimeout(tick, 1000);
+    };
+    tick();
+}
+
 async function saveChanges() {
     if (pendingEdits.size === 0) return;
+    let returningToPreviousPage = false;
     showError('');
     saveChangesBtn.disabled = true;
     saveChangesBtn.textContent = 'Saving...';
@@ -339,13 +361,16 @@ async function saveChanges() {
             alert(buildPushSummary('Saved and pushed verified changes.', data, 'pushed'));
         }
         pendingEdits.clear();
-        updateSaveBar();
         await loadPage();
+        returnToPreviousPageAfterSave();
+        returningToPreviousPage = true;
     } catch (err) {
         showError(err.message || 'Failed to save');
     } finally {
-        saveChangesBtn.disabled = false;
-        saveChangesBtn.textContent = 'Save Changes';
+        if (!returningToPreviousPage) {
+            saveChangesBtn.disabled = false;
+            saveChangesBtn.textContent = 'Save Changes';
+        }
     }
 }
 
@@ -498,30 +523,6 @@ refreshUsedBtn.addEventListener('click', async () => {
     } finally {
         refreshUsedBtn.disabled = false;
         refreshUsedBtn.querySelector('.btn-label').textContent = 'Refresh Used';
-    }
-});
-
-forceSyncBacksBtn.addEventListener('click', async () => {
-    const ok = confirm(`Force sync every verified ${cfg.unitSingular}/${cfg.unitPlural} back text to all shared and kid cards?`);
-    if (!ok) return;
-    showError('');
-    forceSyncBacksBtn.disabled = true;
-    forceSyncBacksBtn.querySelector('.btn-label').textContent = 'Syncing...';
-    try {
-        const params = new URLSearchParams({ mode: MODE });
-        const res = await fetch(`${API_BASE}/chinese-bank/force-sync-backs?${params}`, { method: 'POST' });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-            showError(data.error || 'Failed to force sync');
-            return;
-        }
-        alert(buildPushSummary('Force sync complete.', data, 'changed'));
-        await loadPage();
-    } catch (err) {
-        showError(err.message || 'Failed to force sync');
-    } finally {
-        forceSyncBacksBtn.disabled = false;
-        forceSyncBacksBtn.querySelector('.btn-label').textContent = 'Force Sync Backs';
     }
 });
 

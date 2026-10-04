@@ -27,6 +27,18 @@ function renderDeckSetupSummary() {
     renderType4DeckTargetControls();
 }
 
+function syncDeckTreeUtilityButtons() {
+    if (openDeckBulkAddBtn) {
+        openDeckBulkAddBtn.classList.toggle('hidden', !isSuperFamily);
+    }
+    if (!openDeckDictionaryBtn) return;
+    const mode = ['pinyin', 'english'].includes(currentChineseBackContent)
+        ? currentChineseBackContent
+        : '';
+    openDeckDictionaryBtn.classList.toggle('hidden', !isSuperFamily || !mode);
+    openDeckDictionaryBtn.dataset.dictionaryMode = mode;
+}
+
 function renderDeckSetupActionButtons() {
     const totalDecks = (Array.isArray(allDecks) ? allDecks : []).length;
     const optedCount = stagedOptedDeckIdSet.size + (Boolean(orphanDeck) && stagedIncludeOrphanInQueue ? 1 : 0);
@@ -296,8 +308,33 @@ function ensureDeckTreeViewInstance() {
         getDeckLabel: (deck) => getType1DeckBubbleLabel(deck),
         getDeckSuffix: (deck) => getDeckBubbleSuffix(deck),
         getPersonalDeckName: () => getPersonalDeckDisplayName(),
+        ...(isSuperFamily ? {
+            onLeafClick: (deck) => {
+                const deckId = Number(deck?.deck_id);
+                if (deckId > 0) {
+                    window.location.href = `/deck-view.html?deckId=${encodeURIComponent(String(deckId))}`;
+                }
+            },
+            onBranchEdit: ({ tag, label, depth }) => {
+                void renameDeckTreeFolder({ tag, label, depth });
+            },
+            onBranchNewDeck: ({ path }) => {
+                navigateToCreateDeckUnderFolder(path);
+            },
+        } : {}),
     });
     return deckTreeViewInstance;
+}
+
+function navigateToCreateDeckUnderFolder(branchPath) {
+    if (!categoryKey) return;
+    const params = new URLSearchParams();
+    params.set('categoryKey', categoryKey);
+    (Array.isArray(branchPath) ? branchPath : []).forEach((tag) => {
+        const trimmed = String(tag || '').trim();
+        if (trimmed) params.append('prefixTag', trimmed);
+    });
+    window.location.href = `/deck-create.html?${params.toString()}`;
 }
 
 function getDeckTreeViewInstance() {
@@ -356,6 +393,45 @@ function closeDeckTreeModal() {
     setManageModalOpen(deckTreeModal, false);
 }
 
+async function renameDeckTreeFolder({ tag, label, depth }) {
+    const tagIndex = Number(depth);
+    if (!(tagIndex >= 1)) {
+        window.alert('The top-level subject folder cannot be renamed here.');
+        return;
+    }
+    const currentLabel = String(label || tag || '').trim();
+    const entered = window.prompt(`Rename folder "${currentLabel}" to:`, currentLabel);
+    if (entered === null) return;
+    const newTag = String(entered || '').trim();
+    if (!newTag || newTag === String(tag || '').trim()) return;
+
+    try {
+        const response = await fetch(`${API_BASE}/shared-decks/rename-tag`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ oldTag: tag, newTag, tagIndex }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(result.error || 'Failed to rename folder.');
+        }
+
+        // Tags and card-search text may both have changed. Refresh the current
+        // category in place, keeping the opt-in dialog open.
+        sharedDeckCardSearchIndex = null;
+        sharedDeckCardSearchIndexScope = null;
+        await loadSharedType1Decks();
+        const tree = ensureDeckTreeViewInstance();
+        tree.setDecks(allDecks, { orphanDeck });
+        tree.setBaseline(baselineOptedDeckIdSet, baselineIncludeOrphanInQueue);
+        tree.setSelection(stagedOptedDeckIdSet, stagedIncludeOrphanInQueue);
+        tree.render();
+        void ensureSharedDeckCardSearchIndex().then((cards) => tree.setCardIndex(cards));
+    } catch (error) {
+        window.alert(error.message || 'Failed to rename folder.');
+    }
+}
+
 async function applyDeckTreeChanges() {
     if (isDeckMoveInFlight) {
         return;
@@ -369,17 +445,29 @@ async function applyDeckTreeChanges() {
     await refreshDeckSelectionViews();
 }
 
-function expandAllDeckTree() {
-    if (deckTreeViewInstance) deckTreeViewInstance.expandAll();
+async function refreshDeckDataAfterHistoryReturn() {
+    const tree = deckTreeViewInstance;
+    const stagedIds = tree ? tree.getSelectedDeckIds() : null;
+    const stagedOrphan = tree ? tree.isOrphanIncluded() : null;
+    try {
+        await loadSharedType1Decks();
+        if (!tree) return;
+        tree.setDecks(allDecks, { orphanDeck });
+        tree.setBaseline(baselineOptedDeckIdSet, baselineIncludeOrphanInQueue);
+        tree.setSelection(stagedIds || stagedOptedDeckIdSet, stagedOrphan ?? stagedIncludeOrphanInQueue);
+        tree.setCardIndex(null);
+        tree.render();
+        void ensureSharedDeckCardSearchIndex().then((cards) => tree.setCardIndex(cards));
+    } catch (error) {
+        console.error('Error refreshing decks after history return:', error);
+    }
 }
 
-function collapseAllDeckTree() {
-    if (deckTreeViewInstance) deckTreeViewInstance.collapseAll();
-}
-
-function toggleDeckTreeExpansion() {
-    if (deckTreeViewInstance) deckTreeViewInstance.toggleAllExpansion();
-}
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        void refreshDeckDataAfterHistoryReturn();
+    }
+});
 
 
 // =====================================================================

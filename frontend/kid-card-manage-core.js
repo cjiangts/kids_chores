@@ -85,6 +85,8 @@ const deckTreeContainer = document.getElementById('deckTreeContainer');
 const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
 const deckTreeCounter = document.getElementById('deckTreeCounter');
 const deckTreeInfoBtn = document.getElementById('deckTreeInfoBtn');
+const openDeckBulkAddBtn = document.getElementById('openDeckBulkAddBtn');
+const openDeckDictionaryBtn = document.getElementById('openDeckDictionaryBtn');
 const applyDeckTreeChangesBtn = document.getElementById('applyDeckTreeChangesBtn');
 const cancelDeckTreeModalBtn = document.getElementById('cancelDeckTreeModalBtn');
 const deckTreeChangeMessage = document.getElementById('deckTreeChangeMessage');
@@ -187,6 +189,7 @@ let currentCategoryDisplayName = 'Practice';
 let currentKidName = '';
 let isChineseSpecificLogic = false;
 let currentChineseBackContent = '';
+let isSuperFamily = false;
 let currentSharedScope = SHARED_SCOPE_CARDS;
 let currentBehaviorType = BEHAVIOR_TYPE_TYPE_I;
 let isReadingBulkAdding = false;
@@ -637,6 +640,17 @@ function applyIncludeOrphanFromPayload(payload) {
 
 function getCurrentCategoryDisplayName() {
     return String(currentCategoryDisplayName || '').trim();
+}
+
+async function loadManageFamilyCapabilities() {
+    try {
+        const response = await fetch(`${API_BASE}/family-auth/status`);
+        const auth = await response.json().catch(() => ({}));
+        isSuperFamily = Boolean(response.ok && auth.authenticated && auth.isSuperFamily);
+    } catch (error) {
+        isSuperFamily = false;
+    }
+    syncDeckTreeUtilityButtons();
 }
 
 // =====================================================================

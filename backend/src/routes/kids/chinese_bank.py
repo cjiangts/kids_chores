@@ -10,7 +10,7 @@ has chinese_back_content matching the mode.
 Layout:
   1. Per-mode config + request/payload mode resolvers + Han-only matcher
   2. GET bank listing (paginated + search + filters)
-  3. Write routes: PUT update + refresh-used + force-sync-backs
+  3. Write routes: PUT update + refresh-used
 """
 from pathlib import Path
 
@@ -277,7 +277,7 @@ def get_chinese_bank():
 
 
 # =====================================================================
-# === 3. Write routes: PUT update + refresh-used + force-sync-backs
+# === 3. Write routes: PUT update + refresh-used
 # =====================================================================
 
 @kids_bp.route('/chinese-bank', methods=['PUT'])
@@ -500,40 +500,6 @@ def refresh_chinese_bank_used():
         })
     finally:
         conn.close()
-
-
-@kids_bp.route('/chinese-bank/force-sync-backs', methods=['POST'])
-def force_sync_chinese_bank_backs():
-    """Push every verified bank value to shared and kid card backs."""
-    auth_err = require_super_family()
-    if auth_err:
-        return auth_err
-
-    cfg, err = _get_mode()
-    if err:
-        return err
-    table = cfg['table']
-    pk = cfg['pk']
-    payload_col = cfg['payload']
-    back_content_value = 'pinyin' if payload_col == 'pinyin' else 'english'
-
-    conn = get_shared_decks_connection(read_only=True)
-    try:
-        verified_rows = conn.execute(
-            f"SELECT {pk}, {payload_col} FROM {table} WHERE verified = TRUE"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    bank = {
-        r[0]: str(r[1] or '').strip()
-        for r in verified_rows
-    }
-    push_result = _push_bank_backs(bank, back_content_value)
-    return jsonify({
-        'verifiedCount': len(bank),
-        **_push_result_payload(push_result, 'changed'),
-    })
 
 
 def _push_result_payload(push_result, changed_key):

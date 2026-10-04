@@ -1728,6 +1728,7 @@ function applyKidInfo(kid) {
 
     isChineseSpecificLogic = Boolean(categoryMeta && categoryMeta.has_chinese_specific_logic);
     currentChineseBackContent = String(categoryMeta && categoryMeta.chinese_back_content ? categoryMeta.chinese_back_content : '').trim().toLowerCase();
+    syncDeckTreeUtilityButtons();
     currentCategoryDisplayName = displayName;
     currentKidName = String(kid.name || '').trim();
     applyCategoryUiText();

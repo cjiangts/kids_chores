@@ -54,6 +54,7 @@ let deckCategoryKeySet = new Set();
 let deckCountByCategoryKey = {};
 let allTagPaths = [];
 let allTagLabelPaths = [];
+let bulkCreateReturnTimer = null;
 const createUrlParams = new URLSearchParams(window.location.search);
 let lockedFirstTagFromQuery = normalizeTag(createUrlParams.get('categoryKey'));
 
@@ -991,6 +992,7 @@ async function createDecks() {
 
     let createdCount = 0;
     let failedCount = 0;
+    let returningToPreviousPage = false;
 
     try {
         for (const item of targets) {
@@ -1021,7 +1023,8 @@ async function createDecks() {
             }
         }
         if (failedCount === 0 && createdCount > 0) {
-            window.location.href = '/admin.html';
+            returningToPreviousPage = true;
+            returnToPreviousPageAfterBulkCreate(createdCount);
             return;
         }
         renderReview();
@@ -1030,12 +1033,37 @@ async function createDecks() {
         }
     } finally {
         isCreatingDecks = false;
+        if (returningToPreviousPage) {
+            return;
+        }
         createDecksBtn.disabled = false;
         const createDecksLabelReset = createDecksBtn.querySelector('.btn-label');
         if (createDecksLabelReset) {
             createDecksLabelReset.textContent = 'Confirm & Create Decks';
         }
     }
+}
+
+function returnToPreviousPageAfterBulkCreate(createdCount) {
+    if (!createDecksBtn) return;
+    if (bulkCreateReturnTimer !== null) {
+        window.clearTimeout(bulkCreateReturnTimer);
+    }
+    const labelEl = createDecksBtn.querySelector('.btn-label');
+    const resultText = `${createdCount} ${createdCount === 1 ? 'deck' : 'decks'} created`;
+    let seconds = 3;
+    const tick = () => {
+        if (labelEl) {
+            labelEl.textContent = `${resultText} · Return to previous page in ${seconds}s`;
+        }
+        if (seconds <= 1) {
+            bulkCreateReturnTimer = window.setTimeout(() => window.history.back(), 1000);
+            return;
+        }
+        seconds -= 1;
+        bulkCreateReturnTimer = window.setTimeout(tick, 1000);
+    };
+    tick();
 }
 
 function resetPreviewState() {

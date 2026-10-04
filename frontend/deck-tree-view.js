@@ -445,7 +445,15 @@
                 const pct = totalCount > 0 ? Math.round((selectedCount / totalCount) * 100) : 0;
                 html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}">`;
                 html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
-                html += `<span class="deck-tree-label deck-tree-label-tag">${escapeHtml(node.label || node.tag)}</span>`;
+                const labelAttr = escapeHtml(node.label || node.tag);
+                let branchToolsHtml = '';
+                if (this.onBranchEdit) {
+                    branchToolsHtml += `<button type="button" class="deck-tree-branch-edit-btn" data-tree-branch-edit data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Rename folder" title="Rename folder"><span data-icon="pencil" data-icon-size="15" data-icon-stroke="2.2"></span></button>`;
+                }
+                if (this.onBranchNewDeck) {
+                    branchToolsHtml += `<button type="button" class="deck-tree-branch-newdeck-btn" data-tree-branch-newdeck data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Create new deck in folder" title="Create new deck in folder"><span data-icon="plus" data-icon-size="15" data-icon-stroke="2.4"></span></button>`;
+                }
+                html += `<span class="deck-tree-label-wrap"><span class="deck-tree-label deck-tree-label-tag">${labelAttr}</span>${branchToolsHtml}</span>`;
                 if (this.mode === 'opt-in') {
                     html += `<span class="deck-tree-meta">${selectedCount} of ${totalCount} selected</span>`;
                     html += this._getBranchPendingBadgesHtml(allIds);
@@ -454,14 +462,6 @@
                     html += `<span class="deck-tree-meta">${totalCount} ${deckLabel}</span>`;
                 }
                 html += `<span class="deck-tree-progress" aria-hidden="true"><span class="deck-tree-progress-fill" style="width:${pct}%"></span></span>`;
-                if (this.onBranchEdit) {
-                    const labelAttr = escapeHtml(node.label || node.tag);
-                    html += `<button type="button" class="paradigm-icon-btn deck-tree-branch-edit-btn" data-tree-branch-edit data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Rename folder"><span data-icon="pencil" data-icon-size="16" data-icon-stroke="2.2"></span></button>`;
-                }
-                if (this.onBranchNewDeck) {
-                    const labelAttr = escapeHtml(node.label || node.tag);
-                    html += `<button type="button" class="paradigm-icon-btn deck-tree-branch-newdeck-btn" data-tree-branch-newdeck data-tree-tag="${escapeHtml(node.tag)}" data-tree-tag-label="${labelAttr}" data-tree-depth="${depth}" aria-label="Create new deck in folder"><span data-icon="plus" data-icon-size="16" data-icon-stroke="2.4"></span></button>`;
-                }
                 html += `</div></div>`;
                 html += `<div class="deck-tree-children${isExpanded ? '' : ' collapsed'}">`;
             }
@@ -499,7 +499,7 @@
 
             const showLeafActionBtn = this.onLeafClick && action === 'leaf';
             const leafActionBtn = showLeafActionBtn
-                ? `<button type="button" class="paradigm-icon-btn deck-tree-leaf-action-btn" data-tree-leaf-action data-tree-deck-id="${escapeHtml(deckIdStr)}" aria-label="Edit deck"><span data-icon="pencil" data-icon-size="16" data-icon-stroke="2.2"></span></button>`
+                ? `<button type="button" class="deck-tree-leaf-action-btn" data-tree-leaf-action data-tree-deck-id="${escapeHtml(deckIdStr)}" aria-label="Edit deck" title="Edit deck"><span data-icon="pencil" data-icon-size="15" data-icon-stroke="2.2"></span></button>`
                 : '';
 
             let html = '';
@@ -508,9 +508,8 @@
             html += `<button type="button" class="deck-tree-leaf-toggle${isExpanded ? ' expanded' : ''}" aria-label="Show cards in deck">&#9654;</button>`;
             html += `<div class="deck-tree-row-body" data-tree-action="${escapeHtml(action)}" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
             html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
-            html += `<span class="deck-tree-label">${labelHtml}</span>`;
+            html += `<span class="deck-tree-label-wrap"><span class="deck-tree-label">${labelHtml}</span>${leafActionBtn}</span>`;
             html += pendingBadge;
-            html += leafActionBtn;
             html += `</div></div>`;
             const cardsClass = `deck-tree-leaf-cards${isExpanded ? '' : ' collapsed'}`;
             const cardsBody = isExpanded ? this._buildLeafCardListHtml(deckIdStr) : '';
@@ -833,6 +832,10 @@
 
             const body = event.target.closest('.deck-tree-row-body');
             if (!body) return;
+            // Selection is deliberately limited to the checkbox hit area so
+            // folder actions and label clicks never toggle an entire branch.
+            const checkbox = event.target.closest('.deck-tree-checkbox');
+            if (!checkbox || !body.contains(checkbox)) return;
             const action = body.getAttribute('data-tree-action');
 
             if (action === 'orphan') {

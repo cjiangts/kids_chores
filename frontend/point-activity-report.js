@@ -3,6 +3,8 @@ const POINT_ACTIVITY_HISTORY_LIMIT = 5000;
 
 const params = new URLSearchParams(window.location.search);
 const requestedRuleId = String(params.get('ruleId') || '').trim();
+const requestedCategoryKey = normalizeCategoryKey(params.get('categoryKey'));
+const requestedCategoryName = String(params.get('categoryName') || '').trim();
 const pointActivityHero = document.getElementById('pointActivityHero');
 const pointActivityCalendar = document.getElementById('pointActivityCalendar');
 const pointActivityProgressPanel = document.getElementById('pointActivityProgressPanel');
@@ -43,6 +45,10 @@ let currentProgressMetric = (() => {
 
 function isAllInAppMode() {
     return requestedRuleId === '0';
+}
+
+function isCategoryInAppMode() {
+    return Boolean(requestedCategoryKey) && !isAllInAppMode();
 }
 
 function escapeHtml(value) {
@@ -228,6 +234,7 @@ function normalizeCategoryKey(value) {
 
 function ruleTriggerKey() {
     if (isAllInAppMode() && selectedAllInAppSubjectKey) return selectedAllInAppSubjectKey;
+    if (isCategoryInAppMode()) return requestedCategoryKey;
     return normalizeCategoryKey(currentRule?.triggerKey);
 }
 
@@ -473,7 +480,8 @@ function renderHero() {
     const events = visibleEvents();
     const rule = currentRule || {};
     const title = String(rule.name || 'Point activity').trim();
-    const canEditRule = !isKidUserMode() && !isAllInAppMode();
+    const hasEditableRule = Number.parseInt(rule.ruleId, 10) > 0;
+    const canEditRule = !isKidUserMode() && !isAllInAppMode() && hasEditableRule;
     const isEditingRule = isRuleEditing && canEditRule;
     const isInAppRule = String(rule.ruleKind || '') === 'in_app_chore';
     const ruleActivityCount = Number.parseInt(ruleActivityCounts[String(rule.ruleId || requestedRuleId)] ?? 0, 10) || 0;
@@ -534,8 +542,8 @@ function renderHero() {
                 ${heroIconContainerHtml}
                 <div class="point-activity-main">
                     <div class="point-activity-title-row">
-                        ${typeBadgeHtml(rule)}
                         ${ruleTitleHtml}
+                        ${typeBadgeHtml(rule)}
                         ${ruleMetaHtml}
                         ${ruleEditActionHtml}
                     </div>
@@ -1221,14 +1229,24 @@ function resolveCurrentRule(rules) {
         };
         return;
     }
-    currentRule = (Array.isArray(rules) ? rules : [])
-        .find((rule) => String(rule?.ruleId || '') === requestedRuleId)
+    const inAppRuleForCategory = isCategoryInAppMode()
+        ? allInAppSubjectRules.find((rule) => normalizeCategoryKey(rule?.triggerKey) === requestedCategoryKey)
+        : null;
+    currentRule = inAppRuleForCategory
+        || (Array.isArray(rules) ? rules : []).find((rule) => String(rule?.ruleId || '') === requestedRuleId)
         || allActivityEvents().find((event) => isSameRule(event))?.rule
-        || null;
+        || (isCategoryInAppMode() ? {
+            ruleId: null,
+            ruleKind: 'in_app_chore',
+            name: requestedCategoryName || requestedCategoryKey,
+            triggerKey: requestedCategoryKey,
+            maxPoint: null,
+            isActive: false,
+        } : null);
 }
 
 async function loadInitialData() {
-    if (!requestedRuleId) {
+    if (!requestedRuleId && !requestedCategoryKey) {
         showError('Missing point activity.');
         return;
     }

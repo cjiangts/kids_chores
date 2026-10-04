@@ -145,9 +145,9 @@
 .point-activity-title {
     margin: 0;
     color: var(--paradigm-list-item-name-color);
-    font-size: var(--paradigm-list-item-name-font-size);
-    font-weight: var(--paradigm-list-item-name-font-weight);
-    line-height: var(--paradigm-list-item-name-line-height);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.1;
     overflow-wrap: anywhere;
 }
 
@@ -222,7 +222,10 @@
 .point-activity-title-edit {
     width: min(13rem, 45vw);
     padding: 0.2rem 0.35rem;
-    font-size: var(--paradigm-list-item-name-font-size);
+    color: var(--paradigm-list-item-name-color);
+    font-size: 0.72rem;
+    font-weight: 650;
+    line-height: 1.1;
 }
 
 .point-activity-points-edit:focus,

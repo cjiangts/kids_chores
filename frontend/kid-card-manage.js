@@ -67,9 +67,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             setTimeout(() => document.addEventListener('click', dismiss), 0);
         });
     }
-    const deckTreeExpansionToggleBtn = document.getElementById('deckTreeExpansionToggleBtn');
-    if (deckTreeExpansionToggleBtn) {
-        deckTreeExpansionToggleBtn.addEventListener('click', toggleDeckTreeExpansion);
+    const openDeckBulkAddBtn = document.getElementById('openDeckBulkAddBtn');
+    if (openDeckBulkAddBtn) {
+        openDeckBulkAddBtn.addEventListener('click', () => {
+            const query = new URLSearchParams({ categoryKey: String(categoryKey || '') });
+            window.location.href = `/deck-create-bulk.html?${query.toString()}`;
+        });
+    }
+    if (openDeckDictionaryBtn) {
+        openDeckDictionaryBtn.addEventListener('click', () => {
+            const mode = String(openDeckDictionaryBtn.dataset.dictionaryMode || '').trim();
+            if (mode === 'pinyin' || mode === 'english') {
+                window.location.href = `/chinese-bank.html?mode=${encodeURIComponent(mode)}`;
+            }
+        });
     }
     // === 3. Type-IV deck-counts + generator preview modal wiring ===
     if (openType4DeckCountsModalBtn) {
@@ -446,6 +457,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         showError('');
         showSuccess('');
+        await loadManageFamilyCapabilities();
         await loadKidsAndApplyKidInfo();
         updateQueueMixLegend();
         updateQueueSettingsSaveButtonState();

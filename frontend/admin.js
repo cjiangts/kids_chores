@@ -56,7 +56,6 @@ let kidsLoaded = false;
 let selectedAdminKidId = '';
 let adminCategoryMetaByKey = {};
 let adminOffAppRuleCatalog = [];
-let adminInAppRuleByTriggerKey = new Map();
 let currentFamilyId = '';
 let editMode = false;
 let editState = null;
@@ -65,8 +64,6 @@ const pendingSaveTimers = new Map();
 const inFlightSaves = new Map();
 const savingKids = new Set();
 const KID_AUTOSAVE_DELAY_MS = 450;
-let openSubjectMenuKey = '';
-let isSuperFamily = false;
 let offAppReviewPendingByKidId = new Map();
 let typeIIIReviewPendingByKidId = new Map();
 const adminOffAppByKidId = new Map();
@@ -75,8 +72,11 @@ const adminOffAppDraftByKey = new Map();
 const adminOffAppSavingKeys = new Set();
 const adminOffAppToggleSavingKeys = new Set();
 const adminOffAppEditingKeys = new Set();
+let isAddingAdminOffAppChore = false;
+let adminOffAppCreateDraft = { emoji: '', name: '' };
 let inAppUnaddedExpanded = false;
 let offAppUnaddedExpanded = false;
+let offAppInactiveExpanded = false;
 
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
@@ -86,23 +86,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.hydrateIcons(document);
     }
     loadKids({ preferNavigationCache: true });
-    loadAuthStatus();
     bindEvents();
 });
-
-async function loadAuthStatus() {
-    try {
-        const response = await fetch(`${API_BASE}/family-auth/status`);
-        if (!response.ok) return;
-        const auth = await response.json().catch(() => ({}));
-        const next = Boolean(auth && auth.isSuperFamily);
-        if (next === isSuperFamily) return;
-        isSuperFamily = next;
-        renderMatrix();
-    } catch (error) {
-        // ignore — non-super family is the safe default
-    }
-}
 
 function bindEvents() {
     if (adminOptinPanel) {
@@ -116,14 +101,6 @@ function bindEvents() {
             }
         });
     }
-    document.addEventListener('click', (event) => {
-        if (openSubjectMenuKey) {
-            const subjectMenu = document.querySelector('.admin-subject-menu');
-            const subjectTrigger = event.target.closest('[data-subject-menu-trigger]');
-            const inside = (subjectMenu && subjectMenu.contains(event.target)) || subjectTrigger;
-            if (!inside) closeSubjectMenu();
-        }
-    });
     if (adminOffAppPanel) {
         adminOffAppPanel.addEventListener('click', handleAdminOffAppClick);
         adminOffAppPanel.addEventListener('input', handleAdminOffAppInput);
@@ -350,14 +327,13 @@ async function loadKids(options = {}) {
         const [kidsResponse, categoriesResponse, pointRulesResponse] = await Promise.all([
             fetchOkWithRetry(`${API_BASE}/kids?view=admin_compact`),
             fetchOkWithRetry(`${API_BASE}/shared-decks/categories`),
-            fetchOkWithRetry(`${API_BASE}/points/rules?includeInactive=0`),
+            fetchOkWithRetry(`${API_BASE}/points/rules?includeInactive=1`),
         ]);
         const kids = await kidsResponse.json();
         const categoryData = await categoriesResponse.json().catch(() => ({}));
         const pointRulesData = await pointRulesResponse.json().catch(() => ({}));
         adminCategoryMetaByKey = buildCategoryMetaByKey(categoryData.categories);
         adminOffAppRuleCatalog = normalizeAdminOffAppRuleCatalog(pointRulesData.rules);
-        adminInAppRuleByTriggerKey = buildAdminInAppRuleMap(pointRulesData.rules);
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
         cacheKidsForParentNavigation(currentKids);
@@ -501,18 +477,6 @@ function getCategoryRowsForFamily(kids) {
         }))
         .sort((a, b) => a.displayName.localeCompare(b.displayName));
     return rows;
-}
-
-function buildAdminInAppRuleMap(rules) {
-    const ruleByTriggerKey = new Map();
-    (Array.isArray(rules) ? rules : []).forEach((rule) => {
-        if (String(rule?.ruleKind || '') !== 'in_app_chore') return;
-        const triggerKey = normalizeCategoryKey(rule?.triggerKey);
-        const ruleId = Number.parseInt(rule?.ruleId, 10);
-        if (!triggerKey || !Number.isInteger(ruleId) || ruleId <= 0 || ruleByTriggerKey.has(triggerKey)) return;
-        ruleByTriggerKey.set(triggerKey, rule);
-    });
-    return ruleByTriggerKey;
 }
 
 function adminPointActivityReportHref(ruleId) {
@@ -686,9 +650,6 @@ function renderMatrix(options = {}) {
     if (shouldRenderOffApp) renderAdminOffAppSection(list);
 
     bindMatrixInteractions(rows, matrixKids);
-    if (openSubjectMenuKey) {
-        renderSubjectMenu(openSubjectMenuKey);
-    }
 }
 
 function renderAdminKidTabs(kids) {
@@ -756,7 +717,7 @@ function normalizeAdminOffAppChorePayload(payload) {
 
 function normalizeAdminOffAppRuleCatalog(rules) {
     return (Array.isArray(rules) ? rules : [])
-        .filter((rule) => String(rule?.ruleKind || '') === 'off_app_chore' && rule?.isActive !== false)
+        .filter((rule) => String(rule?.ruleKind || '') === 'off_app_chore')
         .sort((a, b) => (Number.parseInt(a?.ruleId, 10) || 0) - (Number.parseInt(b?.ruleId, 10) || 0));
 }
 
@@ -1064,6 +1025,7 @@ function buildAdminOffAppOptInCell(chore) {
 function buildAdminOffAppRow(chore, state) {
     const ruleId = Number.parseInt(chore?.ruleId, 10);
     if (!Number.isInteger(ruleId) || ruleId <= 0) return '';
+    const inactive = chore?.isActive === false;
     const name = String(chore?.name || '').trim() || 'Task';
     const pending = state.pendingByRuleId.get(ruleId) || null;
     const creditedEvent = chore?.creditedEvent && typeof chore.creditedEvent === 'object' ? chore.creditedEvent : null;
@@ -1095,7 +1057,9 @@ function buildAdminOffAppRow(chore, state) {
             </span>
         </span>
     `;
-    const actionCellHtml = reviewKind === 'direct'
+    const actionCellHtml = inactive
+        ? ''
+        : reviewKind === 'direct'
         ? buildAdminOffAppStatusHtml(chore, reviewKey)
         : buildAdminOffAppResultPillHtml(chore, reviewKind, reviewItem);
     if (isReviewable && isEditing) {
@@ -1111,11 +1075,11 @@ function buildAdminOffAppRow(chore, state) {
         `;
     }
     return `
-        <tr class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}" data-off-app-rule-id="${ruleId}">
+        <tr class="admin-off-app-row${isReviewable ? ' is-reviewable' : ''}${inactive ? ' is-inactive' : ''}" data-off-app-rule-id="${ruleId}">
             <th class="admin-off-app-name-cell" scope="row">
                 ${taskContentHtml}
             </th>
-            ${buildAdminOffAppOptInCell(chore)}
+            ${inactive ? '<td class="admin-off-app-opt-cell admin-matrix-cell"></td>' : buildAdminOffAppOptInCell(chore)}
             <td class="admin-off-app-action-cell paradigm-status-column">
                 ${actionCellHtml}
             </td>
@@ -1125,6 +1089,7 @@ function buildAdminOffAppRow(chore, state) {
 
 function buildAdminOffAppTable(bodyHtml) {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { strokeWidth: 2 }) : '';
+    const addIconHtml = (typeof window.icon === 'function') ? window.icon('scan-plus', { size: 15, strokeWidth: 2.5 }) : '';
     return `
         <table class="admin-matrix admin-off-app-matrix">
             <colgroup>
@@ -1136,7 +1101,7 @@ function buildAdminOffAppTable(bodyHtml) {
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
                     <th class="admin-off-app-opt-head"></th>
-                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column"></th>
+                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><button type="button" class="admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="admin-off-app-add-icon" aria-hidden="true"><span class="admin-off-app-add-symbol">${addIconHtml}</span><span class="admin-off-app-add-label">ADD</span></span></button></th>
                 </tr>
             </thead>
             <tbody>${bodyHtml}</tbody>
@@ -1144,8 +1109,46 @@ function buildAdminOffAppTable(bodyHtml) {
     `;
 }
 
+function buildAdminOffAppCreateRow() {
+    if (!isAddingAdminOffAppChore) return '';
+    const saving = Boolean(adminOffAppCreateDraft?.saving);
+    return `
+        <tr class="admin-off-app-create-row">
+            <td colspan="3">
+                <div class="admin-off-app-create-form">
+                    <input class="admin-off-app-create-emoji" type="text" maxlength="8" value="${escapeHtml(adminOffAppCreateDraft.emoji || '')}" placeholder="🙂" data-off-app-create-emoji aria-label="Chore emoji"${saving ? ' disabled' : ''}>
+                    <input class="admin-off-app-create-name" type="text" maxlength="80" value="${escapeHtml(adminOffAppCreateDraft.name || '')}" placeholder="New off-app chore" data-off-app-create-name aria-label="Chore name"${saving ? ' disabled' : ''}>
+                    <span class="admin-off-app-create-actions">
+                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-off-app-create-save aria-label="Add off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppSaveButtonContent()}</button>
+                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-off-app-create-cancel aria-label="Cancel adding off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppCancelButtonContent()}</button>
+                    </span>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
 function buildAdminOffAppMessageRow(message) {
     return `<tr><td class="admin-off-app-empty" colspan="3">${escapeHtml(message)}</td></tr>`;
+}
+
+function buildAdminOffAppVisibilityToggleRow(unaddedCount, inactiveCount) {
+    const safeUnadded = Math.max(0, Number.parseInt(unaddedCount, 10) || 0);
+    const safeInactive = Math.max(0, Number.parseInt(inactiveCount, 10) || 0);
+    if (!safeUnadded && !safeInactive) return '';
+    const disclosureIcon = typeof window.icon === 'function'
+        ? window.icon(offAppUnaddedExpanded ? 'chevron-up' : 'chevron-down', { size: 18, strokeWidth: 2.6 })
+        : '';
+    const unaddedButton = safeUnadded ? `
+        <button type="button" class="admin-matrix-unadded-toggle" data-unadded-subject-toggle aria-expanded="${offAppUnaddedExpanded ? 'true' : 'false'}">
+            <span class="admin-matrix-unadded-toggle-icon" aria-hidden="true">${disclosureIcon}</span>
+            <span>${offAppUnaddedExpanded ? 'Hide chores not added' : `${safeUnadded} more chore${safeUnadded === 1 ? '' : 's'} not added`}</span>
+        </button>
+    ` : '<span></span>';
+    const inactiveButton = safeInactive ? `
+        <button type="button" class="admin-off-app-inactive-toggle" data-off-app-inactive-toggle aria-expanded="${offAppInactiveExpanded ? 'true' : 'false'}">${offAppInactiveExpanded ? 'Hide inactive' : `Show ${safeInactive} inactive`}</button>
+    ` : '';
+    return `<tr class="admin-off-app-visibility-row"><td colspan="3"><div class="admin-off-app-visibility-tools">${unaddedButton}${inactiveButton}</div></td></tr>`;
 }
 
 function handleAdminOffAppInput(event) {
@@ -1162,17 +1165,48 @@ function handleAdminOffAppInput(event) {
     if (target.matches('[data-off-app-note-input]')) {
         setAdminOffAppDraftValue(reviewKey, { note: target.value || '' });
         updateAdminOffAppSaveButtonState(reviewKey);
+        return;
+    }
+    if (target.matches('[data-off-app-create-emoji]')) {
+        adminOffAppCreateDraft.emoji = target.value || '';
+        return;
+    }
+    if (target.matches('[data-off-app-create-name]')) {
+        adminOffAppCreateDraft.name = target.value || '';
     }
 }
 
 function handleAdminOffAppClick(event) {
     const target = event.target && event.target.closest
-        ? event.target.closest('[data-off-app-opt-toggle], [data-unadded-subject-toggle], [data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit], [data-off-app-grade-cancel]')
+        ? event.target.closest('[data-off-app-add-open], [data-off-app-create-save], [data-off-app-create-cancel], [data-off-app-opt-toggle], [data-unadded-subject-toggle], [data-off-app-inactive-toggle], [data-off-app-edit], [data-off-app-point-step], [data-off-app-grade-submit], [data-off-app-grade-cancel]')
         : null;
     if (!target) return;
+    if (target.hasAttribute('data-off-app-add-open')) {
+        isAddingAdminOffAppChore = true;
+        adminOffAppCreateDraft = { emoji: '', name: '' };
+        renderAdminOffAppSection(currentKids);
+        window.requestAnimationFrame(() => adminOffAppPanel?.querySelector('[data-off-app-create-name]')?.focus());
+        return;
+    }
+    if (target.hasAttribute('data-off-app-create-cancel')) {
+        isAddingAdminOffAppChore = false;
+        adminOffAppCreateDraft = { emoji: '', name: '' };
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
+    if (target.hasAttribute('data-off-app-create-save')) {
+        void createAdminOffAppChore();
+        return;
+    }
     if (target.hasAttribute('data-unadded-subject-toggle')) {
         event.preventDefault();
         offAppUnaddedExpanded = !offAppUnaddedExpanded;
+        renderAdminOffAppSection(currentKids);
+        return;
+    }
+    if (target.hasAttribute('data-off-app-inactive-toggle')) {
+        event.preventDefault();
+        offAppInactiveExpanded = !offAppInactiveExpanded;
         renderAdminOffAppSection(currentKids);
         return;
     }
@@ -1211,6 +1245,45 @@ function handleAdminOffAppClick(event) {
     }
     if (target.hasAttribute('data-off-app-grade-submit')) {
         void submitAdminOffAppGrade(reviewKey);
+    }
+}
+
+async function createAdminOffAppChore() {
+    const name = String(adminOffAppCreateDraft?.name || '').trim();
+    const emoji = String(adminOffAppCreateDraft?.emoji || '').trim();
+    const selectedKid = getSelectedAdminKids(currentKids)[0] || null;
+    const kidId = String(selectedKid?.id || '').trim();
+    if (!name) {
+        showError('Enter a chore name.');
+        adminOffAppPanel?.querySelector('[data-off-app-create-name]')?.focus();
+        return;
+    }
+    if (!kidId || adminOffAppCreateDraft?.saving) return;
+    adminOffAppCreateDraft = { emoji, name, saving: true };
+    renderAdminOffAppSection(currentKids);
+    try {
+        const response = await fetch(`${API_BASE}/points/rules`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                emoji,
+                ruleKind: 'off_app_chore',
+                maxPoint: 1,
+                isActive: true,
+            }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to add off-app chore.');
+        adminOffAppRuleCatalog = normalizeAdminOffAppRuleCatalog([...adminOffAppRuleCatalog, payload.rule]);
+        isAddingAdminOffAppChore = false;
+        adminOffAppCreateDraft = { emoji: '', name: '' };
+        await setSelectedAdminOffAppChoreEnabled(payload.rule?.ruleId, true);
+        showError('');
+    } catch (error) {
+        adminOffAppCreateDraft = { emoji, name };
+        showError(error.message || 'Failed to add off-app chore.');
+        renderAdminOffAppSection(currentKids);
     }
 }
 
@@ -1285,27 +1358,32 @@ function renderAdminOffAppSection(kids) {
         adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow(state.error));
         return;
     }
-    const chores = adminOffAppRowsForState(state).filter((chore) => chore && chore.isActive !== false);
-    if (chores.length <= 0) {
-        adminOffAppList.innerHTML = buildAdminOffAppTable(buildAdminOffAppMessageRow('No off-app chores available.'));
+    const allChores = adminOffAppRowsForState(state).filter(Boolean);
+    const activeChores = allChores.filter((chore) => chore.isActive !== false);
+    const inactiveChores = allChores.filter((chore) => chore.isActive === false);
+    if (activeChores.length <= 0 && !offAppInactiveExpanded) {
+        adminOffAppList.innerHTML = buildAdminOffAppTable(
+            `${buildAdminOffAppCreateRow()}${buildAdminOffAppMessageRow('No off-app chores available.')}${buildAdminOffAppVisibilityToggleRow(0, inactiveChores.length)}`,
+        );
         return;
     }
     const visibleChores = [];
     const unaddedChores = [];
-    chores.forEach((chore) => {
+    activeChores.forEach((chore) => {
         if (chore?.enabled) {
             visibleChores.push(chore);
         } else {
             unaddedChores.push(chore);
         }
     });
-    const renderedChores = offAppUnaddedExpanded ? chores : visibleChores;
-    const toggleRowHtml = unaddedChores.length > 0
-        ? buildUnaddedSubjectToggleRow(unaddedChores.length, offAppUnaddedExpanded, 3)
-        : '';
+    const renderedChores = [
+        ...(offAppUnaddedExpanded ? activeChores : visibleChores),
+        ...(offAppInactiveExpanded ? inactiveChores : []),
+    ];
+    const toggleRowHtml = buildAdminOffAppVisibilityToggleRow(unaddedChores.length, inactiveChores.length);
     adminOffAppPanel.classList.toggle('has-unadded-toggle', unaddedChores.length > 0);
     adminOffAppList.innerHTML = buildAdminOffAppTable(
-        `${renderedChores.map((chore) => buildAdminOffAppRow(chore, state)).join('')}${toggleRowHtml}`,
+        `${buildAdminOffAppCreateRow()}${renderedChores.map((chore) => buildAdminOffAppRow(chore, state)).join('')}${toggleRowHtml}`,
     );
 }
 
@@ -1437,26 +1515,23 @@ function buildUnaddedSubjectToggleRow(count, expanded, colSpan) {
 
 function buildMatrixRow(row, kids, options = {}) {
     const subjectIconHtml = renderCategorySubjectIcon(row.categoryKey);
-    const inAppRule = adminInAppRuleByTriggerKey.get(row.categoryKey);
-    const reportHref = adminPointActivityReportHref(inAppRule?.ruleId);
-    const subjectIcon = reportHref
-        ? `<a class="paradigm-subject-icon admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View all activity for ${escapeHtml(row.displayName)}" title="View activity history">${subjectIconHtml}</a>`
-        : `<span class="paradigm-subject-icon" aria-hidden="true">${subjectIconHtml}</span>`;
+    // A report remains useful before a family has configured its first point rule.
+    // Filter by category directly rather than making the icon conditional on ruleId.
+    const reportParams = new URLSearchParams({
+        categoryKey: String(row.categoryKey || ''),
+        categoryName: String(row.displayName || ''),
+    });
+    const reportHref = `/point-activity-report.html?${reportParams.toString()}`;
+    const subjectIcon = `<a class="paradigm-subject-icon admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View activity for ${escapeHtml(row.displayName)}" title="View activity history">${subjectIconHtml}</a>`;
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
     const showTodayStatusColumn = Boolean(options?.showTodayStatusColumn);
     const todayStatusCellHtml = showTodayStatusColumn ? buildTodayStatusCell(row, kids[0]) : '';
-    const showSubjectMenu = isSuperFamily;
-    const moreIconHtml = (showSubjectMenu && typeof window.icon === 'function') ? window.icon('more-vertical', { size: 16 }) : '';
-    const subjectMenuBtnHtml = showSubjectMenu
-        ? `<button type="button" class="paradigm-subject-menu" data-subject-menu-trigger data-category-key="${escapeHtml(row.categoryKey)}" data-chinese-back-content="${escapeHtml(row.chineseBackContent || '')}" data-behavior-type="${escapeHtml(row.behaviorType || '')}" aria-label="Subject options for ${escapeHtml(row.displayName)}">${moreIconHtml}</button>`
-        : '';
     return `
         <tr data-category-key="${escapeHtml(row.categoryKey)}">
             <th scope="row">
                 <div class="paradigm-subject-cell">
                     ${subjectIcon}
                     <span class="paradigm-subject-name">${escapeHtml(row.displayName)}</span>
-                    ${subjectMenuBtnHtml}
                 </div>
             </th>
             ${cellsHtml}
@@ -1633,18 +1708,6 @@ function bindMatrixInteractions(rows, kids) {
             renderMatrix({ renderOffApp: false, renderKidTabs: false });
         });
     });
-    adminMatrix.querySelectorAll('[data-subject-menu-trigger]').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-            event.stopPropagation();
-            const target = event.currentTarget;
-            const categoryKey = target.getAttribute('data-category-key') || '';
-            if (openSubjectMenuKey === categoryKey) {
-                closeSubjectMenu();
-            } else {
-                openSubjectMenu(categoryKey, target);
-            }
-        });
-    });
     adminMatrix.querySelectorAll('[data-kid-delete]').forEach((btn) => {
         btn.addEventListener('click', (event) => {
             event.preventDefault();
@@ -1786,87 +1849,6 @@ function setKidHeaderSavingClass(kidId, isSaving) {
 }
 
 
-// =====================================================================
-// === 7. Per-subject menu
-// =====================================================================
-function openSubjectMenu(categoryKey, anchorEl) {
-    openSubjectMenuKey = String(categoryKey || '');
-    closeSubjectMenuDom();
-    if (!openSubjectMenuKey || !anchorEl) return;
-    renderSubjectMenu(openSubjectMenuKey, anchorEl);
-}
-
-function closeSubjectMenu() {
-    openSubjectMenuKey = '';
-    closeSubjectMenuDom();
-}
-
-function closeSubjectMenuDom() {
-    document.querySelectorAll('.admin-subject-menu').forEach((el) => el.remove());
-}
-
-function renderSubjectMenu(categoryKey, anchorEl) {
-    closeSubjectMenuDom();
-    const params = new URLSearchParams();
-    if (categoryKey) params.set('categoryKey', categoryKey);
-    const query = params.toString();
-    const bulkHref = `/deck-create-bulk.html${query ? `?${query}` : ''}`;
-    const trigger = anchorEl || document.querySelector(`[data-subject-menu-trigger][data-category-key="${cssEscape(categoryKey)}"]`);
-    const chineseBackContent = String(trigger?.dataset?.chineseBackContent || '').trim().toLowerCase();
-    const behaviorType = String(trigger?.dataset?.behaviorType || '').trim().toLowerCase();
-    const dictionaryMode = chineseBackContent === 'pinyin' || chineseBackContent === 'english' ? chineseBackContent : '';
-    const dictionaryItemHtml = dictionaryMode
-        ? `<a class="admin-subject-menu-item" href="/chinese-bank.html?mode=${dictionaryMode}">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('book', { size: 16 })}</span>
-            <span>Manage Dictionary</span>
-        </a>`
-        : '';
-    const bulkItemHtml = behaviorType === 'type_iv'
-        ? ''
-        : `<a class="admin-subject-menu-item" href="${escapeHtml(bulkHref)}">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('layers', { size: 16 })}</span>
-            <span>Bulk add new decks</span>
-        </a>`;
-    const menu = document.createElement('div');
-    menu.className = 'admin-subject-menu';
-    menu.innerHTML = `
-        ${bulkItemHtml}
-        <button type="button" class="admin-subject-menu-item" data-subject-browse data-category-key="${escapeHtml(categoryKey)}">
-            <span class="admin-subject-menu-item-icon" aria-hidden="true">${icon('eye', { size: 16 })}</span>
-            <span>Browse existing decks</span>
-        </button>
-        ${dictionaryItemHtml}
-    `;
-    document.body.appendChild(menu);
-    const browseBtn = menu.querySelector('[data-subject-browse]');
-    if (browseBtn) {
-        browseBtn.addEventListener('click', (event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            const key = browseBtn.getAttribute('data-category-key') || '';
-            closeSubjectMenu();
-            openDeckBrowseModal(key);
-        });
-    }
-    if (trigger) {
-        const rect = trigger.getBoundingClientRect();
-        const menuWidth = 200;
-        let left = rect.left + window.scrollX;
-        const maxLeft = window.scrollX + document.documentElement.clientWidth - menuWidth - 8;
-        if (left > maxLeft) left = maxLeft;
-        if (left < 8) left = 8;
-        menu.style.left = `${left}px`;
-        menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
-    }
-}
-
-function cssEscape(value) {
-    if (window.CSS && typeof window.CSS.escape === 'function') {
-        return window.CSS.escape(String(value || ''));
-    }
-    return String(value || '').replace(/[^a-zA-Z0-9_-]/g, (ch) => `\\${ch}`);
-}
-
 function showError(message) {
     if (message) {
         const text = String(message);
@@ -1883,190 +1865,3 @@ function showError(message) {
         if (errorMessage) errorMessage.classList.add('hidden');
     }
 }
-
-/* ── Browse decks modal (read-only tree view, hooked from subject kebab) ── */
-
-let deckBrowseTreeView = null;
-let deckBrowseAllSharedDecks = null;
-
-// =====================================================================
-// === 8. Deck browse modal
-// =====================================================================
-function ensureDeckBrowseTreeView() {
-    if (deckBrowseTreeView) return deckBrowseTreeView;
-    const container = document.getElementById('deckBrowseContainer');
-    const searchInput = document.getElementById('deckBrowseSearchInput');
-    const counter = document.getElementById('deckBrowseCounter');
-    if (!container) return null;
-    deckBrowseTreeView = new window.DeckTreeView({
-        container,
-        searchInput,
-        counter,
-        mode: 'browse',
-        getDeckSuffix: (deck) => ` · ${Number((deck && deck.card_count) || 0)} cards`,
-        onLeafClick: (deck) => {
-            const id = Number(deck && deck.deck_id);
-            if (!(id > 0)) return;
-            window.location.href = `/deck-view.html?deckId=${id}`;
-        },
-        onBranchEdit: ({ tag, label, depth }) => {
-            renameBrowseFolder({ tag, label, depth });
-        },
-        onBranchNewDeck: ({ path }) => {
-            navigateToCreateDeckUnderFolder(path);
-        },
-    });
-    return deckBrowseTreeView;
-}
-
-function navigateToCreateDeckUnderFolder(branchPath) {
-    if (!currentBrowseCategoryKey) return;
-    const params = new URLSearchParams();
-    params.set('categoryKey', currentBrowseCategoryKey);
-    (Array.isArray(branchPath) ? branchPath : []).forEach((tag) => {
-        const trimmed = String(tag || '').trim();
-        if (trimmed) params.append('prefixTag', trimmed);
-    });
-    window.location.href = `/deck-create.html?${params.toString()}`;
-}
-
-let currentBrowseCategoryKey = '';
-
-async function renameBrowseFolder({ tag, label, depth }) {
-    const tagIndex = Number(depth);
-    if (!(tagIndex >= 1)) {
-        window.alert('Cannot rename the top-level subject folder here.');
-        return;
-    }
-    const promptLabel = label || tag;
-    const newRaw = window.prompt(`Rename folder "${promptLabel}" to:`, promptLabel);
-    if (newRaw === null) return;
-    const newTag = String(newRaw).trim();
-    if (!newTag || newTag === tag) return;
-    try {
-        const response = await fetch(`${API_BASE}/shared-decks/rename-tag`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ oldTag: tag, newTag, tagIndex }),
-        });
-        if (!response.ok) {
-            const err = await response.json().catch(() => ({}));
-            throw new Error(err.error || `Rename failed (HTTP ${response.status})`);
-        }
-        deckBrowseAllSharedDecks = null;
-        if (currentBrowseCategoryKey) {
-            await openDeckBrowseModal(currentBrowseCategoryKey);
-        }
-    } catch (e) {
-        window.alert(e.message || 'Rename failed.');
-    }
-}
-
-async function fetchAllSharedDecks() {
-    if (deckBrowseAllSharedDecks) return deckBrowseAllSharedDecks;
-    const response = await fetch(`${API_BASE}/shared-decks/mine`);
-    if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error || `Failed to load decks (HTTP ${response.status})`);
-    }
-    const payload = await response.json();
-    deckBrowseAllSharedDecks = Array.isArray(payload && payload.decks) ? payload.decks : [];
-    return deckBrowseAllSharedDecks;
-}
-
-function buildBrowseCardIndex(decksForCategory) {
-    const cards = [];
-    decksForCategory.forEach((deck) => {
-        const deckId = Number(deck.deck_id);
-        if (!(deckId > 0)) return;
-        const texts = Array.isArray(deck.card_texts) ? deck.card_texts : [];
-        texts.forEach((text) => {
-            cards.push({
-                shared_deck_id: deckId,
-                front: String(text || ''),
-                back: '',
-                is_orphan: false,
-            });
-        });
-    });
-    return cards;
-}
-
-async function openDeckBrowseModal(categoryKey) {
-    const modal = document.getElementById('deckBrowseModal');
-    const titleEl = document.getElementById('deckBrowseTitle');
-    if (!modal) return;
-    if (titleEl) {
-        const niceLabel = (function () {
-            const row = (currentKids || [])
-                .flatMap((kid) => Object.entries(getAdminDeckCategoryMetaMap(kid) || {}))
-                .find(([key]) => normalizeCategoryKey(key) === normalizeCategoryKey(categoryKey));
-            return row ? (getCategoryDisplayName(row[0], { [row[0]]: row[1] }) || categoryKey) : categoryKey;
-        })();
-        titleEl.textContent = `Browse — ${niceLabel}`;
-    }
-
-    const tv = ensureDeckBrowseTreeView();
-    if (!tv) return;
-    currentBrowseCategoryKey = categoryKey;
-    tv.setCategoryKey(categoryKey);
-    tv.setDecks([], { orphanDeck: null });
-    tv.setBaseline([], false);
-    tv.setSelection([], false);
-    tv.resetExpansion();
-    tv.clearSearchInput();
-    tv.setCardIndex(null);
-    tv.render();
-
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-
-    try {
-        const allDecks = await fetchAllSharedDecks();
-        const normalizedKey = String(categoryKey || '').trim().toLowerCase();
-        const decksForCategory = allDecks.filter((deck) => {
-            const tags = Array.isArray(deck && deck.tags) ? deck.tags : [];
-            const first = String(tags[0] || '').trim().toLowerCase();
-            return first === normalizedKey;
-        });
-        tv.setDecks(decksForCategory, { orphanDeck: null });
-        tv.setCardIndex(buildBrowseCardIndex(decksForCategory));
-    } catch (error) {
-        console.error('Error loading decks for browse modal:', error);
-        showError(error.message || 'Failed to load decks.');
-    }
-}
-
-function closeDeckBrowseModal() {
-    const modal = document.getElementById('deckBrowseModal');
-    if (!modal) return;
-    if (modal.contains(document.activeElement) && typeof document.activeElement.blur === 'function') {
-        document.activeElement.blur();
-    }
-    modal.classList.add('hidden');
-    modal.setAttribute('aria-hidden', 'true');
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-    const closeBtn = document.getElementById('closeDeckBrowseModalBtn');
-    if (closeBtn) closeBtn.addEventListener('click', closeDeckBrowseModal);
-    const expansionToggleBtn = document.getElementById('deckBrowseExpansionToggleBtn');
-    if (expansionToggleBtn) {
-        expansionToggleBtn.addEventListener('click', () => {
-            if (deckBrowseTreeView) deckBrowseTreeView.toggleAllExpansion();
-        });
-    }
-    const newDeckBtn = document.getElementById('deckBrowseNewDeckBtn');
-    if (newDeckBtn) {
-        newDeckBtn.addEventListener('click', () => {
-            navigateToCreateDeckUnderFolder([]);
-        });
-    }
-    document.addEventListener('keydown', (event) => {
-        if (event.key !== 'Escape') return;
-        const m = document.getElementById('deckBrowseModal');
-        if (m && !m.classList.contains('hidden')) {
-            closeDeckBrowseModal();
-        }
-    });
-});

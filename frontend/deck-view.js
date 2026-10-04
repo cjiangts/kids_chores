@@ -101,6 +101,7 @@ let type4AceEditor = null;
 let lastType4PreviewAnswer = '';
 let currentType4CellDesign = null;
 let currentType4CellDesignSample = null;
+let applyReturnCountdownTimer = null;
 const type4GeneratorCodeEditor = document.getElementById('type4GeneratorCodeEditor');
 
 const MIN_CELL_DESIGN_W = 90;
@@ -330,7 +331,7 @@ async function deleteDeck() {
         showError(result.error || 'Failed to delete deck.');
         return;
     }
-    window.location.href = '/admin.html';
+    window.history.back();
 }
 
 async function ensureFamily() {
@@ -557,6 +558,24 @@ function setBtnLabel(btn, text) {
     }
 }
 
+function returnToPreviousPageAfterApply(resultText) {
+    if (!applyCsvBtn) return;
+    if (applyReturnCountdownTimer !== null) {
+        window.clearTimeout(applyReturnCountdownTimer);
+    }
+    let seconds = 3;
+    const tick = () => {
+        setBtnLabel(applyCsvBtn, `${resultText} · Return to previous page in ${seconds}s`);
+        if (seconds <= 1) {
+            applyReturnCountdownTimer = window.setTimeout(() => window.history.back(), 1000);
+            return;
+        }
+        seconds -= 1;
+        applyReturnCountdownTimer = window.setTimeout(tick, 1000);
+    };
+    tick();
+}
+
 function syncApplyCsvBtn() {
     if (!applyCsvBtn) return;
     if (!isPreviewingCsvDiff) {
@@ -715,7 +734,7 @@ async function applyCsvChanges() {
         await loadDeck();
         if (applyCsvBtn) {
             applyCsvBtn.disabled = true;
-            setBtnLabel(applyCsvBtn, resultText);
+            returnToPreviousPageAfterApply(resultText);
         }
     } catch (error) {
         showError(error.message || 'Failed to apply card changes.');
