@@ -732,6 +732,13 @@ function applyCategoryUiText() {
             && typeof window.DeckCategoryCommon.renderCategorySubjectIcon === 'function'
             ? window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey, { size: 22 })
             : '';
+        const reportParams = new URLSearchParams({
+            categoryKey: String(categoryKey || ''),
+            categoryName: String(displayName || ''),
+        });
+        cardsSectionTitleIcon.href = `/point-activity-report.html?${reportParams.toString()}`;
+        cardsSectionTitleIcon.setAttribute('aria-label', `View activity history for ${displayName || 'this subject'}`);
+        cardsSectionTitleIcon.title = 'View activity history';
     }
     if (sessionCardCountLabel) {
         sessionCardCountLabel.textContent = 'Daily Targets';
