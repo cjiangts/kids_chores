@@ -1090,6 +1090,8 @@ function buildAdminOffAppRow(chore, state) {
 function buildAdminOffAppTable(bodyHtml) {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { strokeWidth: 2 }) : '';
     const addIconHtml = (typeof window.icon === 'function') ? window.icon('scan-plus', { size: 15, strokeWidth: 2.5 }) : '';
+    const reportIconHtml = (typeof window.icon === 'function') ? window.icon('layout-grid', { size: 15, strokeWidth: 2.5 }) : '';
+    const reportHref = '/point-activity-report.html?ruleId=-1';
     return `
         <table class="admin-matrix admin-off-app-matrix">
             <colgroup>
@@ -1101,7 +1103,7 @@ function buildAdminOffAppTable(bodyHtml) {
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
                     <th class="admin-off-app-opt-head"></th>
-                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><button type="button" class="admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="admin-off-app-add-icon" aria-hidden="true"><span class="admin-off-app-add-symbol">${addIconHtml}</span><span class="admin-off-app-add-label">ADD</span></span></button></th>
+                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><span class="admin-off-app-header-actions"><button type="button" class="admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="admin-off-app-add-icon" aria-hidden="true"><span class="admin-off-app-add-symbol">${addIconHtml}</span><span class="admin-off-app-add-label">ADD</span></span></button><a href="${reportHref}" class="admin-off-app-summary-report-link" aria-label="View all activity" title="View all activity"><span class="admin-off-app-summary-report-icon" aria-hidden="true"><span class="admin-off-app-summary-report-symbol">${reportIconHtml}</span><span class="admin-off-app-summary-report-label">ALL</span></span></a></span></th>
                 </tr>
             </thead>
             <tbody>${bodyHtml}</tbody>

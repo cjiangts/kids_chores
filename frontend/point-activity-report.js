@@ -5,6 +5,7 @@ const params = new URLSearchParams(window.location.search);
 const requestedRuleId = String(params.get('ruleId') || '').trim();
 const requestedCategoryKey = normalizeCategoryKey(params.get('categoryKey'));
 const requestedCategoryName = String(params.get('categoryName') || '').trim();
+const ALL_ACTIVITY_RULE_KINDS = ['in_app_chore', 'off_app_chore', 'bonus_event', 'deduction_event', 'redeemed_reward'];
 const pointActivityHero = document.getElementById('pointActivityHero');
 const pointActivityCalendar = document.getElementById('pointActivityCalendar');
 const pointActivityProgressPanel = document.getElementById('pointActivityProgressPanel');
@@ -23,6 +24,7 @@ let ruleActivityCounts = {};
 let allInAppSubjectRules = [];
 let selectedKidId = '';
 let selectedAllInAppSubjectKey = '';
+let selectedAllOffAppRuleKind = '';
 let currentRule = null;
 let isRuleEditing = false;
 let displayedMonthKey = '';
@@ -47,8 +49,12 @@ function isAllInAppMode() {
     return requestedRuleId === '0';
 }
 
+function isAllOffAppMode() {
+    return requestedRuleId === '-1';
+}
+
 function isCategoryInAppMode() {
-    return Boolean(requestedCategoryKey) && !isAllInAppMode();
+    return Boolean(requestedCategoryKey) && !isAllInAppMode() && !isAllOffAppMode();
 }
 
 function escapeHtml(value) {
@@ -162,6 +168,22 @@ function weekdayIndexMondayFirst(date) {
 
 function isSameRule(event) {
     if (!requestedRuleId || isAllInAppMode()) return false;
+    if (isAllOffAppMode()) {
+        const ruleKind = String(event?.rule?.ruleKind || '').trim();
+        // The all-activity total must use the same full point-event ledger as
+        // the kid's current balance. That balance uses the family's default
+        // reward bucket, so other reward buckets must not reduce it.
+        if (!selectedAllOffAppRuleKind) {
+            if (ruleKind !== 'redeemed_reward') return true;
+            const kidId = String(event?.kid?.id || '').trim();
+            const rewardBuckets = pointDataByKid.get(kidId)?.rewardBucketTotals || {};
+            const defaultBucket = Object.keys(rewardBuckets)[0] || '';
+            if (!defaultBucket) return true;
+            return String(event?.rule?.rewardType || '').trim().toLowerCase() === defaultBucket;
+        }
+        return ALL_ACTIVITY_RULE_KINDS.includes(ruleKind)
+            && ruleKind === selectedAllOffAppRuleKind;
+    }
     return String(event?.rule?.ruleId || event?.ruleId || '') === requestedRuleId;
 }
 
@@ -169,7 +191,7 @@ function allActivityEvents() {
     return kids.flatMap((kid) => {
         const data = pointDataByKid.get(String(kid.id)) || {};
         const events = Array.isArray(data.events) ? data.events : [];
-        return events.filter(isSameRule).map((event) => ({ ...event, kid }));
+        return events.map((event) => ({ ...event, kid })).filter(isSameRule);
     });
 }
 
@@ -400,6 +422,13 @@ function allInAppIconHtml() {
     return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${phoneIcon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
 }
 
+function allActivityIconHtml() {
+    const gridIcon = typeof window.icon === 'function'
+        ? window.icon('layout-grid', { size: 14, strokeWidth: 2.5 })
+        : '<span class="icon" data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.5"></span>';
+    return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${gridIcon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
+}
+
 function allInAppSubjectFilterHtml() {
     if (!isAllInAppMode()) return '';
     const filters = [
@@ -417,6 +446,30 @@ function allInAppSubjectFilterHtml() {
     return `<div class="point-activity-subject-filters" role="group" aria-label="Subject filter">${filters}</div>`;
 }
 
+function allOffAppTypeFilterHtml() {
+    if (!isAllOffAppMode()) return '';
+    const types = [
+        { key: 'in_app_chore', label: 'In-app', icon: 'smartphone' },
+        { key: 'off_app_chore', label: 'Off-app chores', icon: 'clipboard-check' },
+        { key: 'bonus_event', label: 'Bonus', icon: 'thumbs-up' },
+        { key: 'deduction_event', label: 'Loss', icon: 'thumbs-down' },
+        { key: 'redeemed_reward', label: 'Redeem', icon: 'gift' },
+    ];
+    const allIcon = typeof window.icon === 'function'
+        ? window.icon('layout-grid', { size: 22, strokeWidth: 2.4 })
+        : '<span class="icon" data-icon="layout-grid" data-icon-size="22" data-icon-stroke="2.4"></span>';
+    const filters = [
+        `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${!selectedAllOffAppRuleKind ? ' active' : ''}" data-all-off-app-type="" aria-label="All activity" title="All activity"><span class="point-activity-off-app-type-icon is-all">${allIcon}</span></button>`,
+        ...types.map((type) => {
+            const icon = typeof window.icon === 'function'
+                ? window.icon(type.icon, { size: 22, strokeWidth: 2.4 })
+                : `<span class="icon" data-icon="${escapeHtml(type.icon)}" data-icon-size="22" data-icon-stroke="2.4"></span>`;
+            return `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${selectedAllOffAppRuleKind === type.key ? ' active' : ''}" data-all-off-app-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.label)}" title="${escapeHtml(type.label)}"><span class="point-activity-off-app-type-icon is-${escapeHtml(type.key)}">${icon}</span></button>`;
+        }),
+    ].join('');
+    return `<div class="point-activity-subject-filters" role="group" aria-label="Off-app activity filter">${filters}</div>`;
+}
+
 function buildInAppCardManageHref(rule) {
     const categoryKey = String(rule?.triggerKey || '').trim();
     if (!categoryKey) return '';
@@ -432,6 +485,9 @@ function typeBadge(rule) {
     const ruleKind = String(rule?.ruleKind || '').trim();
     if (isAllInAppMode()) {
         return { label: 'All in-app', icon: 'thumbs-up', tone: 'earn' };
+    }
+    if (isAllOffAppMode() && Number(rule?.ruleId) === -1) {
+        return { label: 'All activity', icon: 'layout-grid', tone: 'earn' };
     }
     if (ruleKind === 'deduction_event') {
         return { label: 'Loss', icon: 'thumbs-down', tone: 'loss' };
@@ -475,13 +531,51 @@ function avatarHtml(kid) {
     return `<span class="point-activity-avatar point-activity-avatar-fallback">${escapeHtml(name.charAt(0).toUpperCase())}</span>`;
 }
 
+function kidFilterControlsHtml(allEvents) {
+    const filterLabel = selectedKidId
+        ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
+        : 'Showing combined total';
+    const combinedFilterHtml = `
+        <button type="button" class="report-hero-meta-item point-activity-filter" data-point-filter="combined" ${selectedKidId ? '' : 'disabled'}>
+            <span class="report-hero-meta-icon"><span class="icon" data-icon="users" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
+            <span class="report-hero-meta-value">${escapeHtml(filterLabel)}</span>
+        </button>
+    `;
+    const kidsHtml = `
+        <div class="point-activity-kids">
+            ${kids.map((kid) => {
+                const kidEvents = allEvents.filter((event) => String(event?.kid?.id || '') === String(kid.id));
+                const sessionTotals = sessionTotalsForKid(kid.id);
+                const sessionCardTotal = sessionCardTotalForKid(kid.id);
+                return `
+                    <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}${isSessionsMetricView() ? ' no-chevron' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        ${avatarHtml(kid)}
+                        <span>
+                            <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
+                            <span class="point-activity-kid-points">${escapeHtml(isSessionsMetricView() ? formatActiveMinutes(sessionTotals.activeMinutes) : formatPoints(pointTotal(kidEvents)))}</span>
+                            ${isSessionsMetricView()
+                                ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
+                                : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
+                        </span>
+                        ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
+                    </button>
+                `;
+            }).join('')}
+        </div>
+    `;
+    return { combinedFilterHtml, kidsHtml };
+}
+
 function renderHero() {
+    const heroPanel = pointActivityHero?.closest('.paradigm-settings-panel');
+    heroPanel?.classList.remove('hidden');
     const allEvents = allActivityEvents();
     const events = visibleEvents();
     const rule = currentRule || {};
     const title = String(rule.name || 'Point activity').trim();
     const hasEditableRule = Number.parseInt(rule.ruleId, 10) > 0;
-    const canEditRule = !isKidUserMode() && !isAllInAppMode() && hasEditableRule;
+    const isAggregateMode = isAllInAppMode() || isAllOffAppMode();
+    const canEditRule = !isKidUserMode() && !isAggregateMode && hasEditableRule;
     const isEditingRule = isRuleEditing && canEditRule;
     const isInAppRule = String(rule.ruleKind || '') === 'in_app_chore';
     const ruleActivityCount = Number.parseInt(ruleActivityCounts[String(rule.ruleId || requestedRuleId)] ?? 0, 10) || 0;
@@ -491,14 +585,16 @@ function renderHero() {
         : `<h2 class="point-activity-title">${escapeHtml(title)}</h2>`;
     const heroIconHtml = isAllInAppMode()
         ? allInAppIconHtml()
+        : isAllOffAppMode()
+        ? allActivityIconHtml()
         : isEditingRule && !isInAppRule
         ? `<input class="point-activity-emoji-edit" data-rule-edit-emoji value="${escapeHtml(rule.emoji || '')}" aria-label="Rule emoji" maxlength="8">`
         : iconHtml(rule);
     const inAppManageHref = isInAppRule && !isAllInAppMode() ? buildInAppCardManageHref(rule) : '';
     const heroIconContainerHtml = inAppManageHref
         ? `<a class="point-activity-icon point-activity-icon--in-app" href="${escapeHtml(inAppManageHref)}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${heroIconHtml}</a>`
-        : `<div class="point-activity-icon${isAllInAppMode() ? ' point-activity-icon--in-app point-activity-icon--all-in-app' : ''}${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
-    const ruleMetaHtml = isAllInAppMode()
+        : `<div class="point-activity-icon${isAggregateMode ? ' point-activity-icon--in-app point-activity-icon--all-in-app' : ''}${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
+    const ruleMetaHtml = isAggregateMode
         ? ''
         : isEditingRule
         ? `
@@ -530,9 +626,7 @@ function renderHero() {
             </span>
         `
         : `<button type="button" class="point-activity-rules-link" data-rule-edit-action="start" aria-label="Edit point rule" title="Edit rule"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></button>`;
-    const filterLabel = selectedKidId
-        ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
-        : 'Showing combined total';
+    const filters = kidFilterControlsHtml(allEvents);
     if (pageTitle) pageTitle.textContent = title;
     document.title = `${title} - Point Activity History - The Mommy App`;
 
@@ -547,31 +641,9 @@ function renderHero() {
                         ${ruleMetaHtml}
                         ${ruleEditActionHtml}
                     </div>
-                    <button type="button" class="report-hero-meta-item point-activity-filter" data-point-filter="combined" ${selectedKidId ? '' : 'disabled'}>
-                        <span class="report-hero-meta-icon"><span class="icon" data-icon="users" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
-                        <span class="report-hero-meta-value">${escapeHtml(filterLabel)}</span>
-                    </button>
+                    ${filters.combinedFilterHtml}
                 </div>
-                <div class="point-activity-kids">
-                    ${kids.map((kid) => {
-                        const kidEvents = allEvents.filter((event) => String(event?.kid?.id || '') === String(kid.id));
-                        const sessionTotals = sessionTotalsForKid(kid.id);
-                        const sessionCardTotal = sessionCardTotalForKid(kid.id);
-                        return `
-                            <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}${isSessionsMetricView() ? ' no-chevron' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
-                                ${avatarHtml(kid)}
-                                <span>
-                                    <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
-                                    <span class="point-activity-kid-points">${escapeHtml(isSessionsMetricView() ? formatActiveMinutes(sessionTotals.activeMinutes) : formatPoints(pointTotal(kidEvents)))}</span>
-                                    ${isSessionsMetricView()
-                                        ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
-                                        : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
-                                </span>
-                                ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
-                            </button>
-                        `;
-                    }).join('')}
-                </div>
+                ${filters.kidsHtml}
             </div>
         </div>
     `;
@@ -646,12 +718,18 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const sessionMetric = showingCards ? cardCount : minutes;
     const metricTotal = isSessionCalendar ? sessionMetric : pointTotalValue;
     const level = calendarLevel(metricTotal, maxTotal);
-    const calendarTone = typeBadge(currentRule || {}).tone;
-    const canSelect = isSessionCalendar ? sessionCount > 0 : Math.abs(pointTotalValue) > 0;
+    const calendarTone = isAllOffAppMode()
+        ? (selectedAllOffAppRuleKind
+            ? typeBadge({ ruleKind: selectedAllOffAppRuleKind }).tone
+            : (pointTotalValue > 0 ? 'earn' : (pointTotalValue < 0 ? 'loss' : 'balance')))
+        : typeBadge(currentRule || {}).tone;
+    const canSelect = isSessionCalendar
+        ? sessionCount > 0
+        : (isAllOffAppMode() ? hasTotal : Math.abs(pointTotalValue) > 0);
     const tagName = canSelect ? 'button' : 'div';
     const ariaMetric = isSessionCalendar
         ? `${formatCalendarMinutes(minutes)} minutes, ${cardCount.toLocaleString()} cards`
-        : `${Math.abs(pointTotalValue).toLocaleString()} points`;
+        : `${isAllOffAppMode() ? formatSignedPoints(pointTotalValue) : `${Math.abs(pointTotalValue).toLocaleString()} points`}`;
     const attrs = canSelect
         ? `type="button" data-calendar-day="${escapeHtml(key)}" aria-label="${escapeHtml(`${shortDateLabel(key)} ${ariaMetric}`)}"`
         : '';
@@ -659,7 +737,7 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
         <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${isToday ? ' is-today' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
             <span class="point-activity-day-number">${dayNumber}</span>
             <span class="point-activity-day-metrics${isSessionCalendar ? ' point-activity-day-metrics--session' : ''}">
-                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : Math.abs(pointTotalValue).toLocaleString()) : '0'}</span>
+                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : (isAllOffAppMode() ? `${pointTotalValue >= 0 ? '+' : ''}${pointTotalValue.toLocaleString()}` : Math.abs(pointTotalValue).toLocaleString())) : '0'}</span>
             </span>
             ${isSessionCalendar && wrongCount > 0 ? `
                 <span class="point-activity-day-note-dot" aria-label="${escapeHtml(`${wrongCount} wrong cards`)}"></span>
@@ -716,6 +794,36 @@ function sessionSubjectIconHtml(session) {
     return `<span class="point-activity-event-subject-icon" aria-hidden="true">${window.subjectIcon(categoryKey, { size: 18 })}</span>`;
 }
 
+function eventRuleIconHtml(event) {
+    const rule = event?.rule || currentRule || {};
+    const ruleKind = String(rule?.ruleKind || '').trim();
+    const triggerKey = normalizeCategoryKey(rule?.triggerKey);
+    if (ruleKind === 'in_app_chore' && triggerKey && typeof window.subjectIcon === 'function') {
+        return `<span class="point-activity-event-subject-icon" aria-hidden="true">${window.subjectIcon(triggerKey, { size: 18 })}</span>`;
+    }
+    const iconName = ruleKind === 'deduction_event'
+        ? 'thumbs-down'
+        : (ruleKind === 'redeemed_reward' ? 'gift' : 'thumbs-up');
+    const iconMarkup = String(rule?.emoji || '').trim()
+        ? escapeHtml(rule.emoji)
+        : (typeof window.icon === 'function'
+            ? window.icon(iconName, { size: 16, strokeWidth: 2.5 })
+            : `<span class="icon" data-icon="${escapeHtml(iconName)}" data-icon-size="16" data-icon-stroke="2.5"></span>`);
+    return `<span class="point-activity-event-rule-icon tone-${escapeHtml(typeBadge(rule).tone)}" aria-hidden="true">${iconMarkup}</span>`;
+}
+
+function eventRuleName(event) {
+    return String(event?.rule?.name || 'Point adjustment').trim() || 'Point adjustment';
+}
+
+function activityRowLeadHtml({ time, kid, subjectIconHtml }) {
+    return `
+        <span class="point-activity-event-time">${escapeHtml(time)}</span>
+        ${avatarHtml(kid)}
+        <span class="point-activity-event-subject-column">${subjectIconHtml}</span>
+    `;
+}
+
 async function loadSelectedSessionDetails() {
     const missingSessions = sessionsForSelectedDay().filter((session) => {
         const key = sessionDetailKey(session);
@@ -740,19 +848,23 @@ function renderDayDetails() {
     if (!selectedCalendarDayKey || !events.length) return '';
     return `
         <div class="point-activity-day-detail">
-            <h3 class="point-activity-day-detail-date paradigm-panel-heading">${escapeHtml(shortDateLabel(selectedCalendarDayKey))}</h3>
             <div class="point-activity-day-detail-list">
                 ${events.map((event) => {
                     const kid = event?.kid || {};
                     const note = String(event?.note || '').trim();
+                    const ruleId = Number.parseInt(event?.rule?.ruleId || event?.ruleId, 10);
+                    const reportHref = Number.isInteger(ruleId) && ruleId > 0
+                        ? `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}`
+                        : '';
+                    const tagName = reportHref ? 'a' : 'div';
+                    const hrefAttr = reportHref ? ` href="${escapeHtml(reportHref)}"` : '';
                     return `
-                        <div class="point-activity-event-row" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
-                            <span class="point-activity-event-time">${escapeHtml(timeLabel(event?.createdAt))}</span>
-                            ${avatarHtml(kid)}
-                            <span class="point-activity-event-name">${escapeHtml(kid?.name || 'Kid')}</span>
+                        <${tagName}${hrefAttr} class="point-activity-event-row point-activity-event-row--event point-activity-event-row--has-subject${reportHref ? ' point-activity-event-row-link' : ''}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                            ${activityRowLeadHtml({ time: timeLabel(event?.createdAt), kid, subjectIconHtml: eventRuleIconHtml(event) })}
+                            <span class="point-activity-event-rule-name">${escapeHtml(eventRuleName(event))}</span>
                             <span class="point-activity-event-note">${escapeHtml(note || '-')}</span>
-                            <span class="point-activity-event-points point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(currentRule || event?.rule || {}))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
-                        </div>
+                            <span class="point-activity-event-points point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(isAllOffAppMode() ? event?.rule : (currentRule || event?.rule || {})))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
+                        </${tagName}>
                     `;
                 }).join('')}
             </div>
@@ -771,9 +883,7 @@ function renderSessionDayDetails() {
                     const nonGreenCards = nonGreenSessionCards(session);
                     return `
                         <a class="point-activity-event-row point-activity-event-row--session point-activity-event-row--has-subject point-activity-event-row-link" href="${escapeHtml(sessionReportHref(session))}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
-                            <span class="point-activity-event-time">${escapeHtml(timeLabel(session?.started_at || session?.completed_at))}</span>
-                            ${avatarHtml(kid)}
-                            <span class="point-activity-event-subject-column">${sessionSubjectIconHtml(session)}</span>
+                            ${activityRowLeadHtml({ time: timeLabel(session?.started_at || session?.completed_at), kid, subjectIconHtml: sessionSubjectIconHtml(session) })}
                             <span class="point-activity-event-card-count" aria-label="${escapeHtml(`${sessionCardCount(session)} cards`)}"><span class="icon" data-icon="layers" data-icon-size="12" data-icon-stroke="2.3" aria-hidden="true"></span><span>${escapeHtml(sessionCardCount(session).toLocaleString())}</span></span>
                             <span class="point-activity-event-card-count" aria-label="${escapeHtml(`${formatCalendarMinutes(sessionActiveMinutes(session))} minutes`)}"><span class="icon" data-icon="clock" data-icon-size="12" data-icon-stroke="2.3" aria-hidden="true"></span><span>${escapeHtml(`${formatCalendarMinutes(sessionActiveMinutes(session))}m`)}</span></span>
                             <span class="point-activity-event-wrong-pills"${nonGreenCards.length ? '' : ' aria-hidden="true"'}>${nonGreenCards.map((label) => `<span class="point-rule-delta paradigm-pill negative point-activity-event-wrong-pill">${escapeHtml(label)}</span>`).join('')}</span>
@@ -1127,6 +1237,7 @@ function renderCalendar() {
             ` : ''}
         </div>
         ${allInAppSubjectFilterHtml()}
+        ${allOffAppTypeFilterHtml()}
         <div class="point-activity-month-nav">
             <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
                 <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
@@ -1153,7 +1264,7 @@ function isInAppChore() {
 
 function renderActivityLog() {
     if (!pointActivityLogPanel || !pointActivityLog) return;
-    if (isInAppChore()) {
+    if (isInAppChore() || isAllOffAppMode()) {
         pointActivityLogPanel.classList.add('hidden');
         pointActivityLog.innerHTML = '';
         return;
@@ -1195,7 +1306,7 @@ function renderActivityLog() {
                         </time>
                         <span class="point-activity-log-name">${escapeHtml(kid?.name || 'Kid')}</span>
                         <span class="point-activity-log-note">${escapeHtml(note || '-')}</span>
-                        <span class="point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(currentRule || event?.rule || {}))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
+                        <span class="point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(isAllOffAppMode() ? event?.rule : (currentRule || event?.rule || {})))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
                     </article>
                 `;
             }).join('') : `
@@ -1223,6 +1334,17 @@ function resolveCurrentRule(rules) {
             ruleId: 0,
             ruleKind: 'in_app_chore',
             name: 'All practice',
+            triggerKey: '',
+            maxPoint: null,
+            isActive: true,
+        };
+        return;
+    }
+    if (isAllOffAppMode()) {
+        currentRule = {
+            ruleId: -1,
+            name: 'All activity',
+            ruleKind: 'all_activity',
             triggerKey: '',
             maxPoint: null,
             isActive: true,
@@ -1368,14 +1490,12 @@ pointActivityHero?.addEventListener('click', async (event) => {
     if (kidButton && pointActivityHero.contains(kidButton)) {
         const nextKidId = String(kidButton.dataset.pointFilterKid || '');
         selectedKidId = selectedKidId === nextKidId ? '' : nextKidId;
-        selectedCalendarDayKey = '';
         render();
         return;
     }
     const combinedButton = event.target.closest('[data-point-filter="combined"]');
     if (combinedButton && pointActivityHero.contains(combinedButton)) {
         selectedKidId = '';
-        selectedCalendarDayKey = '';
         render();
     }
 });
@@ -1391,7 +1511,12 @@ pointActivityCalendar?.addEventListener('click', async (event) => {
     const subjectFilter = event.target.closest('[data-all-in-app-subject]');
     if (subjectFilter && pointActivityCalendar.contains(subjectFilter)) {
         selectedAllInAppSubjectKey = normalizeCategoryKey(subjectFilter.dataset.allInAppSubject);
-        selectedCalendarDayKey = '';
+        render();
+        return;
+    }
+    const offAppTypeFilter = event.target.closest('[data-all-off-app-type]');
+    if (offAppTypeFilter && pointActivityCalendar.contains(offAppTypeFilter)) {
+        selectedAllOffAppRuleKind = String(offAppTypeFilter.dataset.allOffAppType || '').trim();
         render();
         return;
     }

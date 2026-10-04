@@ -540,6 +540,56 @@
     transform: scale(0.96);
 }
 
+.point-activity-off-app-type-filter {
+    color: inherit;
+}
+
+.point-activity-off-app-type-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+}
+
+.point-activity-off-app-type-icon .icon,
+.point-activity-off-app-type-icon svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+}
+
+.point-activity-off-app-type-icon.is-all {
+    background: #eaf0ff;
+    color: #3267d6;
+}
+
+.point-activity-off-app-type-icon.is-in_app_chore {
+    background: #dff3e4;
+    color: #24934d;
+}
+
+.point-activity-off-app-type-icon.is-off_app_chore {
+    background: #dff3e4;
+    color: #24934d;
+}
+
+.point-activity-off-app-type-icon.is-bonus_event {
+    background: #dff3e4;
+    color: #24934d;
+}
+
+.point-activity-off-app-type-icon.is-deduction_event {
+    background: #fde1df;
+    color: #dc3d36;
+}
+
+.point-activity-off-app-type-icon.is-redeemed_reward {
+    background: #fff0c7;
+    color: #b97a00;
+}
+
 .point-activity-month-label {
     min-width: 8.5rem;
     text-align: center;
@@ -638,6 +688,11 @@ button.point-activity-day:focus-visible {
 .point-activity-day.has-total.tone-loss.level-5 {
     background: #ce3f7b;
     color: #ffffff;
+}
+
+.point-activity-day.has-total.tone-balance {
+    background: #edf1f8;
+    color: #66718f;
 }
 
 .point-activity-day.has-total.tone-redeem {
@@ -766,6 +821,10 @@ button.point-activity-day:focus-visible {
     grid-template-columns: 3.45rem 26px 18px 2.25rem 2.45rem minmax(0, 1fr) auto;
 }
 
+.point-activity-event-row--event.point-activity-event-row--has-subject {
+    grid-template-columns: 3.45rem 26px 18px minmax(3.7rem, 0.32fr) minmax(0, 1fr) auto;
+}
+
 .point-activity-event-wrong-pill {
     max-width: 12rem;
     overflow: hidden;
@@ -825,11 +884,47 @@ button.point-activity-day:focus-visible {
     text-overflow: ellipsis;
 }
 
+.point-activity-event-rule-name {
+    overflow: hidden;
+    color: #586585;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .point-activity-event-subject-icon {
     display: inline-flex;
     flex: 0 0 auto;
     width: 18px;
     height: 18px;
+}
+
+.point-activity-event-rule-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    font-size: 0.9rem;
+    line-height: 1;
+}
+
+.point-activity-event-rule-icon.tone-earn {
+    background: #eaf8ef;
+    color: #1d7d52;
+}
+
+.point-activity-event-rule-icon.tone-loss {
+    background: #fff0f6;
+    color: #d72525;
+}
+
+.point-activity-event-rule-icon.tone-redeem {
+    background: #fff8e8;
+    color: #9a6500;
 }
 
 .point-activity-event-subject-column {
@@ -1338,6 +1433,10 @@ button.point-activity-day:focus-visible {
         grid-template-columns: 3.25rem 24px 18px 2.15rem 2.35rem minmax(0, 1fr) auto;
     }
 
+    .point-activity-event-row--event.point-activity-event-row--has-subject {
+        grid-template-columns: 3.25rem 24px 18px minmax(3rem, 0.35fr) minmax(0, 1fr) auto;
+    }
+
     .point-activity-log-row {
         grid-template-columns: 7.15rem minmax(3rem, 0.35fr) minmax(0, 1fr) auto;
         gap: 0.3rem;
@@ -1374,6 +1473,10 @@ button.point-activity-day:focus-visible {
 
     .point-activity-event-row--session.point-activity-event-row--has-subject {
         grid-template-columns: 3.1rem 22px 18px 2.05rem 2.25rem minmax(0, 1fr) auto;
+    }
+
+    .point-activity-event-row--event.point-activity-event-row--has-subject {
+        grid-template-columns: 3.1rem 22px 18px minmax(2.8rem, 0.35fr) minmax(0, 1fr) auto;
     }
 
     .point-activity-log-row {
