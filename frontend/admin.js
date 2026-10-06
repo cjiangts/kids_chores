@@ -920,9 +920,9 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
     const isDirty = isAdminOffAppDraftDirty(draft);
     return `
         <div class="admin-off-app-grade" data-off-app-review-key="${escapeHtml(reviewKey)}" data-off-app-review-kind="${escapeHtml(reviewKind)}">
-            <input class="admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
+            <input class="paradigm-input paradigm-compact-input admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
             <span class="admin-off-app-grade-actions">
-                <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
+                <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
                     ${buildAdminOffAppSaveButtonContent()}
                 </button>
                 <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
@@ -946,10 +946,10 @@ function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
     const isSaving = adminOffAppSavingKeys.has(reviewKey);
     const safePoints = normalizeAdminOffAppPoints(points);
     return `
-        <div class="admin-off-app-point-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
-            <input class="admin-off-app-points-input" type="number" inputmode="numeric" min="1" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
-            <button type="button" class="admin-off-app-step-btn" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Increase points"${isSaving ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
+        <div class="admin-off-app-point-stepper paradigm-compact-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
+            <button type="button" class="admin-off-app-step-btn paradigm-compact-stepper-button" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
+            <input class="admin-off-app-points-input paradigm-compact-stepper-value" type="number" inputmode="numeric" min="1" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
+            <button type="button" class="admin-off-app-step-btn paradigm-compact-stepper-button" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Increase points"${isSaving ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
         </div>
     `;
 }

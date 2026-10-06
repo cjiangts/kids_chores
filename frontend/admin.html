@@ -21,11 +21,11 @@
     <style>
         .parent-admin-page .admin-optin-panel {
             --admin-chore-header-height: var(--paradigm-panel-title-height);
-            --admin-pill-height: var(--paradigm-button-height);
-            --admin-pill-font-size: 0.9rem;
-            --admin-pill-font-weight: 400;
-            --admin-pill-line-height: 1.2;
-            --admin-off-app-pill-height: var(--admin-pill-height);
+            --admin-pill-height: var(--paradigm-compact-bar-height);
+            --admin-pill-font-size: var(--p-pill-font-size);
+            --admin-pill-font-weight: var(--p-pill-font-weight);
+            --admin-pill-line-height: 1;
+            --admin-off-app-pill-height: var(--paradigm-input-height);
             --admin-status-column-width: 32%;
             position: relative;
         }
@@ -255,8 +255,8 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 42px;
-            height: 42px;
+            width: 36px;
+            height: 36px;
             padding: 2px;
             border: 1px solid #cfd7f5;
             border-radius: 9px;
@@ -287,8 +287,8 @@
             display: grid;
             grid-template-rows: 1fr auto;
             place-items: center;
-            width: 36px;
-            height: 36px;
+            width: 29px;
+            height: 29px;
             border-radius: 10px;
             background: #eaf0ff;
             color: #3267d6;
@@ -297,16 +297,16 @@
         .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol, .admin-off-app-summary-report-symbol) {
             display: inline-flex;
             align-items: end;
-            height: 19px;
+            height: 15px;
         }
         .parent-admin-page .admin-matrix-all-report-phone .icon,
         .parent-admin-page .admin-matrix-all-report-phone svg {
-            width: 14px;
-            height: 14px;
+            width: 13px;
+            height: 13px;
             stroke: currentColor;
         }
         .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label, .admin-off-app-summary-report-label) {
-            margin-bottom: 4px;
+            margin-bottom: 2px;
             font-size: 0.46rem;
             font-weight: 850;
             letter-spacing: 0.04em;
@@ -566,17 +566,17 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 38px;
-            height: 38px;
-            flex: 0 0 38px;
+            width: 36px;
+            height: 36px;
+            flex: 0 0 36px;
             border-radius: 10px;
             background: #eef8f1;
             color: #0caf55;
         }
         .parent-admin-page .admin-point-report-icon {
             box-sizing: border-box;
-            width: 42px;
-            height: 42px;
+            width: 36px;
+            height: 36px;
             padding: 2px;
             border: 1px solid #cfd7f5;
             border-radius: 9px;
@@ -590,8 +590,8 @@
             background: #ffffff;
         }
         .parent-admin-page .admin-point-report-icon.paradigm-subject-icon .subject-icon {
-            width: 36px;
-            height: 36px;
+            width: 29px;
+            height: 29px;
         }
         .parent-admin-page .admin-point-report-icon:hover,
         .parent-admin-page .admin-point-report-icon:focus-visible {
@@ -604,7 +604,7 @@
             transform: scale(0.96);
         }
         .parent-admin-page .admin-off-app-emoji {
-            font-size: 1.45rem;
+            font-size: 0.98rem;
             line-height: 1;
         }
         .parent-admin-page .admin-off-app-title-wrap {
@@ -798,19 +798,11 @@
         }
         .parent-admin-page .admin-off-app-point-stepper {
             justify-self: end;
+            --paradigm-compact-stepper-value-width: 1.7rem;
         }
         .parent-admin-page .admin-off-app-note-input {
             width: 100%;
             min-width: 0;
-            height: var(--admin-off-app-pill-height);
-            padding: 0 0.65rem;
-            border: 1px solid #d8def0;
-            border-radius: 999px;
-            background: #fff;
-            color: #1f2950;
-            font: inherit;
-            font-size: 0.84rem;
-            outline: none;
         }
         .parent-admin-page .admin-off-app-note-input::placeholder {
             color: #9aa3b8;
@@ -1013,10 +1005,6 @@
         }
 
         @media (max-width: 600px) {
-            .parent-admin-page .admin-optin-panel {
-                --admin-pill-font-size: 0.8rem;
-            }
-
             .parent-admin-page .admin-matrix-all-report-link {
                 position: relative;
                 transform: none;
@@ -1096,15 +1084,23 @@
                 flex-basis: 34px;
             }
             .parent-admin-page .admin-off-app-emoji {
-                font-size: 1.25rem;
+                font-size: 0.91rem;
+            }
+            .parent-admin-page .admin-point-report-icon {
+                width: 34px;
+                height: 34px;
             }
             .parent-admin-page .admin-off-app-tile.admin-point-report-icon {
-                width: 42px;
-                height: 42px;
-                flex-basis: 42px;
+                width: 34px;
+                height: 34px;
+                flex-basis: 34px;
+            }
+            .parent-admin-page .admin-point-report-icon.paradigm-subject-icon .subject-icon {
+                width: 26px;
+                height: 26px;
             }
             .parent-admin-page .admin-off-app-tile.admin-point-report-icon .admin-off-app-emoji {
-                font-size: 1.45rem;
+                font-size: 0.91rem;
             }
             .parent-admin-page .admin-off-app-grade {
                 gap: 0.4rem;
@@ -1115,9 +1111,6 @@
         }
 
         @media (max-width: 430px) {
-            .parent-admin-page .admin-optin-panel {
-                --admin-pill-font-size: 0.72rem;
-            }
             .parent-admin-page .admin-today-pill-wrong,
             .parent-admin-page .admin-today-pill-review,
             .parent-admin-page .admin-today-pill-allright {

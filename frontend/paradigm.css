@@ -42,6 +42,7 @@
     --paradigm-panel-title-action-size: 34px;
     --paradigm-panel-title-height: 44px;
     --paradigm-input-height: 34px;
+    --paradigm-compact-bar-height: 28px;
     --paradigm-input-font-size: 0.86rem;
     --paradigm-input-font-weight: 480;
     --paradigm-search-input-height: var(--paradigm-button-height);
@@ -65,10 +66,14 @@
     --paradigm-disclosure-link-icon-size: 18px;
     --paradigm-disclosure-link-icon-stroke: 2.6;
     --paradigm-disclosure-link-icon-box-size: 20px;
+    /* Main row typography shared by subjects, point activity, and pills. */
+    --paradigm-row-text-font-size: 0.94rem;
+    --paradigm-row-text-font-weight: 400;
+    --paradigm-row-text-line-height: 1.3;
     --paradigm-list-item-name-color: #1f2950;
-    --paradigm-list-item-name-font-size: 0.94rem;
-    --paradigm-list-item-name-font-weight: 400;
-    --paradigm-list-item-name-line-height: 1.3;
+    --paradigm-list-item-name-font-size: var(--paradigm-row-text-font-size);
+    --paradigm-list-item-name-font-weight: var(--paradigm-row-text-font-weight);
+    --paradigm-list-item-name-line-height: var(--paradigm-row-text-line-height);
     --paradigm-list-item-sub-color: #7c86a3;
     --paradigm-list-item-sub-font-size: 0.78rem;
     --paradigm-list-item-sub-font-weight: 400;
@@ -87,19 +92,18 @@
      * Only height + font sizing/weight are unified here; each page keeps
      * its own padding/shape/width (layout) and background/text (color). */
     --p-pill-height: 20px;
-    --p-pill-font-size: 0.75rem;
-    --p-pill-font-weight: 450;
+    --p-pill-font-size: var(--paradigm-row-text-font-size);
+    --p-pill-font-weight: var(--paradigm-row-text-font-weight);
 }
 
 @media (max-width: 600px) {
     :root {
         --paradigm-status-column-width: 70px;
         --p-pill-height: 18px;
-        --p-pill-font-size: 0.7rem;
         --paradigm-disclosure-link-min-height: 18px;
         --paradigm-disclosure-link-font-size: 0.74rem;
         --paradigm-disclosure-link-icon-box-size: 18px;
-        --paradigm-list-item-name-font-size: 0.74rem;
+        --paradigm-row-text-font-size: 0.74rem;
         --paradigm-list-item-sub-font-size: 0.7rem;
     }
 }
@@ -147,7 +151,7 @@
 
 /* Compact text field shared by dense inline editors and entry forms. */
 .paradigm-compact-input {
-    --paradigm-input-height: 28px;
+    --paradigm-input-height: var(--paradigm-compact-bar-height);
     --paradigm-input-font-size: var(--paradigm-list-item-sub-font-size);
     --paradigm-input-font-weight: var(--paradigm-list-item-sub-font-weight);
     --paradigm-input-padding: 0 0.62rem;
@@ -155,7 +159,7 @@
 
 /* Shared compact dimensions and typography for dense buttons/controls. */
 .paradigm-compact-control {
-    --paradigm-compact-control-height: 28px;
+    --paradigm-compact-control-height: var(--paradigm-compact-bar-height);
     --paradigm-compact-control-font-size: var(--paradigm-list-item-sub-font-size);
     --paradigm-compact-control-font-weight: var(--paradigm-list-item-sub-font-weight);
 }
