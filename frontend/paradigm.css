@@ -333,6 +333,26 @@
     cursor: not-allowed;
 }
 
+/* Shared 18px checkbox tile used by Admin matrix controls and deck selection. */
+.paradigm-selection-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    box-sizing: border-box;
+    border: 1.5px solid #cbd4e6;
+    border-radius: 5px;
+    background: #fff;
+    color: #fff;
+    transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.paradigm-selection-check.is-checked {
+    border-color: #6b5cf6;
+    background: #6b5cf6;
+}
+
 /* Reusable solid success action for compact inline editors. */
 .paradigm-solid-confirm-btn {
     --paradigm-solid-confirm-btn-size: 28px;
@@ -354,8 +374,15 @@
 }
 
 /* Reusable destructive counterpart to the solid success action. */
-.paradigm-icon-btn.paradigm-solid-danger-btn {
+.paradigm-solid-danger-btn {
     --paradigm-solid-danger-btn-size: 28px;
+    border-color: #d83b3b;
+    background: #d83b3b;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(174, 37, 37, 0.22);
+}
+
+.paradigm-icon-btn.paradigm-solid-danger-btn {
     --paradigm-icon-btn-size: var(--paradigm-solid-danger-btn-size);
     flex: 0 0 var(--paradigm-solid-danger-btn-size);
     width: var(--paradigm-solid-danger-btn-size);
@@ -368,8 +395,22 @@
     box-shadow: 0 1px 3px rgba(174, 37, 37, 0.22);
 }
 
+.paradigm-decision-btn.paradigm-solid-danger-btn {
+    --paradigm-decision-btn-size: var(--paradigm-solid-danger-btn-size);
+    --paradigm-decision-btn-icon-size: calc(var(--paradigm-solid-danger-btn-size) / 2);
+    flex: 0 0 var(--paradigm-solid-danger-btn-size);
+}
+
 .paradigm-icon-btn.paradigm-solid-danger-btn:hover:not(:disabled),
 .paradigm-icon-btn.paradigm-solid-danger-btn:focus-visible:not(:disabled) {
+    border-color: #b82727;
+    background: #b82727;
+    color: #fff;
+    outline: none;
+}
+
+.paradigm-decision-btn.paradigm-solid-danger-btn:hover:not(:disabled),
+.paradigm-decision-btn.paradigm-solid-danger-btn:focus-visible:not(:disabled) {
     border-color: #b82727;
     background: #b82727;
     color: #fff;

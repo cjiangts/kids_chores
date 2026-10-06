@@ -873,6 +873,15 @@ function setAdminOffAppDraftValue(reviewKey, patch) {
     return next;
 }
 
+function cancelOtherAdminOffAppEditors(exceptReviewKey = '') {
+    const exceptKey = String(exceptReviewKey || '');
+    for (const reviewKey of Array.from(adminOffAppEditingKeys)) {
+        if (reviewKey === exceptKey) continue;
+        adminOffAppDraftByKey.delete(reviewKey);
+        adminOffAppEditingKeys.delete(reviewKey);
+    }
+}
+
 function isAdminOffAppDraftDirty(draft) {
     if (!draft) return false;
     if (draft.isNewReview) return true;
@@ -925,7 +934,7 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
                 <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
                     ${buildAdminOffAppSaveButtonContent()}
                 </button>
-                <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
+                <button type="button" class="paradigm-decision-btn paradigm-solid-danger-btn" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
                     ${buildAdminOffAppCancelButtonContent()}
                 </button>
             </span>
@@ -1016,7 +1025,7 @@ function buildAdminOffAppOptInCell(chore) {
     return `
         <td class="admin-off-app-opt-cell admin-matrix-cell">
             <button type="button" role="checkbox" class="admin-matrix-row-check admin-off-app-row-check${enabled ? ' is-checked' : ''}" data-off-app-opt-toggle data-rule-id="${escapeHtml(ruleId)}" aria-checked="${enabled ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"${isSaving ? ' disabled' : ''}>
-                <span class="admin-matrix-row-check-box" aria-hidden="true">${enabled && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
+                <span class="admin-matrix-row-check-box paradigm-selection-check${enabled ? ' is-checked' : ''}" aria-hidden="true">${enabled && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
             </button>
         </td>
     `;
@@ -1122,7 +1131,7 @@ function buildAdminOffAppCreateRow() {
                     <input class="admin-off-app-create-name" type="text" maxlength="80" value="${escapeHtml(adminOffAppCreateDraft.name || '')}" placeholder="New off-app chore" data-off-app-create-name aria-label="Chore name"${saving ? ' disabled' : ''}>
                     <span class="admin-off-app-create-actions">
                         <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-off-app-create-save aria-label="Add off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppSaveButtonContent()}</button>
-                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-off-app-create-cancel aria-label="Cancel adding off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppCancelButtonContent()}</button>
+                        <button type="button" class="paradigm-decision-btn paradigm-solid-danger-btn" data-off-app-create-cancel aria-label="Cancel adding off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppCancelButtonContent()}</button>
                     </span>
                 </div>
             </td>
@@ -1184,6 +1193,7 @@ function handleAdminOffAppClick(event) {
         : null;
     if (!target) return;
     if (target.hasAttribute('data-off-app-add-open')) {
+        cancelOtherAdminOffAppEditors();
         isAddingAdminOffAppChore = true;
         adminOffAppCreateDraft = { emoji: '', name: '' };
         renderAdminOffAppSection(currentKids);
@@ -1221,6 +1231,9 @@ function handleAdminOffAppClick(event) {
     }
     const reviewKey = target.getAttribute('data-review-key') || '';
     if (target.hasAttribute('data-off-app-edit')) {
+        cancelOtherAdminOffAppEditors(reviewKey);
+        isAddingAdminOffAppChore = false;
+        adminOffAppCreateDraft = { emoji: '', name: '' };
         adminOffAppEditingKeys.add(reviewKey);
         renderAdminOffAppSection(currentKids);
         return;
@@ -1630,7 +1643,7 @@ function buildRowOptInCheckbox(row, kid) {
     const label = optedIn ? 'Opt out' : 'Opt in';
     return `
         <button type="button" role="checkbox" class="admin-matrix-row-check${optedIn ? ' is-checked' : ''}" data-row-opt-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-checked="${optedIn ? 'true' : 'false'}" aria-label="${label} ${escapeHtml(row.displayName)}">
-            <span class="admin-matrix-row-check-box" aria-hidden="true">${optedIn && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
+            <span class="admin-matrix-row-check-box paradigm-selection-check${optedIn ? ' is-checked' : ''}" aria-hidden="true">${optedIn && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
         </button>
     `;
 }

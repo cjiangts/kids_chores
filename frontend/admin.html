@@ -257,11 +257,11 @@
             justify-content: center;
             width: 36px;
             height: 36px;
-            padding: 2px;
-            border: 1px solid #cfd7f5;
-            border-radius: 9px;
+            padding: 2.5px;
+            border: 0.75px solid #e6eaf8;
+            border-radius: 8px;
             background: #fff;
-            box-shadow: 0 1px 3px rgba(47, 61, 118, 0.14);
+            box-shadow: 0 1px 2px rgba(47, 61, 118, 0.08);
             margin-left: auto;
             color: #3267d6;
             text-decoration: none;
@@ -289,7 +289,7 @@
             place-items: center;
             width: 29px;
             height: 29px;
-            border-radius: 10px;
+            border-radius: 7px;
             background: #eaf0ff;
             color: #3267d6;
             line-height: 1;
@@ -297,17 +297,16 @@
         .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol, .admin-off-app-summary-report-symbol) {
             display: inline-flex;
             align-items: end;
-            height: 15px;
-        }
-        .parent-admin-page .admin-matrix-all-report-phone .icon,
-        .parent-admin-page .admin-matrix-all-report-phone svg {
-            width: 13px;
             height: 13px;
+        }
+        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol, .admin-off-app-summary-report-symbol) :is(.icon, svg) {
+            width: 11px;
+            height: 11px;
             stroke: currentColor;
         }
         .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label, .admin-off-app-summary-report-label) {
             margin-bottom: 2px;
-            font-size: 0.46rem;
+            font-size: 0.42rem;
             font-weight: 850;
             letter-spacing: 0.04em;
         }
@@ -476,23 +475,6 @@
             cursor: pointer;
             flex: 0 0 22px;
         }
-        .parent-admin-page .admin-matrix-row-check-box {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 18px;
-            height: 18px;
-            border-radius: 5px;
-            border: 1.5px solid #cbd4e6;
-            background: #fff;
-            color: #fff;
-            box-sizing: border-box;
-            transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
-        }
-        .parent-admin-page .admin-matrix-row-check.is-checked .admin-matrix-row-check-box {
-            background: #6b5cf6;
-            border-color: #6b5cf6;
-        }
         .parent-admin-page .admin-matrix-row-check:hover .admin-matrix-row-check-box,
         .parent-admin-page .admin-matrix-row-check:focus-visible .admin-matrix-row-check-box {
             border-color: #4d84e3;
@@ -577,11 +559,12 @@
             box-sizing: border-box;
             width: 36px;
             height: 36px;
-            padding: 2px;
-            border: 1px solid #cfd7f5;
+            /* Keep the larger Admin hit area, with the lighter Point Log tile treatment. */
+            padding: 2.5px;
+            border: 0.75px solid #e6eaf8;
             border-radius: 9px;
             background: #ffffff;
-            box-shadow: 0 1px 3px rgba(47, 61, 118, 0.14);
+            box-shadow: 0 1px 2px rgba(47, 61, 118, 0.08);
             text-decoration: none;
             cursor: pointer;
             transition: border-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
@@ -590,8 +573,13 @@
             background: #ffffff;
         }
         .parent-admin-page .admin-point-report-icon.paradigm-subject-icon .subject-icon {
-            width: 29px;
-            height: 29px;
+            /* The wrapper is larger than Point Log, but the glyph must scale with it too. */
+            --subj-size: 29px;
+            width: var(--subj-size);
+            height: var(--subj-size);
+            border-radius: calc(var(--subj-size) * 0.28);
+            font-size: calc(var(--subj-size) * 0.58);
+            font-weight: 800;
         }
         .parent-admin-page .admin-point-report-icon:hover,
         .parent-admin-page .admin-point-report-icon:focus-visible {
@@ -1096,8 +1084,7 @@
                 flex-basis: 34px;
             }
             .parent-admin-page .admin-point-report-icon.paradigm-subject-icon .subject-icon {
-                width: 26px;
-                height: 26px;
+                --subj-size: 26px;
             }
             .parent-admin-page .admin-off-app-tile.admin-point-report-icon .admin-off-app-emoji {
                 font-size: 0.91rem;

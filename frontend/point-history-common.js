@@ -483,7 +483,7 @@
                         <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit point activity')}">
                             ${icon('pencil', { size: 15 })}
                         </button>
-                        <button type="button" class="paradigm-icon-btn is-danger paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
+                        <button type="button" class="paradigm-icon-btn paradigm-solid-danger-btn paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="${escapeHtml(opts.deleteAriaLabel || 'Delete point event')}">
                             ${icon('trash', { size: 16 })}
                         </button>
                     </div>

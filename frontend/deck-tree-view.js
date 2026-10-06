@@ -444,7 +444,7 @@
                 html += `<button type="button" class="deck-tree-toggle${isExpanded ? ' expanded' : ''}" aria-label="Toggle">&#9654;</button>`;
                 const pct = totalCount > 0 ? Math.round((selectedCount / totalCount) * 100) : 0;
                 html += `<div class="deck-tree-row-body" data-tree-action="branch" data-tree-tag="${escapeHtml(node.tag)}">`;
-                html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
+                html += `<span class="deck-tree-checkbox paradigm-selection-check" aria-hidden="true"></span>`;
                 const labelAttr = escapeHtml(node.label || node.tag);
                 let branchToolsHtml = '';
                 if (this.onBranchEdit) {
@@ -507,7 +507,7 @@
             html += `<div class="${rowClasses.join(' ')}">`;
             html += `<button type="button" class="deck-tree-leaf-toggle${isExpanded ? ' expanded' : ''}" aria-label="Show cards in deck">&#9654;</button>`;
             html += `<div class="deck-tree-row-body" data-tree-action="${escapeHtml(action)}" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
-            html += `<span class="deck-tree-checkbox" aria-hidden="true"></span>`;
+            html += `<span class="deck-tree-checkbox paradigm-selection-check" aria-hidden="true"></span>`;
             html += `<span class="deck-tree-label-wrap"><span class="deck-tree-label">${labelHtml}</span>${leafActionBtn}</span>`;
             html += pendingBadge;
             html += `</div></div>`;
