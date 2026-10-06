@@ -988,10 +988,10 @@ fieldset.paradigm-form-field {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: var(--paradigm-compact-stepper-button-size);
-    min-width: var(--paradigm-compact-stepper-button-size);
-    height: var(--paradigm-compact-stepper-button-size);
-    min-height: var(--paradigm-compact-stepper-button-size);
+    width: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    min-width: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    height: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    min-height: var(--paradigm-compact-stepper-button-size, 1.4rem);
     box-sizing: border-box;
     padding: 0;
     border: 1px solid #e1e6f5;
@@ -1615,6 +1615,27 @@ svg.cards-view-toggle-btn-icon,
     color: #c0392b;
 }
 
+/* Lets compact stepper controls be used as standalone icon buttons too. */
+.paradigm-icon-btn.paradigm-compact-stepper-button {
+    --paradigm-icon-btn-size: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    width: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    min-width: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    height: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    min-height: var(--paradigm-compact-stepper-button-size, 1.4rem);
+    border-color: #e1e6f5;
+    background: #fff;
+    color: #3b46a1;
+    box-shadow: 0 0.1rem 0.26rem rgba(56, 70, 150, 0.08);
+}
+
+.paradigm-icon-btn.paradigm-compact-stepper-button:hover:not(:disabled),
+.paradigm-icon-btn.paradigm-compact-stepper-button:focus-visible:not(:disabled) {
+    border-color: #b9c7f4;
+    background: #f7f9ff;
+    color: #3b46a1;
+    outline: none;
+}
+
 :is(.paradigm-editing-row, .point-template-row.paradigm-editing-row, tr.paradigm-editing-row) {
     border-radius: 8px;
     background: color-mix(in srgb, var(--p-accent) 5%, transparent);
@@ -1628,6 +1649,15 @@ tr.paradigm-editing-row > :is(th, td) {
 tr.paradigm-editing-row > :first-child {
     box-shadow: inset 3px 0 0 color-mix(in srgb, var(--p-accent) 48%, transparent);
     padding-left: var(--paradigm-editing-row-table-indent, 0.9rem);
+    border-top-left-radius: 8px;
+    border-bottom-left-radius: 8px;
+    overflow: hidden;
+}
+
+tr.paradigm-editing-row > :last-child {
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    overflow: hidden;
 }
 
 .point-template-row:not(.point-template-row--redeem) {

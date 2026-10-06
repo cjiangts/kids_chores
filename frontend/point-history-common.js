@@ -366,15 +366,22 @@
         const previousWeekDayKey = addDaysToDayKey(anchorDayKey, -7);
         const nextWeekDayKey = addDaysToDayKey(anchorDayKey, 7);
         const labelText = weekLabel(anchorDayKey, timezone);
+        const mondayDate = dateFromDayKey(selectedWeekStart);
+        const mondayLabel = mondayDate
+            ? mondayDate.toLocaleDateString([], { timeZone: 'UTC', weekday: 'short', month: 'short', day: 'numeric' })
+            : '';
         const activeSummary = activeDayKey ? (summariesByDay.get(activeDayKey) || emptyPointSummary()) : null;
         return `
             <section class="point-week-hero" aria-label="${escapeHtml(labelText)} point summary">
                 <div class="point-week-hero-top">
                     <div class="point-week-title-card">
-                        <span class="point-week-title">${escapeHtml(labelText)}</span>
                         <span class="point-week-nav" aria-label="Week navigation">
-                            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle point-week-nav-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 16, strokeWidth: 2.9 })}</button>
-                            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 16, strokeWidth: 2.9 })}</button>
+                            <button type="button" class="paradigm-icon-btn paradigm-compact-stepper-button point-week-nav-btn" data-history-week-anchor="${escapeHtml(previousWeekDayKey)}" aria-label="Previous week" title="Previous week">${icon('chevron-left', { size: 16, strokeWidth: 2.9 })}</button>
+                            <span class="point-week-title">
+                                <span class="point-week-title-offset">${escapeHtml(labelText)}</span>
+                                <span class="point-week-title-date">${escapeHtml(mondayLabel)}</span>
+                            </span>
+                            <button type="button" class="paradigm-icon-btn paradigm-compact-stepper-button point-week-nav-btn" data-history-week-anchor="${escapeHtml(nextWeekDayKey)}" aria-label="Next week" title="Next week" ${canGoNext ? '' : 'disabled'}>${icon('chevron-right', { size: 16, strokeWidth: 2.9 })}</button>
                         </span>
                     </div>
                     ${renderMetricCard('earned', 'thumbs-up', 'Earned', weekSummary.earned, 'positive')}
@@ -446,7 +453,7 @@
         const dateLabel = formatHistoryDate(event.createdAt, timezone);
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
         const showRowActions = showDelete && opts.showRowActions !== false;
-        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+        const className = `point-history-row activity-timeline-row point-history-row--${deltaClass}${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         const reportHref = pointActivityReportHref(event);
         const iconHtml = historyIconHtml(rule, delta);
         const activityIcon = reportHref
@@ -552,8 +559,22 @@
         }
     }
 
+    function restorePointPills(row) {
+        if (!row) return;
+        const originalDelta = Number.parseInt(row.dataset.pointsDelta || '', 10) || 0;
+        const deltaPill = row.querySelector('.point-history-metrics .point-rule-delta:not(.balance)');
+        if (deltaPill) deltaPill.textContent = `${formatDelta(originalDelta)} pts`;
+        const originalBalance = Number.parseInt(row.dataset.balanceAfter || '', 10);
+        const balancePill = row.querySelector('.point-history-metrics .point-rule-delta.balance');
+        if (balancePill && Number.isFinite(originalBalance)) {
+            balancePill.textContent = `${originalBalance} pts`;
+            balancePill.setAttribute('aria-label', `Balance after event: ${originalBalance} points`);
+        }
+    }
+
     function closeNoteEditor(row) {
         if (!row) return;
+        restorePointPills(row);
         row.dataset.noteEditing = '';
         row.classList.remove('is-editing-note', 'paradigm-editing-row');
         const editor = row.querySelector('[data-point-history-note-editor]');

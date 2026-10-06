@@ -163,9 +163,14 @@
 
 .point-template-icon-link {
     display: grid;
-    grid-template-columns: 27px minmax(0, 1fr);
+    grid-template-columns: var(--activity-timeline-icon-size) minmax(0, 1fr);
     align-items: center;
     margin: 0.18rem;
+}
+
+.point-template-icon-link.point-history-icon-link {
+    width: var(--activity-timeline-icon-size);
+    height: var(--activity-timeline-icon-size);
 }
 
 .point-template-row .point-rule-delta {
@@ -433,6 +438,18 @@
     --paradigm-compact-stepper-value-width: 1.7rem;
 }
 
+.point-log-form .form-group input.point-log-stepper-input.paradigm-compact-stepper-value:not([type="checkbox"]):not([type="radio"]) {
+    width: var(--paradigm-compact-stepper-value-width);
+    min-width: var(--paradigm-compact-stepper-value-width);
+    max-width: var(--paradigm-compact-stepper-value-width);
+    height: var(--paradigm-compact-stepper-button-size);
+    min-height: var(--paradigm-compact-stepper-button-size);
+    padding: 0 0.06rem;
+    font-size: var(--paradigm-list-item-name-font-size);
+    font-weight: var(--paradigm-list-item-name-font-weight);
+    line-height: 1;
+}
+
 .point-log-form.is-bonus .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]) {
     color: #1f8f5f;
 }
@@ -612,11 +629,11 @@
 .point-week-title-card {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 0.72rem;
     min-width: 0;
     border: 0;
-    padding: 0.62rem 0.72rem;
+    padding: 0.38rem 0.6rem;
 }
 
 .point-week-title {
@@ -625,15 +642,37 @@
     font-size: var(--point-week-heading-font-size);
     font-weight: var(--point-week-heading-font-weight);
     line-height: 1.05;
+    text-align: center;
+}
+
+.point-week-title-offset,
+.point-week-title-date {
+    display: block;
     white-space: nowrap;
 }
 
+.point-week-title-date {
+    margin-top: 0.08rem;
+    color: #7c86a3;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+}
+
 .point-week-nav {
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: 1.4rem minmax(0, 1fr) 1.4rem;
     align-items: center;
     justify-content: center;
-    gap: 0.34rem;
+    column-gap: 0.3rem;
+    width: 100%;
     flex: 0 0 auto;
+}
+
+.point-week-nav-btn .icon,
+.point-week-nav-btn svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    stroke-width: 2.4;
 }
 
 .point-week-metric {
@@ -1045,6 +1084,18 @@
     width: fit-content;
 }
 
+.point-history-row--positive .point-history-metrics.is-editing .point-history-points-input {
+    color: #1f8f5f;
+}
+
+.point-history-row--negative .point-history-metrics.is-editing .point-history-points-input {
+    color: #d72525;
+}
+
+.point-history-row--redeemed .point-history-metrics.is-editing .point-history-points-input {
+    color: #9a6500;
+}
+
 .point-history-note-input {
     flex: 1 1 auto;
     min-width: 0;
@@ -1101,9 +1152,9 @@
     }
 
     .point-week-title-card {
-        min-height: 48px;
-        padding: 0.4rem 0.42rem;
-        gap: 0.52rem;
+        min-height: 36px;
+        padding: 0.24rem 0.42rem;
+        gap: 0.34rem;
     }
 
     .point-week-nav {
@@ -1116,8 +1167,8 @@
         column-gap: 0.22rem;
         row-gap: 0;
         justify-items: stretch;
-        min-height: 48px;
-        padding: 0.3rem 0.42rem;
+        min-height: 40px;
+        padding: 0.22rem 0.42rem;
         text-align: right;
     }
 
@@ -1205,9 +1256,15 @@
 
     .point-log-workbench .point-template-row:not(.point-template-row--redeem) .point-template-name {
         overflow: visible;
-        font-size: 0.78rem;
+        font-size: var(--paradigm-list-item-name-font-size);
+        font-weight: var(--paradigm-list-item-name-font-weight);
+        line-height: var(--paradigm-list-item-name-line-height);
         text-overflow: clip;
         white-space: normal;
+    }
+
+    .point-template-icon-link {
+        --activity-timeline-icon-size: 28px;
     }
 
     .point-template-row--redeem {
