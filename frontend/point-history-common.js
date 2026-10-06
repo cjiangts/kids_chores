@@ -122,6 +122,17 @@
         });
     }
 
+    function formatHistoryDate(value, timezone) {
+        const date = parseHistoryDate(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleDateString([], {
+            timeZone: String(timezone || '').trim(),
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+        });
+    }
+
     function historyHour(value, timezone) {
         const date = parseHistoryDate(value);
         if (Number.isNaN(date.getTime())) return 0;
@@ -332,13 +343,6 @@
                 <div class="point-day-summary-copy">
                     <div class="point-day-summary-line">
                         <span>${escapeHtml(label)}:</span>
-                        <span class="positive">${escapeHtml(plural(summary.wins, 'win', 'wins'))}</span>
-                        <span aria-hidden="true">•</span>
-                        <span class="negative">${escapeHtml(plural(summary.losses, 'loss', 'losses'))}</span>
-                        <span aria-hidden="true">•</span>
-                        <span class="redeemed">${escapeHtml(plural(summary.redeemed, 'redeemed', 'redeemed'))}</span>
-                    </div>
-                    <div class="point-day-summary-line">
                         <span class="positive">${escapeHtml(`${signedZero(summary.earned, 'positive')} earned`)}</span>
                         <span aria-hidden="true">•</span>
                         <span class="negative">${escapeHtml(`${signedZero(summary.lost, 'negative')} lost`)}</span>
@@ -439,8 +443,10 @@
             : (delta >= 0 ? 'positive' : 'negative');
         const note = String(event.note || '').trim();
         const timeLabel = formatHistoryTime(event.createdAt, timezone);
+        const dateLabel = formatHistoryDate(event.createdAt, timezone);
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
-        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+        const showRowActions = showDelete && opts.showRowActions !== false;
+        const className = `point-history-row activity-timeline-row${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         const reportHref = pointActivityReportHref(event);
         const iconHtml = historyIconHtml(rule, delta);
         const activityIcon = reportHref
@@ -465,7 +471,7 @@
                         <div class="point-rule-delta paradigm-pill ${deltaClass}">${escapeHtml(formatDelta(delta))} pts</div>
                         ${showBalance ? `<div class="point-rule-delta paradigm-pill balance" aria-label="${escapeHtml(`Balance after event: ${balanceAfter} points`)}">${escapeHtml(`${balanceAfter} pts`)}</div>` : ''}
                     </div>
-                    ${showDelete && !isEditingTime ? `
+                    ${showRowActions && !isEditingTime ? `
                     <div class="point-history-actions">
                         <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn point-history-edit" data-history-action="edit-note" aria-label="${escapeHtml(opts.editAriaLabel || 'Edit point activity')}">
                             ${icon('pencil', { size: 15 })}
@@ -477,13 +483,17 @@
                     ` : ''}
                     ${isEditingTime ? `
                     <div class="point-history-time-editor">
-                        <button type="button" class="paradigm-decision-btn point-history-time-day-step" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">−1d</button>
-                        <button type="button" class="paradigm-decision-btn" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">−1h</button>
-                        <span class="activity-timeline-time">${escapeHtml(timeLabel)}</span>
-                        <button type="button" class="paradigm-decision-btn" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">+1h</button>
-                        <button type="button" class="paradigm-decision-btn point-history-time-day-step" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">+1d</button>
-                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-history-time-save aria-label="Save time">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
-                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" data-history-time-cancel aria-label="Cancel time edit">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
+                        <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event date">
+                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">${icon('minus')}</button>
+                            <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(dateLabel)}</span>
+                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">${icon('plus')}</button>
+                        </div>
+                        <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event time">
+                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">${icon('minus')}</button>
+                            <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(timeLabel)}</span>
+                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">${icon('plus')}</button>
+                        </div>
+                        <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn point-history-time-save" data-history-time-save aria-label="Save time">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
                     </div>
                     ` : ''}
                 </div>
@@ -504,17 +514,6 @@
         }
     }
 
-    function syncDraftDay(container, draft) {
-        const timezone = String(container?.__pointHistoryLastOptions?.familyTimezone || '').trim();
-        const dayKey = dateKeyInTimezone(parseHistoryDate(draft?.createdAt), timezone);
-        if (!dayKey) return;
-        container.dataset.pointHistoryWeekAnchorDayKey = dayKey;
-        container.dispatchEvent(new CustomEvent('point-history-active-day-change', {
-            bubbles: true,
-            detail: { dayKey },
-        }));
-    }
-
     function openNoteEditor(row) {
         if (!row || row.dataset.noteEditing === '1') return;
         const main = row.querySelector('.point-history-main');
@@ -529,16 +528,22 @@
         editor.className = 'point-history-note-editor';
         editor.dataset.pointHistoryNoteEditor = '1';
         editor.innerHTML = `
-            <div class="point-history-point-stepper" aria-label="Points">
-                <button type="button" class="point-history-step-btn" data-history-point-step="-1" aria-label="Decrease points"${currentPoints <= 1 ? ' disabled' : ''}>${icon('minus')}</button>
-                <input class="point-history-points-input" type="number" inputmode="numeric" min="1" value="${escapeHtml(currentPoints)}" aria-label="Points for this event">
-                <button type="button" class="point-history-step-btn" data-history-point-step="1" aria-label="Increase points">${icon('plus')}</button>
+            <div class="point-history-point-stepper paradigm-compact-stepper" aria-label="Points">
+                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-point-step="-1" aria-label="Decrease points"${currentPoints <= 1 ? ' disabled' : ''}>${icon('minus')}</button>
+                <input class="point-history-points-input paradigm-compact-stepper-value" type="number" inputmode="numeric" min="1" value="${escapeHtml(currentPoints)}" aria-label="Points for this event">
+                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-point-step="1" aria-label="Increase points">${icon('plus')}</button>
             </div>
-            <input type="text" class="paradigm-input point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
-            <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
-            <button type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel point-history-note-cancel" data-history-note-cancel aria-label="Cancel">${icon('x', { size: 16, strokeWidth: 2.6 })}</button>
+            <input type="text" class="paradigm-input paradigm-compact-input point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
+            <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
+            <button type="button" class="paradigm-icon-btn paradigm-solid-danger-btn paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="Delete point event">${icon('trash', { size: 16 })}</button>
         `;
         row.appendChild(editor);
+        const metrics = row.querySelector('.point-history-metrics');
+        const stepper = editor.querySelector('.point-history-point-stepper');
+        if (metrics && stepper) {
+            metrics.classList.add('is-editing');
+            metrics.appendChild(stepper);
+        }
         const input = editor.querySelector('.point-history-note-input');
         if (input) {
             input.value = currentNote;
@@ -551,7 +556,32 @@
         if (!row) return;
         row.dataset.noteEditing = '';
         row.classList.remove('is-editing-note', 'paradigm-editing-row');
-        row.querySelector('[data-point-history-note-editor]')?.remove();
+        const editor = row.querySelector('[data-point-history-note-editor]');
+        const metrics = row.querySelector('.point-history-metrics');
+        const stepper = metrics?.querySelector('.point-history-point-stepper');
+        if (editor && stepper) editor.prepend(stepper);
+        metrics?.classList.remove('is-editing');
+        editor?.remove();
+    }
+
+    function closeOpenNoteEditors(container, exceptRow = null) {
+        container?.querySelectorAll?.('[data-note-editing="1"]').forEach((row) => {
+            if (row !== exceptRow) closeNoteEditor(row);
+        });
+    }
+
+    function openNoteEditorForRow(container, row) {
+        if (!container || !row) return;
+        const eventId = Number.parseInt(row.dataset.eventId || '', 10);
+        closeOpenNoteEditors(container, row);
+        if (container.__pointHistoryTimeDraft?.eventId) {
+            container.__pointHistoryTimeDraft = null;
+            render(container, container.__pointHistoryLastOptions || {});
+            row = Number.isInteger(eventId) && eventId > 0
+                ? container.querySelector(`[data-event-id="${eventId}"]`)
+                : null;
+        }
+        openNoteEditor(row);
     }
 
     function commitNoteEditor(container, row) {
@@ -574,8 +604,19 @@
             const editBtn = target.closest('[data-history-action="edit-note"]');
             if (editBtn) {
                 event.preventDefault();
-                container.__pointHistoryTimeDraft = null;
-                openNoteEditor(editBtn.closest('[data-event-id]'));
+                openNoteEditorForRow(container, editBtn.closest('[data-event-id]'));
+                return;
+            }
+            const clickToEdit = container.__pointHistoryLastOptions?.clickToEdit;
+            const editableArea = target.closest?.('.point-history-main');
+            const rowToEdit = editableArea?.closest?.('[data-event-id]');
+            if (clickToEdit && rowToEdit) {
+                event.preventDefault();
+                if (rowToEdit.dataset.noteEditing === '1') {
+                    closeNoteEditor(rowToEdit);
+                    return;
+                }
+                openNoteEditorForRow(container, rowToEdit);
                 return;
             }
             const pointStepBtn = target.closest('[data-history-point-step]');
@@ -606,9 +647,15 @@
             if (timeBtn) {
                 event.preventDefault();
                 const row = timeBtn.closest('[data-event-id]');
-                closeNoteEditor(row);
+                const eventId = Number.parseInt(row?.dataset.eventId || '', 10);
+                if (container.__pointHistoryTimeDraft?.eventId === eventId) {
+                    container.__pointHistoryTimeDraft = null;
+                    render(container, container.__pointHistoryLastOptions || {});
+                    return;
+                }
+                closeOpenNoteEditors(container);
                 container.__pointHistoryTimeDraft = {
-                    eventId: Number.parseInt(row?.dataset.eventId || '', 10),
+                    eventId,
                     createdAt: row?.dataset.createdAt || '',
                 };
                 render(container, container.__pointHistoryLastOptions || {});
@@ -622,7 +669,6 @@
                 const beforeTop = stepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
                 const step = stepBtn.dataset.historyTimeStep;
                 draft.createdAt = shiftIsoHours(draft.createdAt, step);
-                syncDraftDay(container, draft);
                 render(container, container.__pointHistoryLastOptions || {});
                 keepDraftRowInView(container, beforeTop, `[data-history-time-step="${step}"]`);
                 return;
@@ -635,7 +681,6 @@
                 const beforeTop = dayStepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
                 const dayStep = Number.parseInt(dayStepBtn.dataset.historyTimeDayStep, 10) || 0;
                 draft.createdAt = shiftIsoHours(draft.createdAt, dayStep * 24);
-                syncDraftDay(container, draft);
                 render(container, container.__pointHistoryLastOptions || {});
                 keepDraftRowInView(container, beforeTop, `[data-history-time-day-step="${dayStep}"]`);
                 return;
@@ -752,12 +797,9 @@
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
-        const draftDayKey = timeDraft?.eventId
-            ? dateKeyInTimezone(parseHistoryDate(timeDraft.createdAt), timezone)
-            : '';
-        const requestedActiveDayKey = draftDayKey || String(opts.selectedDayKey || '').trim();
+        const requestedActiveDayKey = String(opts.selectedDayKey || '').trim();
         const todayDayKey = dateKeyInTimezone(new Date(), timezone);
-        const requestedAnchorDayKey = draftDayKey || String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
+        const requestedAnchorDayKey = String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
         const anchorDayKey = requestedAnchorDayKey || requestedActiveDayKey || todayDayKey;
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
@@ -772,9 +814,15 @@
             return displayedActiveDayKey;
         }
         const scopedEvents = sortEventsNewestFirst(events.filter((event) => shouldIncludeEvent(event, mode)));
-        const selectedEvents = displayedActiveDayKey
+        let selectedEvents = displayedActiveDayKey
             ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === displayedActiveDayKey)
             : scopedEvents.filter((event) => isEventInWeek(event, anchorDayKey, timezone));
+        const draftEvent = timeDraft?.eventId
+            ? scopedEvents.find((event) => Number.parseInt(event?.eventId, 10) === timeDraft.eventId)
+            : null;
+        if (draftEvent && !selectedEvents.some((event) => Number.parseInt(event?.eventId, 10) === timeDraft.eventId)) {
+            selectedEvents = sortEventsNewestFirst([...selectedEvents, draftEvent]);
+        }
         const rowOpts = timeDraft?.eventId ? { ...opts, timeEditEventId: timeDraft.eventId } : opts;
         const selectedListHtml = selectedEvents.length
             ? `

@@ -145,6 +145,21 @@
     box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
 }
 
+/* Compact text field shared by dense inline editors and entry forms. */
+.paradigm-compact-input {
+    --paradigm-input-height: 28px;
+    --paradigm-input-font-size: var(--paradigm-list-item-sub-font-size);
+    --paradigm-input-font-weight: var(--paradigm-list-item-sub-font-weight);
+    --paradigm-input-padding: 0 0.62rem;
+}
+
+/* Shared compact dimensions and typography for dense buttons/controls. */
+.paradigm-compact-control {
+    --paradigm-compact-control-height: 28px;
+    --paradigm-compact-control-font-size: var(--paradigm-list-item-sub-font-size);
+    --paradigm-compact-control-font-weight: var(--paradigm-list-item-sub-font-weight);
+}
+
 .search-bar {
     position: relative;
     display: flex;
@@ -312,6 +327,49 @@
 .paradigm-decision-btn:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+/* Reusable solid success action for compact inline editors. */
+.paradigm-solid-confirm-btn {
+    --paradigm-solid-confirm-btn-size: 28px;
+    --paradigm-decision-btn-size: var(--paradigm-solid-confirm-btn-size);
+    --paradigm-decision-btn-icon-size: calc(var(--paradigm-solid-confirm-btn-size) / 2);
+    flex: 0 0 var(--paradigm-solid-confirm-btn-size);
+    border-color: #249357;
+    background: #249357;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(27, 118, 68, 0.22);
+}
+
+.paradigm-solid-confirm-btn:hover:not(:disabled),
+.paradigm-solid-confirm-btn:focus-visible:not(:disabled) {
+    border-color: #197443;
+    background: #197443;
+    color: #fff;
+    outline: none;
+}
+
+/* Reusable destructive counterpart to the solid success action. */
+.paradigm-icon-btn.paradigm-solid-danger-btn {
+    --paradigm-solid-danger-btn-size: 28px;
+    --paradigm-icon-btn-size: var(--paradigm-solid-danger-btn-size);
+    flex: 0 0 var(--paradigm-solid-danger-btn-size);
+    width: var(--paradigm-solid-danger-btn-size);
+    min-width: var(--paradigm-solid-danger-btn-size);
+    height: var(--paradigm-solid-danger-btn-size);
+    min-height: var(--paradigm-solid-danger-btn-size);
+    border-color: #d83b3b;
+    background: #d83b3b;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(174, 37, 37, 0.22);
+}
+
+.paradigm-icon-btn.paradigm-solid-danger-btn:hover:not(:disabled),
+.paradigm-icon-btn.paradigm-solid-danger-btn:focus-visible:not(:disabled) {
+    border-color: #b82727;
+    background: #b82727;
+    color: #fff;
+    outline: none;
 }
 
 .paradigm-chip-toggle-group {
@@ -904,6 +962,98 @@ fieldset.paradigm-form-field {
 .point-history-points-input::-webkit-inner-spin-button {
     margin: 0;
     -webkit-appearance: none;
+}
+
+/* Compact +/- value control shared by inline editors. */
+.paradigm-compact-stepper {
+    --paradigm-compact-stepper-button-size: 1.4rem;
+    --paradigm-compact-stepper-value-width: 3.7rem;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    height: 1.8rem;
+    min-height: 1.8rem;
+    padding: 0.1rem;
+    border: 1.5px solid #c8d2f4;
+    border-radius: 999px;
+    background: #e8edff;
+    box-shadow: 0 0.14rem 0.42rem rgba(56, 70, 150, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    color: #0e1b6e;
+    gap: 0.12rem;
+}
+
+.paradigm-compact-stepper-button {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--paradigm-compact-stepper-button-size);
+    min-width: var(--paradigm-compact-stepper-button-size);
+    height: var(--paradigm-compact-stepper-button-size);
+    min-height: var(--paradigm-compact-stepper-button-size);
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid #e1e6f5;
+    border-radius: 999px;
+    background: #fff;
+    color: #3b46a1;
+    cursor: pointer;
+    box-shadow: 0 0.1rem 0.26rem rgba(56, 70, 150, 0.08);
+}
+
+.paradigm-compact-stepper-button:hover:not(:disabled),
+.paradigm-compact-stepper-button:focus-visible:not(:disabled) {
+    border-color: #b9c7f4;
+    background: #f7f9ff;
+    outline: none;
+}
+
+.paradigm-compact-stepper-button:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+.paradigm-compact-stepper-button .icon,
+.paradigm-compact-stepper-button svg {
+    width: 0.78rem;
+    height: 0.78rem;
+    stroke-width: 2.4;
+}
+
+.paradigm-compact-stepper-value,
+input.paradigm-compact-stepper-value {
+    width: var(--paradigm-compact-stepper-value-width);
+    min-width: var(--paradigm-compact-stepper-value-width);
+    max-width: var(--paradigm-compact-stepper-value-width);
+    height: var(--paradigm-compact-stepper-button-size);
+    min-height: var(--paradigm-compact-stepper-button-size);
+    margin: 0;
+    padding: 0 0.06rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    color: #0e1b6e;
+    font: inherit;
+    font-size: var(--paradigm-list-item-name-font-size);
+    font-weight: var(--paradigm-list-item-name-font-weight);
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    outline: none;
+    appearance: textfield;
+    -moz-appearance: textfield;
+}
+
+.paradigm-compact-stepper-value:not(input) {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+input.paradigm-compact-stepper-value {
+    box-sizing: border-box;
+    line-height: var(--paradigm-compact-stepper-button-size);
 }
 
 .paradigm-status-column {

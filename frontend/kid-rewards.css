@@ -119,8 +119,25 @@
     }
 }
 
+/* The compact, single-line metrics leave room for a denser activity timeline. */
+.kid-rewards-page .point-history-group {
+    gap: 0.08rem;
+}
+
+.kid-rewards-page .point-history-row {
+    padding-block: 0.22rem;
+}
+
 @media (max-width: 899px) {
     .kid-rewards-page .point-history-period-marker {
         display: none;
+    }
+
+    /* Keep an activity's change and resulting balance together on one line. */
+    .kid-rewards-page .point-history-metrics {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.28rem;
+        white-space: nowrap;
     }
 }

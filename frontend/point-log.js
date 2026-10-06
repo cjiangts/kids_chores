@@ -356,7 +356,7 @@ function renderLogKidPicker() {
         const id = String(kid?.id || '').trim();
         const isSelected = selectedLogKidIds.has(id);
         return `
-            <button type="button" class="point-log-kid-option${isSelected ? ' selected' : ''}" data-log-kid-id="${escapeHtml(id)}" aria-pressed="${isSelected ? 'true' : 'false'}">
+            <button type="button" class="point-log-kid-option paradigm-compact-control${isSelected ? ' selected' : ''}" data-log-kid-id="${escapeHtml(id)}" aria-pressed="${isSelected ? 'true' : 'false'}">
                 ${logKidAvatarHtml(kid)}
                 <span>${escapeHtml(kidName(kid))}</span>
             </button>
@@ -463,6 +463,8 @@ function renderHistory() {
         selectedDayKey: selectedHistoryDayKey,
         familyTimezone: selectedFamilyTimezone(),
         showDelete: true,
+        showRowActions: false,
+        clickToEdit: true,
         showBalance: true,
         mode: 'all',
         emptyDay: 'No point activity for this day.',

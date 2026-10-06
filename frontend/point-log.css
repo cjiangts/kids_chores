@@ -295,23 +295,23 @@
     justify-content: center;
     gap: 0.35rem;
     width: 100%;
-    height: var(--paradigm-input-height);
-    min-height: var(--paradigm-input-height);
+    height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
+    min-height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
     padding: 0.2rem 0.5rem 0.2rem 0.6rem;
     border: 1px solid #d8dff1;
     border-radius: 999px;
     background: #fff;
     color: #445279;
     font: inherit;
-    font-size: var(--paradigm-input-font-size);
-    font-weight: var(--paradigm-input-font-weight);
+    font-size: var(--paradigm-compact-control-font-size, var(--paradigm-input-font-size));
+    font-weight: var(--paradigm-compact-control-font-weight, var(--paradigm-input-font-weight));
     cursor: pointer;
 }
 
 .point-log-kid-option .kid-initial-avatar {
-    width: 28px;
-    height: 28px;
-    min-width: 28px;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
     font-size: 0.68rem;
 }
 
@@ -342,8 +342,8 @@
     justify-content: center;
     gap: 0.45rem;
     width: 100%;
-    height: var(--paradigm-input-height);
-    min-height: var(--paradigm-input-height);
+    height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
+    min-height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
     padding: 0 var(--paradigm-input-padding, 0.72rem);
     border: 1px solid #198253;
     border-radius: 999px;
@@ -351,8 +351,8 @@
     box-shadow: 0 3px 7px rgba(69, 57, 182, 0.2);
     color: #fff;
     font: inherit;
-    font-size: var(--paradigm-input-font-size);
-    font-weight: var(--paradigm-input-font-weight);
+    font-size: var(--paradigm-compact-control-font-size, var(--paradigm-input-font-size));
+    font-weight: var(--paradigm-compact-control-font-weight, var(--paradigm-input-font-weight));
     line-height: 1;
     cursor: pointer;
 }
@@ -427,6 +427,10 @@
 
 .point-log-points-group {
     flex: 0 0 auto;
+}
+
+.point-log-stepper {
+    --paradigm-compact-stepper-value-width: 1.7rem;
 }
 
 .point-log-form.is-bonus .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]) {
@@ -795,10 +799,10 @@
 .point-day-summary {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.68rem;
+    gap: 0.42rem;
     align-items: center;
     border: 0;
-    padding: 0.72rem 0.82rem;
+    padding: 0.34rem 0.6rem;
     color: #243062;
 }
 
@@ -806,8 +810,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 38px;
-    height: 38px;
+    width: 26px;
+    height: 26px;
     border-radius: 999px;
     background: rgba(107, 92, 246, 0.10);
     color: #6b5cf6;
@@ -817,7 +821,7 @@
     border-radius: 0;
     background: transparent;
     color: inherit;
-    font-size: 1.72rem;
+    font-size: 1.25rem;
     line-height: 1;
 }
 
@@ -899,6 +903,26 @@
 
 .point-history-row.has-balance.no-delete {
     grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto);
+}
+
+.point-history-row.no-actions {
+    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto);
+}
+
+.point-history-row.is-editing-note {
+    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) max-content;
+}
+
+.point-log-page .point-history-group {
+    gap: 0.08rem;
+}
+
+.point-log-page .point-history-row {
+    padding-block: 0.22rem;
+}
+
+.point-history-row--click-edit .point-history-main {
+    cursor: pointer;
 }
 
 .point-history-node.activity-timeline-node {
@@ -1009,13 +1033,16 @@
 
 .point-history-note-editor {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
-.point-history-point-stepper {
-    --paradigm-stepper-btn-size: 32px;
-    --paradigm-stepper-control-height: 32px;
-    flex: 0 0 auto;
+.point-history-metrics.is-editing .point-rule-delta {
+    display: none;
+}
+
+.point-history-metrics.is-editing .point-history-point-stepper {
+    --paradigm-compact-stepper-value-width: 1.7rem;
+    width: fit-content;
 }
 
 .point-history-note-input {
@@ -1027,13 +1054,17 @@
     margin-left: auto;
 }
 
-.point-history-time-editor :is([data-history-time-step], [data-history-time-day-step]) {
-    width: auto;
-    min-width: 36px;
-    padding: 0 0.3rem;
-    border-radius: 11px;
-    font-size: 0.68rem;
-    font-weight: 700;
+.point-history-time-editor {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.point-history-time-stepper {
+    --paradigm-compact-stepper-value-width: 3.7rem;
+}
+
+.point-history-time-stepper:first-child {
+    --paradigm-compact-stepper-value-width: 4.65rem;
 }
 
 .point-empty {
@@ -1204,17 +1235,17 @@
 
     .point-day-summary {
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 0.5rem;
-        padding: 0.56rem 0.58rem;
+        gap: 0.35rem;
+        padding: 0.3rem 0.5rem;
     }
 
     .point-day-summary-icon {
-        width: 32px;
-        height: 32px;
+        width: 24px;
+        height: 24px;
     }
 
     .point-day-summary-emoji {
-        font-size: 1.48rem;
+        font-size: 1.15rem;
     }
 
     .point-day-summary-line {
@@ -1235,10 +1266,19 @@
         grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto);
     }
 
+    .point-history-row.no-actions {
+        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto);
+    }
+
+    .point-history-row.is-editing-note {
+        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) max-content;
+    }
+
     .point-history-metrics {
-        flex-direction: column;
-        align-items: flex-end;
-        gap: 0.18rem;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.28rem;
+        white-space: nowrap;
     }
 
     .point-history-actions {
