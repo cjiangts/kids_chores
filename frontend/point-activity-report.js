@@ -566,25 +566,29 @@ function kidFilterControlsHtml(allEvents) {
         </button>
     `;
     const kidsHtml = `
-        <div class="point-activity-kids">
-            ${kids.map((kid) => {
-                const kidEvents = allEvents.filter((event) => String(event?.kid?.id || '') === String(kid.id));
-                const sessionTotals = sessionTotalsForKid(kid.id);
-                const sessionCardTotal = sessionCardTotalForKid(kid.id);
-                return `
-                    <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}${isSessionsMetricView() ? ' no-chevron' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
-                        ${avatarHtml(kid)}
-                        <span>
-                            <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
-                            <span class="point-activity-kid-points">${escapeHtml(isSessionsMetricView() ? formatActiveMinutes(sessionTotals.activeMinutes) : formatPoints(pointTotal(kidEvents)))}</span>
-                            ${isSessionsMetricView()
-                                ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
-                                : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
-                        </span>
-                        ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
-                    </button>
-                `;
-            }).join('')}
+        <div class="point-activity-kid-filter-stack">
+            <div class="point-activity-kids">
+                ${kids.map((kid) => {
+                    const kidEvents = allEvents.filter((event) => String(event?.kid?.id || '') === String(kid.id));
+                    const sessionTotals = sessionTotalsForKid(kid.id);
+                    const sessionCardTotal = sessionCardTotalForKid(kid.id);
+                    return `
+                        <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}${isSessionsMetricView() ? ' no-chevron' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                            ${avatarHtml(kid)}
+                            <span>
+                                <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
+                                <span class="point-activity-kid-points">${escapeHtml(isSessionsMetricView() ? formatActiveMinutes(sessionTotals.activeMinutes) : formatPoints(pointTotal(kidEvents)))}</span>
+                                ${isSessionsMetricView()
+                                    ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
+                                    : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
+                            </span>
+                            ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
+                        </button>
+                    `;
+                }).join('')}
+            </div>
+            ${allInAppSubjectFilterHtml()}
+            ${allOffAppTypeFilterHtml()}
         </div>
     `;
     return { combinedFilterHtml, kidsHtml };
@@ -1313,26 +1317,23 @@ function renderCalendar() {
         <div class="point-activity-calendar-head">
             <h2 class="paradigm-panel-title">
                 <span class="paradigm-panel-title-icon"><span class="icon" data-icon="calendar" data-icon-size="22" data-icon-stroke="2.4" aria-hidden="true"></span></span>
-                <span class="paradigm-panel-heading">Monthly Activity Calendar</span>
+                <span class="paradigm-panel-heading">${escapeHtml(monthLabel(displayedMonthKey))}</span>
             </h2>
-            ${isInAppChore() ? `
-                <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
-                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
-                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>
-                </div>
-            ` : ''}
+            <div class="point-activity-calendar-month-actions">
+                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
+                    <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+                </button>
+                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="1" aria-label="Next month">
+                    <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+                </button>
+            </div>
         </div>
-        ${allInAppSubjectFilterHtml()}
-        ${allOffAppTypeFilterHtml()}
-        <div class="point-activity-month-nav">
-            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
-                <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
-            </button>
-            <span class="point-activity-month-label">${escapeHtml(monthLabel(displayedMonthKey))}</span>
-            <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="1" aria-label="Next month">
-                <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
-            </button>
-        </div>
+        ${isInAppChore() ? `
+            <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
+                <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
+                <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>
+            </div>
+        ` : ''}
         <div class="point-activity-weekdays" aria-hidden="true">
             <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
@@ -1588,6 +1589,19 @@ pointActivityHero?.addEventListener('click', async (event) => {
     if (combinedButton && pointActivityHero.contains(combinedButton)) {
         selectedKidId = '';
         render();
+        return;
+    }
+    const subjectFilter = event.target.closest('[data-all-in-app-subject]');
+    if (subjectFilter && pointActivityHero.contains(subjectFilter)) {
+        selectedAllInAppSubjectKey = normalizeCategoryKey(subjectFilter.dataset.allInAppSubject);
+        render();
+        return;
+    }
+    const offAppTypeFilter = event.target.closest('[data-all-off-app-type]');
+    if (offAppTypeFilter && pointActivityHero.contains(offAppTypeFilter)) {
+        selectedAllOffAppRuleKind = String(offAppTypeFilter.dataset.allOffAppType || '').trim();
+        render();
+        return;
     }
 });
 
@@ -1597,18 +1611,6 @@ pointActivityCalendar?.addEventListener('click', async (event) => {
         currentCalendarMetric = String(metricButton.dataset.calendarMetric || '') === 'cards' ? 'cards' : 'minutes';
         try { localStorage.setItem('pointActivityReport.calendarMetric', currentCalendarMetric); } catch (_err) {}
         renderCalendar();
-        return;
-    }
-    const subjectFilter = event.target.closest('[data-all-in-app-subject]');
-    if (subjectFilter && pointActivityCalendar.contains(subjectFilter)) {
-        selectedAllInAppSubjectKey = normalizeCategoryKey(subjectFilter.dataset.allInAppSubject);
-        render();
-        return;
-    }
-    const offAppTypeFilter = event.target.closest('[data-all-off-app-type]');
-    if (offAppTypeFilter && pointActivityCalendar.contains(offAppTypeFilter)) {
-        selectedAllOffAppRuleKind = String(offAppTypeFilter.dataset.allOffAppType || '').trim();
-        render();
         return;
     }
     const dayButton = event.target.closest('[data-calendar-day]');

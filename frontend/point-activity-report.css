@@ -377,6 +377,16 @@
     width: 100%;
 }
 
+.point-activity-kid-filter-stack {
+    justify-self: end;
+    width: 100%;
+    min-width: 0;
+}
+
+.point-activity-kid-filter-stack .point-activity-subject-filters {
+    margin: 0.42rem 0 0;
+}
+
 .point-activity-kid-card {
     appearance: none;
     -webkit-appearance: none;
@@ -472,20 +482,16 @@
     margin: 0;
 }
 
-.point-activity-month-nav {
+.point-activity-calendar-month-actions {
     display: inline-flex;
     align-items: center;
     gap: 0.44rem;
-    color: #10175a;
-    font-size: 0.86rem;
-    font-weight: 760;
     white-space: nowrap;
-    width: fit-content;
-    margin: 0 auto 0.72rem;
 }
 
 .point-activity-calendar-metric-toggle {
-    justify-self: end;
+    width: fit-content;
+    margin: 0 auto 0.72rem;
 }
 
 .point-activity-subject-filters {
@@ -602,11 +608,6 @@
 .point-activity-off-app-type-icon.is-redeemed_reward {
     background: #fff0c7;
     color: #b97a00;
-}
-
-.point-activity-month-label {
-    min-width: 8.5rem;
-    text-align: center;
 }
 
 .point-activity-weekdays,
@@ -1524,23 +1525,17 @@ button.point-activity-day:focus-visible {
     }
 
     .point-activity-kids {
-        grid-column: 1 / -1;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         max-width: none;
         padding-top: 0;
     }
 
+    .point-activity-kid-filter-stack {
+        grid-column: 1 / -1;
+    }
+
     .point-activity-calendar-head {
         gap: 0.5rem;
-    }
-
-    .point-activity-month-nav {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .point-activity-month-label {
-        min-width: 0;
     }
 
     .point-activity-weekdays,
