@@ -188,6 +188,18 @@
             balancePill.textContent = `${nextBalanceAfter} pts`;
             balancePill.setAttribute('aria-label', `Balance after event: ${nextBalanceAfter} points`);
         }
+        refreshNoteEditorSaveButton(row);
+    }
+
+    function refreshNoteEditorSaveButton(row) {
+        const saveButton = row?.querySelector?.('[data-history-note-save]');
+        const pointsInput = row?.querySelector?.('.point-history-points-input');
+        const noteInput = row?.querySelector?.('.point-history-note-input');
+        if (!saveButton || !pointsInput || !noteInput) return;
+        const originalPoints = pointMagnitude(row.dataset.pointsDelta);
+        const noteChanged = noteInput.value.trim() !== String(row.dataset.note || '').trim();
+        const pointsChanged = pointMagnitude(pointsInput.value, originalPoints) !== originalPoints;
+        saveButton.disabled = !noteChanged && !pointsChanged;
     }
 
     function bindWeekNavigation(container) {
@@ -535,14 +547,17 @@
         editor.className = 'point-history-note-editor';
         editor.dataset.pointHistoryNoteEditor = '1';
         editor.innerHTML = `
-            <div class="point-history-point-stepper paradigm-compact-stepper" aria-label="Points">
+            <div class="point-history-point-stepper paradigm-compact-stepper paradigm-compact-stepper--wide" aria-label="Points">
                 <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-point-step="-1" aria-label="Decrease points"${currentPoints <= 1 ? ' disabled' : ''}>${icon('minus')}</button>
                 <input class="point-history-points-input paradigm-compact-stepper-value" type="number" inputmode="numeric" min="1" value="${escapeHtml(currentPoints)}" aria-label="Points for this event">
                 <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-point-step="1" aria-label="Increase points">${icon('plus')}</button>
             </div>
-            <input type="text" class="paradigm-input paradigm-compact-input point-history-note-input" maxlength="200" placeholder="Add a note (optional)" autocomplete="off">
-            <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn point-history-note-save" data-history-note-save aria-label="Save note">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
-            <button type="button" class="paradigm-icon-btn paradigm-solid-danger-btn paradigm-icon-action-btn point-history-delete" data-history-action="delete" aria-label="Delete point event">${icon('trash', { size: 16 })}</button>
+            <textarea class="paradigm-input paradigm-compact-input paradigm-multiline-input point-history-note-input" rows="1" maxlength="200" placeholder="Add a note (optional)" autocomplete="off"></textarea>
+            <span class="point-history-note-actions paradigm-edit-actions">
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-history-note-cancel aria-label="Cancel editing note">Cancel</button>
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--delete point-history-delete" data-history-action="delete" aria-label="Delete point event">Delete</button>
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm point-history-note-save" data-history-note-save aria-label="Save note" disabled>Confirm</button>
+            </span>
         `;
         row.appendChild(editor);
         const metrics = row.querySelector('.point-history-metrics');
@@ -554,9 +569,11 @@
         const input = editor.querySelector('.point-history-note-input');
         if (input) {
             input.value = currentNote;
+            window.Paradigm?.autoSizeMultilineInput?.(input);
             input.focus();
             input.setSelectionRange(currentNote.length, currentNote.length);
         }
+        refreshPointStepper(row);
     }
 
     function restorePointPills(row) {
@@ -731,13 +748,21 @@
             }
         });
         container.addEventListener('input', (event) => {
-            const input = event.target.closest?.('.point-history-points-input');
+            const input = event.target.closest?.('.point-history-points-input, .point-history-note-input');
             if (!input) return;
-            refreshPointStepper(input.closest('[data-event-id]'));
+            const row = input.closest('[data-event-id]');
+            if (input.matches('.point-history-points-input')) refreshPointStepper(row);
+            else {
+                window.Paradigm?.autoSizeMultilineInput?.(input);
+                refreshNoteEditorSaveButton(row);
+            }
         });
         container.addEventListener('keydown', (event) => {
             const input = event.target.closest?.('.point-history-note-input, .point-history-points-input');
             if (!input) return;
+            if (event.key === 'Enter' && input.matches('.point-history-note-input') && !(event.metaKey || event.ctrlKey)) {
+                return;
+            }
             if (event.key === 'Enter') {
                 event.preventDefault();
                 commitNoteEditor(container, input.closest('[data-event-id]'));

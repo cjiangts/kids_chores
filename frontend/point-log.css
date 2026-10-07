@@ -434,10 +434,6 @@
     flex: 0 0 auto;
 }
 
-.point-log-stepper {
-    --paradigm-compact-stepper-value-width: 1.7rem;
-}
-
 .point-log-form .form-group input.point-log-stepper-input.paradigm-compact-stepper-value:not([type="checkbox"]):not([type="radio"]) {
     width: var(--paradigm-compact-stepper-value-width);
     min-width: var(--paradigm-compact-stepper-value-width);
@@ -1072,7 +1068,8 @@
 
 .point-history-note-editor {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
 }
 
 .point-history-metrics.is-editing .point-rule-delta {
@@ -1080,7 +1077,6 @@
 }
 
 .point-history-metrics.is-editing .point-history-point-stepper {
-    --paradigm-compact-stepper-value-width: 1.7rem;
     width: fit-content;
 }
 
@@ -1096,9 +1092,8 @@
     color: #9a6500;
 }
 
-.point-history-note-input {
-    flex: 1 1 auto;
-    min-width: 0;
+.point-history-note-actions {
+    justify-self: end;
 }
 
 .point-history-time-editor [data-history-time-save] {
@@ -1375,19 +1370,11 @@
 }
 
 @media (max-width: 520px) {
-    .point-history-note-editor {
-        grid-template-columns: minmax(0, 1fr) auto auto;
-        row-gap: 0.35rem;
-    }
-
     .point-history-point-stepper {
         grid-column: 1 / -1;
         justify-self: start;
     }
 
-    .point-history-note-input {
-        grid-column: 1 / 2;
-    }
 }
 
 .point-log-workbench .point-template-row:not(.point-template-row--redeem) {

@@ -157,6 +157,17 @@
     --paradigm-input-padding: 0 0.62rem;
 }
 
+/* Reusable textarea treatment for compact notes and other multiline editor fields. */
+.paradigm-multiline-input {
+    height: auto;
+    min-height: var(--paradigm-input-height);
+    padding-top: 0.35rem;
+    padding-bottom: 0.35rem;
+    line-height: 1.3;
+    resize: vertical;
+    overflow-y: hidden;
+}
+
 /* Shared compact dimensions and typography for dense buttons/controls. */
 .paradigm-compact-control {
     --paradigm-compact-control-height: var(--paradigm-compact-bar-height);
@@ -351,6 +362,72 @@
 .paradigm-selection-check.is-checked {
     border-color: #6b5cf6;
     background: #6b5cf6;
+}
+
+/* Shared text actions below compact inline editors. */
+.paradigm-edit-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.18rem;
+    min-width: 0;
+}
+
+.paradigm-edit-action {
+    appearance: none;
+    -webkit-appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: var(--paradigm-compact-bar-height);
+    padding: 0 0.72rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #6b5cf6;
+    font-family: inherit;
+    font-size: var(--paradigm-row-text-font-size);
+    font-weight: var(--paradigm-row-text-font-weight);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.paradigm-edit-action:hover:not(:disabled),
+.paradigm-edit-action:focus-visible:not(:disabled) {
+    background: rgba(107, 92, 246, 0.08);
+    outline: none;
+}
+
+.paradigm-edit-action--confirm {
+    min-width: 4.9rem;
+    background: #6b5cf6;
+    color: #fff;
+}
+
+.paradigm-edit-action--confirm:hover:not(:disabled),
+.paradigm-edit-action--confirm:focus-visible:not(:disabled) {
+    background: #5748df;
+}
+
+.paradigm-edit-action--confirm:disabled {
+    background: #e9edf5;
+    color: #8a94a9;
+    cursor: not-allowed;
+}
+
+.paradigm-edit-action--cancel:disabled,
+.paradigm-edit-action--delete:disabled {
+    color: #9ca5b8;
+    cursor: not-allowed;
+}
+
+.paradigm-edit-action--delete {
+    color: #d83b3b;
+}
+
+.paradigm-edit-action--delete:hover:not(:disabled),
+.paradigm-edit-action--delete:focus-visible:not(:disabled) {
+    background: rgba(216, 59, 59, 0.08);
 }
 
 /* Reusable solid success action for compact inline editors. */
@@ -1025,6 +1102,11 @@ fieldset.paradigm-form-field {
     box-shadow: 0 0.14rem 0.42rem rgba(56, 70, 150, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     color: #0e1b6e;
     gap: 0.12rem;
+}
+
+/* Wider value field for places where the inline stepper has room to breathe. */
+.paradigm-compact-stepper--wide {
+    --paradigm-compact-stepper-value-width: 3.2rem;
 }
 
 .paradigm-compact-stepper-button {

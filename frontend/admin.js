@@ -890,16 +890,6 @@ function isAdminOffAppDraftDirty(draft) {
     return currentPoints !== initialPoints || String(draft.note || '') !== String(draft.initialNote || '');
 }
 
-function buildAdminOffAppSaveButtonContent() {
-    const iconHtml = (typeof window.icon === 'function') ? window.icon('check', { size: 15, strokeWidth: 2.7 }) : '';
-    return iconHtml;
-}
-
-function buildAdminOffAppCancelButtonContent() {
-    const iconHtml = (typeof window.icon === 'function') ? window.icon('x', { size: 15, strokeWidth: 2.7 }) : '';
-    return iconHtml;
-}
-
 function updateAdminOffAppSaveButtonState(reviewKey) {
     const key = String(reviewKey || '');
     if (!key || !adminOffAppPanel) return;
@@ -910,7 +900,15 @@ function updateAdminOffAppSaveButtonState(reviewKey) {
     const isDirty = isAdminOffAppDraftDirty(draft);
     button.disabled = isSaving || !isDirty;
     button.setAttribute('aria-label', 'Save off-app chore grade');
-    button.innerHTML = buildAdminOffAppSaveButtonContent();
+    button.textContent = isSaving ? 'Saving…' : 'Confirm';
+}
+
+function updateAdminOffAppCreateSaveButtonState() {
+    const button = adminOffAppPanel?.querySelector('[data-off-app-create-save]');
+    if (!button) return;
+    const saving = Boolean(adminOffAppCreateDraft?.saving);
+    button.disabled = saving || !String(adminOffAppCreateDraft?.name || '').trim();
+    button.textContent = saving ? 'Saving…' : 'Confirm';
 }
 
 function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
@@ -929,13 +927,13 @@ function buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem) {
     const isDirty = isAdminOffAppDraftDirty(draft);
     return `
         <div class="admin-off-app-grade" data-off-app-review-key="${escapeHtml(reviewKey)}" data-off-app-review-kind="${escapeHtml(reviewKind)}">
-            <input class="paradigm-input paradigm-compact-input admin-off-app-note-input" type="text" value="${escapeHtml(note)}" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
-            <span class="admin-off-app-grade-actions">
-                <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
-                    ${buildAdminOffAppSaveButtonContent()}
+            <textarea class="paradigm-input paradigm-compact-input paradigm-multiline-input admin-off-app-note-input" rows="1" placeholder="Note" data-off-app-note-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Note for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>${escapeHtml(note)}</textarea>
+            <span class="admin-off-app-grade-actions paradigm-edit-actions">
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
+                    Cancel
                 </button>
-                <button type="button" class="paradigm-decision-btn paradigm-solid-danger-btn" data-off-app-grade-cancel data-review-key="${escapeHtml(reviewKey)}" aria-label="Cancel editing off-app chore grade"${isSaving ? ' disabled' : ''}>
-                    ${buildAdminOffAppCancelButtonContent()}
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-off-app-grade-submit data-review-key="${escapeHtml(reviewKey)}" data-review-kind="${escapeHtml(reviewKind)}" aria-label="Save off-app chore grade"${(isSaving || !isDirty) ? ' disabled' : ''}>
+                    ${isSaving ? 'Saving…' : 'Confirm'}
                 </button>
             </span>
         </div>
@@ -955,7 +953,7 @@ function buildAdminOffAppPointStepperHtml(chore, reviewKind, reviewItem) {
     const isSaving = adminOffAppSavingKeys.has(reviewKey);
     const safePoints = normalizeAdminOffAppPoints(points);
     return `
-        <div class="admin-off-app-point-stepper paradigm-compact-stepper" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
+        <div class="admin-off-app-point-stepper paradigm-compact-stepper paradigm-compact-stepper--wide" aria-label="Points" data-off-app-review-key="${escapeHtml(reviewKey)}">
             <button type="button" class="admin-off-app-step-btn paradigm-compact-stepper-button" data-off-app-point-step="-1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Decrease points"${(isSaving || safePoints <= 1) ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('minus') : '-'}</button>
             <input class="admin-off-app-points-input paradigm-compact-stepper-value" type="number" inputmode="numeric" min="1" value="${safePoints}" data-off-app-points-input data-review-key="${escapeHtml(reviewKey)}" aria-label="Points for ${escapeHtml(String(chore?.name || 'task'))}"${isSaving ? ' disabled' : ''}>
             <button type="button" class="admin-off-app-step-btn paradigm-compact-stepper-button" data-off-app-point-step="1" data-review-key="${escapeHtml(reviewKey)}" aria-label="Increase points"${isSaving ? ' disabled' : ''}>${(typeof window.icon === 'function') ? window.icon('plus') : '+'}</button>
@@ -1123,15 +1121,16 @@ function buildAdminOffAppTable(bodyHtml) {
 function buildAdminOffAppCreateRow() {
     if (!isAddingAdminOffAppChore) return '';
     const saving = Boolean(adminOffAppCreateDraft?.saving);
+    const hasName = Boolean(String(adminOffAppCreateDraft?.name || '').trim());
     return `
         <tr class="admin-off-app-create-row">
             <td colspan="3">
                 <div class="admin-off-app-create-form">
                     <input class="admin-off-app-create-emoji" type="text" maxlength="8" value="${escapeHtml(adminOffAppCreateDraft.emoji || '')}" placeholder="🙂" data-off-app-create-emoji aria-label="Chore emoji"${saving ? ' disabled' : ''}>
                     <input class="admin-off-app-create-name" type="text" maxlength="80" value="${escapeHtml(adminOffAppCreateDraft.name || '')}" placeholder="New off-app chore" data-off-app-create-name aria-label="Chore name"${saving ? ' disabled' : ''}>
-                    <span class="admin-off-app-create-actions">
-                        <button type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" data-off-app-create-save aria-label="Add off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppSaveButtonContent()}</button>
-                        <button type="button" class="paradigm-decision-btn paradigm-solid-danger-btn" data-off-app-create-cancel aria-label="Cancel adding off-app chore"${saving ? ' disabled' : ''}>${buildAdminOffAppCancelButtonContent()}</button>
+                    <span class="admin-off-app-create-actions paradigm-edit-actions">
+                        <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-off-app-create-cancel aria-label="Cancel adding off-app chore"${saving ? ' disabled' : ''}>Cancel</button>
+                        <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-off-app-create-save aria-label="Add off-app chore"${(saving || !hasName) ? ' disabled' : ''}>${saving ? 'Saving…' : 'Confirm'}</button>
                     </span>
                 </div>
             </td>
@@ -1174,6 +1173,7 @@ function handleAdminOffAppInput(event) {
         return;
     }
     if (target.matches('[data-off-app-note-input]')) {
+        window.Paradigm?.autoSizeMultilineInput?.(target);
         setAdminOffAppDraftValue(reviewKey, { note: target.value || '' });
         updateAdminOffAppSaveButtonState(reviewKey);
         return;
@@ -1184,6 +1184,7 @@ function handleAdminOffAppInput(event) {
     }
     if (target.matches('[data-off-app-create-name]')) {
         adminOffAppCreateDraft.name = target.value || '';
+        updateAdminOffAppCreateSaveButtonState();
     }
 }
 
@@ -1400,6 +1401,7 @@ function renderAdminOffAppSection(kids) {
     adminOffAppList.innerHTML = buildAdminOffAppTable(
         `${buildAdminOffAppCreateRow()}${renderedChores.map((chore) => buildAdminOffAppRow(chore, state)).join('')}${toggleRowHtml}`,
     );
+    adminOffAppList.querySelectorAll('[data-off-app-note-input]').forEach((input) => window.Paradigm?.autoSizeMultilineInput?.(input));
 }
 
 function syncAdminStatusColumnWidth() {
