@@ -1592,19 +1592,10 @@ def grade_kid_report_session_result(kid_id, session_id, result_id):
             conn.close()
             return jsonify({'error': 'Only type-III session results support grading'}), 400
 
-        current_correct = int(target[1] or 0)
         if review_grade_raw == 'clear':
             mapped_correct = 0
             grade_status = ''
         else:
-            if current_correct != 0:
-                status = 'pass' if current_correct > 0 else 'fail'
-                conn.close()
-                return jsonify({
-                    'error': 'This card has already been graded. Clear the grade before re-grading.',
-                    'result_id': result_id_int,
-                    'grade_status': status,
-                }), 409
             mapped_correct = 1 if review_grade_raw == 'pass' else -1
             grade_status = review_grade_raw
 

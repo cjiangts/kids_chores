@@ -1802,7 +1802,7 @@ function ensureSharedDeckCardsLoaded() {
     return sharedDeckCardsLoadPromise;
 }
 
-async function saveQueueSettings() {
+async function saveQueueSettings(saveKind = 'session') {
     if (isType4Behavior()) {
         return;
     }
@@ -1818,22 +1818,25 @@ async function saveQueueSettings() {
         showError(`${getCurrentCategoryDisplayName()} cards/day must be between 0 and ${maxSessionCount}.`);
         return;
     }
-    if (!hasQueueSettingsChanges()) {
+    const sessionCountChanged = total !== baselineSessionCardCount;
+    const drillSpeedChanged = hasDrillSpeedSettingsChanges();
+    const saveSessionCount = saveKind === 'session' && sessionCountChanged;
+    const saveDrillSpeed = saveKind === 'speed' && drillSpeedChanged;
+    if (!saveSessionCount && !saveDrillSpeed) {
         updateQueueSettingsSaveButtonState();
         return;
     }
-    const sessionCountChanged = total !== baselineSessionCardCount;
-    const drillSpeedChanged = hasDrillSpeedSettingsChanges();
-    const desiredDrillSpeedMs = drillSpeedChanged ? getDrillSpeedTargetInputMs() : null;
+    const desiredDrillSpeedMs = saveDrillSpeed ? getDrillSpeedTargetInputMs() : null;
     const payload = {};
-    if (sessionCountChanged) {
+    if (saveSessionCount) {
         Object.assign(payload, buildSessionCountPayload(total));
     }
-    if (drillSpeedChanged) {
+    if (saveDrillSpeed) {
         Object.assign(payload, buildDrillSpeedCutoffMsPayload(desiredDrillSpeedMs));
     }
     cancelQueuePreviewReload();
     isQueueSettingsSaving = true;
+    queueSettingsSavingKind = saveKind;
     updateQueueSettingsSaveButtonState();
     const response = await fetch(`${API_BASE}/kids/${kidId}`, {
         method: 'PUT',
@@ -1845,13 +1848,13 @@ async function saveQueueSettings() {
         if (!response.ok) {
             throw new Error(result.error || `Failed to save settings (HTTP ${response.status})`);
         }
-        if (sessionCountChanged) {
+        if (saveSessionCount) {
             applySessionCountFromPayload(result);
             const persistedTotal = getCategoryIntValue(sessionCardCountByCategory);
             sessionCardCountInput.value = String(clampSessionCardCount(persistedTotal));
             setQueueSettingsBaseline(sessionCardCountInput.value);
         }
-        if (drillSpeedChanged) {
+        if (saveDrillSpeed) {
             applyDrillSpeedCutoffMsFromPayload(result);
             baselineDrillSpeedCutoffMs = clampDrillSpeedCutoffMs(
                 getCategoryIntValue(drillSpeedCutoffMsByCategory) || DEFAULT_DRILL_SPEED_CUTOFF_MS
@@ -1859,11 +1862,12 @@ async function saveQueueSettings() {
             setDrillSpeedTargetInputMs(baselineDrillSpeedCutoffMs);
         }
         updateQueueMixLegend();
-        if (sessionCountChanged) {
+        if (saveSessionCount) {
             await loadSharedDeckCards();
         }
     } finally {
         isQueueSettingsSaving = false;
+        queueSettingsSavingKind = '';
         updateQueueSettingsSaveButtonState();
     }
 }

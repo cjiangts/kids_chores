@@ -1,5 +1,5 @@
 /**
- * Standalone <audio>-element wrapper with play/pause, speed cycling and waveform scrubbing.
+ * Standalone <audio>-element wrapper with play/pause, 1x/2x speed cycling and waveform scrubbing.
  *
  * Replaces the native controls with a custom toolbar; in waveform mode it decodes
  * the audio source through Web Audio API to render a peak-bar canvas seekable by
@@ -18,7 +18,7 @@
     // === 1. Constants + module state
     // =====================================================================
 
-    const SPEED_OPTIONS = [1, 1.5, 2];
+    const SPEED_OPTIONS = [1, 2];
     const WAVEFORM_BAR_COUNT = 96;
     const allPlayers = [];
 
@@ -216,6 +216,7 @@
         const pauseLabel = String(options.pauseLabel || '<svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor"><rect x="4" y="3" width="4.5" height="14" rx="1"/><rect x="11.5" y="3" width="4.5" height="14" rx="1"/></svg>');
         const playAriaLabel = String(options.playAriaLabel || 'Play');
         const pauseAriaLabel = String(options.pauseAriaLabel || 'Pause');
+        const rewindSeconds = Math.max(0, Number(options.rewindSeconds) || 0);
 
         const playBtn = document.createElement('button');
         playBtn.type = 'button';
@@ -225,14 +226,40 @@
         playBtn.setAttribute('aria-label', audioEl.paused ? playAriaLabel : pauseAriaLabel);
         playBtn.setAttribute('title', audioEl.paused ? playAriaLabel : pauseAriaLabel);
 
+        let rewindBtn = null;
+        if (rewindSeconds > 0) {
+            rewindBtn = document.createElement('button');
+            rewindBtn.type = 'button';
+            rewindBtn.className = 'audio-rewind-btn';
+            rewindBtn.setAttribute('aria-label', `Back ${rewindSeconds} seconds`);
+            rewindBtn.setAttribute('title', `Back ${rewindSeconds} seconds`);
+
+            const rewindIconEl = document.createElement('span');
+            rewindIconEl.className = 'audio-rewind-btn-icon';
+            rewindIconEl.innerHTML = global.icon
+                ? global.icon('rotate-ccw', { size: 14, strokeWidth: 2.4 })
+                : '↶';
+            const rewindLabelEl = document.createElement('span');
+            rewindLabelEl.className = 'audio-rewind-btn-label';
+            rewindLabelEl.textContent = String(rewindSeconds);
+            rewindBtn.append(rewindIconEl, rewindLabelEl);
+        }
+
         const speedBtn = document.createElement('button');
         speedBtn.type = 'button';
         speedBtn.className = 'audio-speed-btn';
-        speedBtn.setAttribute('aria-label', 'Playback speed 1x');
+        speedBtn.setAttribute('aria-label', 'Playback speed 2x');
+
+        const speedIconEl = document.createElement('span');
+        speedIconEl.className = 'audio-speed-btn-icon';
+        speedIconEl.innerHTML = global.icon
+            ? global.icon('fast-forward', { size: 14, strokeWidth: 2.4 })
+            : '»';
+        speedBtn.appendChild(speedIconEl);
 
         const speedLabelEl = document.createElement('span');
         speedLabelEl.className = 'audio-speed-btn-label';
-        speedLabelEl.textContent = '1x';
+        speedLabelEl.textContent = '2x';
         speedBtn.appendChild(speedLabelEl);
 
         let progress = null;
@@ -288,6 +315,7 @@
         }
         parent.insertBefore(wrapper, audioEl);
         wrapper.appendChild(audioEl);
+        if (rewindBtn) wrapper.appendChild(rewindBtn);
         wrapper.appendChild(playBtn);
         if (useWaveform) {
             wrapper.appendChild(waveformWrap);
@@ -298,7 +326,7 @@
             wrapper.appendChild(timeLabel);
         }
 
-        let speedIndex = 0;
+        let speedIndex = SPEED_OPTIONS.indexOf(2);
         let playing = false;
         const applySpeed = () => {
             const nextRate = SPEED_OPTIONS[speedIndex];
@@ -306,6 +334,7 @@
             const label = `${nextRate}x`;
             speedLabelEl.textContent = label;
             speedBtn.setAttribute('aria-label', `Playback speed ${label}`);
+            speedBtn.setAttribute('title', `Playback speed ${label} — click to switch`);
         };
 
         const getRatio = () => {
@@ -354,6 +383,13 @@
                 updateUi();
             }
         });
+
+        if (rewindBtn) {
+            rewindBtn.addEventListener('click', () => {
+                audioEl.currentTime = Math.max(0, (Number(audioEl.currentTime) || 0) - rewindSeconds);
+                updateUi();
+            });
+        }
 
         speedBtn.addEventListener('click', async () => {
             speedIndex = (speedIndex + 1) % SPEED_OPTIONS.length;

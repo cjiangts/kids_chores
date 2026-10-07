@@ -208,6 +208,7 @@ let drillSpeedCutoffMsByCategory = {};
 let baselineSessionCardCount = 0;
 let baselineDrillSpeedCutoffMs = DEFAULT_DRILL_SPEED_CUTOFF_MS;
 let isQueueSettingsSaving = false;
+let queueSettingsSavingKind = '';
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
 let hasLoadedSharedCardsOnce = false;

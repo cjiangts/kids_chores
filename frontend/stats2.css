@@ -319,17 +319,6 @@
     padding: 0 0.4rem;
 }
 
-.stats2-card-racers::before {
-    content: "";
-    position: absolute;
-    top: 0.08rem;
-    bottom: 0.08rem;
-    left: 50%;
-    width: 1px;
-    background: rgba(125, 138, 184, 0.22);
-    transform: translateX(-50%);
-}
-
 .stats2-mini-racer {
     position: relative;
     display: grid;

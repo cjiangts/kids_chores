@@ -502,17 +502,22 @@
                     ` : ''}
                     ${isEditingTime ? `
                     <div class="point-history-time-editor">
-                        <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event date">
-                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">${icon('minus')}</button>
-                            <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(dateLabel)}</span>
-                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">${icon('plus')}</button>
+                        <div class="point-history-time-steppers">
+                            <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event date">
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">${icon('minus')}</button>
+                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(dateLabel)}</span>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">${icon('plus')}</button>
+                            </div>
+                            <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event time">
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">${icon('minus')}</button>
+                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(timeLabel)}</span>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">${icon('plus')}</button>
+                            </div>
                         </div>
-                        <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event time">
-                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">${icon('minus')}</button>
-                            <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(timeLabel)}</span>
-                            <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">${icon('plus')}</button>
-                        </div>
-                        <button type="button" class="paradigm-decision-btn paradigm-solid-confirm-btn point-history-time-save" data-history-time-save aria-label="Save time">${icon('check', { size: 16, strokeWidth: 2.7 })}</button>
+                        <span class="point-history-time-actions paradigm-edit-actions">
+                            <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-history-time-cancel>Cancel</button>
+                            <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-history-time-save>Confirm</button>
+                        </span>
                     </div>
                     ` : ''}
                 </div>
@@ -570,8 +575,6 @@
         if (input) {
             input.value = currentNote;
             window.Paradigm?.autoSizeMultilineInput?.(input);
-            input.focus();
-            input.setSelectionRange(currentNote.length, currentNote.length);
         }
         refreshPointStepper(row);
     }

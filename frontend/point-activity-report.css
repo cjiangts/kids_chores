@@ -145,6 +145,10 @@
 .point-activity-title {
     margin: 0;
     color: var(--paradigm-list-item-name-color);
+}
+
+.point-activity-title,
+.point-activity-filter .report-hero-meta-value {
     font-size: 0.72rem;
     font-weight: 650;
     line-height: 1.1;
@@ -342,8 +346,6 @@
     border: 0;
     background: transparent;
     font: inherit;
-    font-size: 0.78rem;
-    font-weight: 600;
     line-height: 1.25;
     cursor: pointer;
     white-space: nowrap;

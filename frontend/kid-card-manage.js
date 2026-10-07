@@ -234,7 +234,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         sessionSettingsForm.addEventListener('submit', async (event) => {
             event.preventDefault();
             try {
-                await saveQueueSettings();
+                await saveQueueSettings(event.submitter?.dataset.queueSaveKind || 'session');
             } catch (error) {
                 console.error('Error saving shared category settings:', error);
                 showError(error.message || 'Failed to save practice settings.');
@@ -401,11 +401,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             normalizeSessionCountInputValue();
             updateQueueMixLegend();
             rerenderCompactCardsForQueuePreview();
+            updateQueueSettingsSaveButtonState();
         });
         sessionCardCountInput.addEventListener('change', () => {
             normalizeSessionCountInputValue();
             updateQueueMixLegend();
             rerenderCompactCardsForQueuePreview();
+            updateQueueSettingsSaveButtonState();
         });
         applySessionCardCountInputCap();
     }

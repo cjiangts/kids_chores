@@ -1185,21 +1185,18 @@ function hasQueueSettingsChanges() {
     return hasDrillSpeedSettingsChanges();
 }
 
-function setQueueSettingsSaveButton(state, labelText) {
-    if (!queueSettingsSaveBtn) {
+function hasSessionCountSettingsChanges() {
+    return !isType4Behavior() && getSessionCardCountForMixLegend() !== baselineSessionCardCount;
+}
+
+function setQueueSettingsSaveButton(kind, state, labelText) {
+    const button = document.querySelector(`[data-queue-save-kind="${kind}"]`);
+    if (!button) {
         return;
     }
-    // Each fieldset (Cards/day, Speed target) has its own ✓ save button; they
-    // all submit the same form, so reflect one shared saved/dirty/saving state.
-    document.querySelectorAll('.queue-save-pill').forEach((btn) => {
-        btn.dataset.state = state;
-        btn.disabled = state !== 'dirty';
-        btn.title = labelText;
-        const labelEl = btn.querySelector('.queue-save-pill-label');
-        if (labelEl) {
-            labelEl.textContent = labelText;
-        }
-    });
+    button.dataset.state = state;
+    button.disabled = state !== 'dirty';
+    button.title = labelText;
 }
 
 function updateQueueSettingsSaveButtonState() {
@@ -1207,19 +1204,19 @@ function updateQueueSettingsSaveButtonState() {
         return;
     }
     if (isType4Behavior()) {
-        setQueueSettingsSaveButton('saved', 'Saved');
+        setQueueSettingsSaveButton('session', 'saved', 'Saved');
+        setQueueSettingsSaveButton('speed', 'saved', 'Saved');
         return;
     }
-    if (isQueueSettingsSaving) {
-        setQueueSettingsSaveButton('saving', 'Saving…');
-        return;
-    }
-    const hasChanges = hasQueueSettingsChanges();
-    if (hasChanges) {
-        setQueueSettingsSaveButton('dirty', 'Save');
-    } else {
-        setQueueSettingsSaveButton('saved', 'Saved');
-    }
+    const sessionChanged = hasSessionCountSettingsChanges();
+    const speedChanged = hasDrillSpeedSettingsChanges();
+    const buttonState = (kind, changed) => isQueueSettingsSaving && queueSettingsSavingKind === kind
+        ? ['saving', 'Saving…']
+        : changed ? ['dirty', 'Save'] : ['saved', 'Saved'];
+    const [sessionState, sessionLabel] = buttonState('session', sessionChanged);
+    const [speedState, speedLabel] = buttonState('speed', speedChanged);
+    setQueueSettingsSaveButton('session', sessionState, sessionLabel);
+    setQueueSettingsSaveButton('speed', speedState, speedLabel);
 }
 
 function isDrillSpeedSettingApplicable() {

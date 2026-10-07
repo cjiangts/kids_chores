@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="audio-history-common.css">
     <link rel="stylesheet" href="report-hero-action.css">
     <link rel="stylesheet" href="report-hero-meta.css">
+    <link rel="stylesheet" href="report-grading-common.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
@@ -504,7 +505,7 @@
             display: grid;
             grid-template-columns: 87px minmax(0, 1fr);
             align-items: center;
-            gap: 0.62rem;
+            gap: 0.25rem;
             min-width: 0;
         }
 
@@ -515,7 +516,7 @@
             justify-content: center;
             flex: 0 0 auto;
             width: 87px;
-            height: 38px;
+            height: var(--paradigm-button-height, 26px);
             border-radius: 12px;
             background: #f3f5fb;
             color: #2f3c7e;
@@ -593,7 +594,7 @@
             flex-direction: column;
             flex-wrap: wrap;
             align-items: flex-start;
-            gap: 0.22rem;
+            gap: 0;
         }
 
         .answer-type3-back {
@@ -730,45 +731,6 @@
             display: none;
         }
 
-        .grade-row {
-            display: flex;
-            gap: 0.42rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .grade-btn[data-grade="clear"] {
-            background: #fff8e1;
-            border-color: #d8b465;
-            color: #8a5a00;
-        }
-
-        .grade-btn[data-grade="fail"] {
-            border-color: #f08080;
-            background: #fdecea;
-            color: #c0392b;
-        }
-
-        .grade-btn[data-grade="fail"]:hover {
-            border-color: #d63636;
-            background: #f9d7d2;
-        }
-
-        .grade-btn[data-grade="clear"]:hover {
-            background: #fceeb8;
-            border-color: #b88a2a;
-        }
-
-        .grade-btn.active-pass {
-            border-color: #4caf6c;
-            color: #1f7a3a;
-        }
-
-        .grade-btn.active-fail {
-            border-color: #e07a70;
-            color: #b3261e;
-        }
-
         .speed-distribution-section {
             margin-bottom: 0;
         }
@@ -795,7 +757,7 @@
         }
 
         .answer-item .audio-play-btn,
-        .answer-item .audio-speed-btn {
+        .answer-item--type3 .audio-speed-btn {
             height: 32px;
             min-height: 32px;
             padding: 0 0.58rem;
@@ -803,11 +765,45 @@
         }
 
         .answer-item .audio-play-btn {
-            min-width: 56px;
+            width: 26px;
+            min-width: 26px;
+            height: 26px;
+            min-height: 26px;
         }
 
-        .answer-item .audio-speed-btn {
-            min-width: 44px;
+        .answer-item--type3 .simple-audio-player.waveform-mode .audio-speed-btn {
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 0;
+            width: 28px;
+            min-width: 28px;
+            max-width: 28px;
+            height: 32px;
+            min-height: 32px;
+            padding: 2px 0;
+            line-height: 1;
+        }
+
+        .answer-item--type3 .audio-speed-btn-icon svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .answer-item--type3 .audio-speed-btn-label {
+            font-size: 0.6rem;
+            line-height: 1;
+            margin-top: -1px;
+        }
+
+        .answer-item--type3 .audio-history-row {
+            margin-top: 0.45rem;
+            padding: 0.42rem 0 0;
+            border: 0;
+            border-top: 1px solid #e1e6f3;
+            border-radius: 0;
+            background: transparent;
+            box-shadow: none;
         }
 
         .answer-item .audio-progress {
@@ -1154,6 +1150,7 @@
     <script src="histogram-distribution-common.js"></script>
     <script src="audio-history-common.js"></script>
     <script src="report-hero-action-common.js"></script>
+    <script src="report-grading-common.js"></script>
     <script src="practice-ui-common.js"></script>
     <script src="kid-session-report.js"></script>
 </body>

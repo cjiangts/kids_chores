@@ -464,26 +464,6 @@ body :is(
     background: rgba(216, 59, 59, 0.08);
 }
 
-/* Reusable solid success action for compact inline editors. */
-.paradigm-solid-confirm-btn {
-    --paradigm-solid-confirm-btn-size: 28px;
-    --paradigm-decision-btn-size: var(--paradigm-solid-confirm-btn-size);
-    --paradigm-decision-btn-icon-size: calc(var(--paradigm-solid-confirm-btn-size) / 2);
-    flex: 0 0 var(--paradigm-solid-confirm-btn-size);
-    border-color: #249357;
-    background: #249357;
-    color: #fff;
-    box-shadow: 0 1px 3px rgba(27, 118, 68, 0.22);
-}
-
-.paradigm-solid-confirm-btn:hover:not(:disabled),
-.paradigm-solid-confirm-btn:focus-visible:not(:disabled) {
-    border-color: #197443;
-    background: #197443;
-    color: #fff;
-    outline: none;
-}
-
 /* Reusable destructive counterpart to the solid success action. */
 .paradigm-solid-danger-btn {
     --paradigm-solid-danger-btn-size: 28px;
@@ -974,7 +954,6 @@ fieldset.paradigm-form-field {
 }
 
 /* Shared number stepper: circular +/- controls with a plain numeric value. */
-.queue-stepper,
 .point-log-stepper,
 .admin-off-app-point-stepper,
 .point-history-point-stepper {
@@ -1003,7 +982,6 @@ fieldset.paradigm-form-field {
     --paradigm-stepper-value-width: 30px;
 }
 
-.queue-stepper-btn,
 .point-log-stepper-btn,
 .admin-off-app-step-btn,
 .point-history-step-btn {
@@ -1029,8 +1007,6 @@ fieldset.paradigm-form-field {
     box-shadow: none;
 }
 
-.queue-stepper-btn:hover:not(:disabled),
-.queue-stepper-btn:focus-visible:not(:disabled),
 .point-log-stepper-btn:hover:not(:disabled),
 .point-log-stepper-btn:focus-visible:not(:disabled),
 .admin-off-app-step-btn:hover:not(:disabled),
@@ -1043,7 +1019,6 @@ fieldset.paradigm-form-field {
     outline: none;
 }
 
-.queue-stepper-btn:disabled,
 .point-log-stepper-btn:disabled,
 .admin-off-app-step-btn:disabled,
 .point-history-step-btn:disabled {
@@ -1051,7 +1026,6 @@ fieldset.paradigm-form-field {
     opacity: 0.4;
 }
 
-.queue-stepper-btn .icon,
 .point-log-stepper-btn .icon,
 .admin-off-app-step-btn .icon,
 .point-history-step-btn .icon {
@@ -1062,7 +1036,6 @@ fieldset.paradigm-form-field {
     stroke-width: 2.6;
 }
 
-.manage-page .queue-stepper input[type="number"],
 .point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]),
 .point-log-stepper-input,
 .admin-off-app-points-input,
@@ -1089,7 +1062,6 @@ fieldset.paradigm-form-field {
     -moz-appearance: textfield;
 }
 
-.manage-page .queue-stepper input[type="number"]:focus,
 .point-log-form .form-group input.point-log-stepper-input:not([type="checkbox"]):not([type="radio"]):focus,
 .point-log-form .point-log-stepper-input:focus,
 .admin-off-app-points-input:focus,
@@ -1100,7 +1072,6 @@ fieldset.paradigm-form-field {
     box-shadow: none;
 }
 
-.manage-page .queue-stepper input[type="number"]:disabled,
 .point-log-stepper-input:disabled,
 .admin-off-app-points-input:disabled,
 .point-history-points-input:disabled {
@@ -1108,8 +1079,6 @@ fieldset.paradigm-form-field {
     opacity: 0.62;
 }
 
-.manage-page .queue-stepper input[type="number"]::-webkit-outer-spin-button,
-.manage-page .queue-stepper input[type="number"]::-webkit-inner-spin-button,
 .point-log-stepper-input::-webkit-outer-spin-button,
 .point-log-stepper-input::-webkit-inner-spin-button,
 .admin-off-app-points-input::-webkit-outer-spin-button,

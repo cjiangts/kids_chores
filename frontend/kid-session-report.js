@@ -111,7 +111,9 @@ function getFinishHereState(session, answers) {
         unresolvedCount,
         canFinish: !session?.parent_finalized
             && answerCount > 0
-            && (todoCount > 0 || unresolvedCount > 0),
+            // Type-III is complete once its recordings are submitted; parent grades
+            // are review metadata, not unfinished practice work.
+            && (todoCount > 0 || (!isTypeIIIReviewSession() && unresolvedCount > 0)),
     };
 }
 
@@ -990,7 +992,7 @@ function renderAnswerList(container, cards, options = {}) {
         }
         return `
             <${tagName}
-                class="answer-item ${answerClass}${usedPromptAudio ? ' has-audio-assist' : ''}"
+                class="answer-item ${answerClass}${usedPromptAudio ? ' has-audio-assist' : ''}${typeIII ? ' answer-item--type3' : ''}"
                 ${useCompactLink ? `href="${reportHref}"` : ''}
                 ${useCompactLink ? `title="${escapeHtml(linkTitle)}"` : ''}
                 ${Number.isFinite(resultId) ? ` data-result-id="${resultId}"` : ''}
@@ -1019,7 +1021,7 @@ function renderAnswerList(container, cards, options = {}) {
     if (typeIII && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
-    window.AudioHistoryCommon.attachPlayers(container);
+    window.AudioHistoryCommon.attachPlayers(container, { rewindSeconds: 5 });
     syncRenderedResponseTimeBars();
 }
 
@@ -1177,61 +1179,19 @@ function formatResponseTime(ms) {
 // === 8. Grading controls (type-III review-and-resolve)
 // =====================================================================
 function renderGradingControls(item) {
-    if (!isTypeIIIReviewSession()) {
-        return '';
-    }
-    const resultId = Number(item?.result_id);
-    if (!Number.isFinite(resultId)) {
-        return '';
-    }
-    const graded = String(item?.grade_status || '').toLowerCase();
-    if (graded === 'pass' || graded === 'fail') {
-        const clearIcon = window.icon ? window.icon('undo-2', { size: 18, strokeWidth: 2.6 }) : '';
-        return `
-            <div class="grade-row">
-                <button class="grade-btn paradigm-decision-btn" data-result-id="${resultId}" data-grade="clear">${clearIcon}</button>
-            </div>
-        `;
-    }
-    const passIcon = window.icon ? window.icon('check', { size: 18, strokeWidth: 2.7 }) : '';
-    const failIcon = window.icon ? window.icon('x', { size: 18, strokeWidth: 2.7 }) : '';
-    return `
-        <div class="grade-row">
-            <button class="grade-btn paradigm-decision-btn paradigm-decision-btn--confirm" data-result-id="${resultId}" data-grade="pass">${passIcon}</button>
-            <button class="grade-btn paradigm-decision-btn paradigm-decision-btn--cancel" data-result-id="${resultId}" data-grade="fail">${failIcon}</button>
-        </div>
-    `;
-}
-
-async function saveGrade(resultId, reviewGrade) {
-    const response = await fetch(`${API_BASE}/kids/${kidId}/report/sessions/${sessionId}/results/${resultId}/grade`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reviewGrade }),
+    if (!isTypeIIIReviewSession() || !window.ReportGradingCommon) return '';
+    return window.ReportGradingCommon.render({
+        resultId: item?.result_id,
+        sessionId,
+        gradeStatus: item?.grade_status,
     });
-    const payload = await response.json().catch(() => ({}));
-    if (!response.ok) {
-        throw new Error(payload.error || `HTTP ${response.status}`);
-    }
-    return payload;
 }
 
-document.addEventListener('click', async (event) => {
-    const btn = event.target && event.target.closest ? event.target.closest('.grade-btn') : null;
-    if (!btn) {
-        return;
-    }
-    const resultId = Number(btn.getAttribute('data-result-id'));
-    const reviewGrade = String(btn.getAttribute('data-grade') || '').toLowerCase();
-    if (!Number.isFinite(resultId) || (reviewGrade !== 'pass' && reviewGrade !== 'fail' && reviewGrade !== 'clear')) {
-        return;
-    }
-
-    const buttons = document.querySelectorAll(`.grade-btn[data-result-id="${resultId}"]`);
-    buttons.forEach((node) => { node.disabled = true; });
-    showError('');
-    try {
-        const saved = await saveGrade(resultId, reviewGrade);
+window.ReportGradingCommon?.attach(document, {
+    apiBase: API_BASE,
+    kidId,
+    onBeforeSave: () => showError(''),
+    onSaved: ({ btn, resultId, saved }) => {
         const item = btn.closest('.answer-item');
         if (item) {
             const score = Number.isFinite(Number(saved?.correct_score))
@@ -1268,12 +1228,8 @@ document.addEventListener('click', async (event) => {
             }
             hideSpeedDistribution();
         }
-    } catch (error) {
-        console.error('Error saving grade:', error);
-        showError(error.message || 'Failed to save grade.');
-    } finally {
-        document.querySelectorAll(`.grade-btn[data-result-id="${resultId}"]`).forEach((node) => { node.disabled = false; });
-    }
+    },
+    onError: (error) => showError(error.message || 'Failed to save grade.'),
 });
 
 // =====================================================================
@@ -1377,12 +1333,10 @@ function renderTypeIIIAnswerDetails(item) {
     }
     const detailBits = [];
     if (back) {
-        const pageIcon = window.icon ? window.icon('file-text', { size: 12, strokeWidth: 2.4 }) : '';
-        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${pageIcon}</span><span class="report-hero-meta-value">${escapeHtml(back)}</span></span>`);
+        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-value">${escapeHtml(back)}</span></span>`);
     }
     if (sourceDeck) {
-        const deckIcon = window.icon ? window.icon('layers', { size: 12, strokeWidth: 2.4 }) : '';
-        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${deckIcon}</span><span class="report-hero-meta-value">Source: ${escapeHtml(sourceDeck)}</span></span>`);
+        detailBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-value">${escapeHtml(sourceDeck)}</span></span>`);
     }
     return detailBits.length
         ? `<div class="answer-type3-details report-hero-meta">${detailBits.join('')}</div>`

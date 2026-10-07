@@ -12,13 +12,14 @@
         return `<div class="audio-history-row">${audioEl}</div>`;
     }
 
-    function attachPlayers(container) {
+    function attachPlayers(container, options = {}) {
         if (!window.SimpleAudioPlayer || !container) return;
         window.SimpleAudioPlayer.attach(container, {
             selector: 'audio.js-simple-audio',
             waveform: true,
             playLabel: PLAY_SVG,
             pauseLabel: PAUSE_SVG,
+            rewindSeconds: options.rewindSeconds,
         });
     }
 

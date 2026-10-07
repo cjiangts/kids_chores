@@ -553,6 +553,9 @@ function renderHistory(attempts) {
                             <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
                             ${daysAgoBadge}
                         </div>
+                        <div class="answer-head-actions">
+                            ${renderGradingControls(item)}
+                        </div>
                     </div>
                     ${audioBlockHtml}
                 </div>
@@ -601,8 +604,42 @@ function renderHistory(attempts) {
     if (from === 'lesson-reading' && window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(historyList, { kidId });
     }
-    window.AudioHistoryCommon.attachPlayers(historyList);
+    window.AudioHistoryCommon.attachPlayers(historyList, { rewindSeconds: 5 });
 }
+
+function renderGradingControls(item) {
+    if (!isType3Attempt(item) || !window.ReportGradingCommon) return '';
+    return window.ReportGradingCommon.render({
+        resultId: item?.result_id,
+        sessionId: item?.session_id,
+        gradeStatus: item?.grade_status,
+    });
+}
+
+window.ReportGradingCommon?.attach(document, {
+    apiBase: API_BASE,
+    kidId,
+    onBeforeSave: () => showError(''),
+    onSaved: ({ btn, resultId, sessionId, saved }) => {
+        const item = btn.closest('.history-item');
+        if (item) {
+            const score = Number.isFinite(Number(saved?.correct_score)) ? Number(saved.correct_score) : 0;
+            const correctness = resolveCorrectness({ correct_score: score });
+            item.classList.remove('tone-right', 'tone-fixed', 'tone-half', 'tone-wrong', 'tone-pending');
+            item.classList.add(`tone-${correctness}`);
+            const gradeRow = item.querySelector('.grade-row');
+            if (gradeRow) {
+                gradeRow.outerHTML = renderGradingControls({
+                    result_id: resultId,
+                    session_id: sessionId,
+                    grade_status: saved.grade_status,
+                    session_behavior_type: BEHAVIOR_TYPE_III,
+                });
+            }
+        }
+    },
+    onError: (error) => showError(error.message || 'Failed to save grade.'),
+});
 
 function buildSessionReportUrl(item) {
     const sessionId = Number(item?.session_id);

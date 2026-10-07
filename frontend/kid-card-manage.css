@@ -1262,7 +1262,7 @@
 
         .queue-field {
             flex: 0 1 auto;
-            min-width: 170px;
+            min-width: 205px;
             margin: 0;
             padding: 0.05rem 0.7rem 0.3rem;
             border: 1px solid var(--p-border);
@@ -1297,9 +1297,18 @@
         .queue-field-controls {
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             gap: 0.59rem;
             padding-top: 0.34rem;
+        }
+
+        /* Narrow only the shared controls' horizontal footprint on this page. */
+        .kid-card-manage-page .queue-stepper.paradigm-compact-stepper {
+            --paradigm-compact-stepper-value-width: 3.33rem;
+        }
+
+        .kid-card-manage-page .queue-save-pill {
+            min-width: 4.41rem;
         }
 
         .queue-settings-row {
@@ -1948,7 +1957,7 @@
             width: fit-content;
             min-width: 54px;
             max-width: 104px;
-            min-height: 54px;
+            min-height: 43px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -2615,7 +2624,7 @@
             .expanded-card-preview {
                 width: fit-content;
                 min-width: 50px;
-                min-height: 50px;
+                min-height: 40px;
                 max-width: 84px;
                 border-radius: 16px;
             }
@@ -2919,26 +2928,6 @@
             font-weight: 400;
         }
 
-        .kid-card-manage-page .queue-actions-layout .queue-stepper,
-        .kid-card-manage-page .queue-actions-layout .queue-save-pill {
-            --paradigm-stepper-btn-size: 26px;
-            --paradigm-stepper-control-height: 26px;
-            --paradigm-stepper-value-width: 26px;
-            --paradigm-decision-btn-size: 26px;
-            --paradigm-decision-btn-icon-size: 12px;
-        }
-
-        .kid-card-manage-page .queue-actions-layout .queue-stepper-btn .icon,
-        .kid-card-manage-page .queue-actions-layout .queue-stepper-btn svg {
-            width: 11px;
-            height: 11px;
-        }
-
-        .kid-card-manage-page .queue-actions-layout .queue-stepper input[type="number"] {
-            font-size: 0.78rem;
-            font-weight: 600;
-        }
-
         @media (min-width: 760px) {
             .kid-card-manage-page .queue-actions-layout {
                 flex-wrap: nowrap;
@@ -2982,8 +2971,8 @@
             }
 
             .kid-card-manage-page #queueSettingsSubgroup .queue-field {
-                flex: 0 1 170px;
-                min-width: 150px;
+                flex: 0 0 205px;
+                min-width: 205px;
                 padding-left: 0.5rem;
                 padding-right: 0.5rem;
             }
