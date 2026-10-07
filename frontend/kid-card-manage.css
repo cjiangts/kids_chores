@@ -1114,7 +1114,9 @@
         .manage-page .cards-toolbar .sort-control-group {
             display: flex;
             align-items: center;
-            gap: 0.45rem;
+            /* Keep the Sort row's inline rhythm aligned with the toolbar rows above. */
+            column-gap: inherit;
+            row-gap: 0.45rem;
             justify-self: stretch;
             width: 100%;
             min-width: 0;
@@ -1538,7 +1540,8 @@
             background: var(--dashboard-chip-bg);
             color: var(--p-ink-title);
             border-radius: 999px;
-            padding: 0.3rem 0.68rem;
+            min-height: var(--paradigm-compact-bar-height);
+            padding: 0 0.68rem;
             font-size: 0.92rem;
             font-family: inherit;
             line-height: 1.2;
@@ -1701,8 +1704,6 @@
             font-family: var(--font-kaiti);
             font-size: 1.28rem;
             line-height: 1.08;
-            padding-top: 0.28rem;
-            padding-bottom: 0.28rem;
         }
 
         .card-compact-pill.chinese .card-compact-pill-text {
