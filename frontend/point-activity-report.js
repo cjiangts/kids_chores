@@ -456,9 +456,7 @@ function aggregateActivityIconHtml() {
 
 function allInAppSubjectFilterHtml() {
     if (!isAllInAppMode()) return '';
-    const filters = [
-        `<button type="button" class="point-activity-subject-filter${!selectedAllInAppSubjectKey ? ' active' : ''}" data-all-in-app-subject="" aria-label="All subjects" title="All subjects">${allInAppIconHtml()}</button>`,
-        ...allInAppSubjectRules.map((rule) => {
+    const filters = allInAppSubjectRules.map((rule) => {
             const key = normalizeCategoryKey(rule?.triggerKey);
             if (!key) return '';
             const label = String(rule?.name || key).trim();
@@ -466,8 +464,7 @@ function allInAppSubjectFilterHtml() {
                 ? window.subjectIcon(key, { size: 32 })
                 : escapeHtml(rule?.emoji || '+');
             return `<button type="button" class="point-activity-subject-filter${selectedAllInAppSubjectKey === key ? ' active' : ''}" data-all-in-app-subject="${escapeHtml(key)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}">${icon}</button>`;
-        }),
-    ].join('');
+        }).join('');
     return `<div class="point-activity-subject-filters" role="group" aria-label="Subject filter">${filters}</div>`;
 }
 
@@ -478,18 +475,12 @@ function allOffAppTypeFilterHtml() {
         { key: 'off_app_chore', label: 'Off-app chores', icon: 'clipboard-check' },
         { key: 'bonus_event', label: 'Bonus', icon: 'thumbs-up' },
     ];
-    const allIcon = typeof window.icon === 'function'
-        ? window.icon('layout-grid', { size: 22, strokeWidth: 2.4 })
-        : '<span class="icon" data-icon="layout-grid" data-icon-size="22" data-icon-stroke="2.4"></span>';
-    const filters = [
-        `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${!selectedAllOffAppRuleKind ? ' active' : ''}" data-all-off-app-type="" aria-label="All earned activity" title="All earned activity"><span class="point-activity-off-app-type-icon is-all">${allIcon}</span></button>`,
-        ...types.map((type) => {
+    const filters = types.map((type) => {
             const icon = typeof window.icon === 'function'
                 ? window.icon(type.icon, { size: 22, strokeWidth: 2.4 })
                 : `<span class="icon" data-icon="${escapeHtml(type.icon)}" data-icon-size="22" data-icon-stroke="2.4"></span>`;
             return `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${selectedAllOffAppRuleKind === type.key ? ' active' : ''}" data-all-off-app-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.label)}" title="${escapeHtml(type.label)}"><span class="point-activity-off-app-type-icon is-${escapeHtml(type.key)}">${icon}</span></button>`;
-        }),
-    ].join('');
+        }).join('');
     return `<div class="point-activity-subject-filters" role="group" aria-label="Earned activity filter">${filters}</div>`;
 }
 
@@ -556,19 +547,9 @@ function avatarHtml(kid) {
 }
 
 function kidFilterControlsHtml(allEvents) {
-    const filterLabel = selectedKidId
-        ? `${kids.find((kid) => String(kid.id) === selectedKidId)?.name || 'Kid'} only`
-        : 'Showing combined total';
-    const combinedFilterHtml = `
-        <button type="button" class="report-hero-meta-item point-activity-filter" data-point-filter="combined" ${selectedKidId ? '' : 'disabled'}>
-            <span class="report-hero-meta-icon"><span class="icon" data-icon="users" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span></span>
-            <span class="report-hero-meta-value">${escapeHtml(filterLabel)}</span>
-        </button>
-    `;
     const kidsHtml = `
-        <div class="point-activity-kid-filter-stack">
-            <div class="point-activity-kids">
-                ${kids.map((kid) => {
+        <div class="point-activity-kids">
+            ${kids.map((kid) => {
                     const kidEvents = allEvents.filter((event) => String(event?.kid?.id || '') === String(kid.id));
                     const sessionTotals = sessionTotalsForKid(kid.id);
                     const sessionCardTotal = sessionCardTotalForKid(kid.id);
@@ -585,13 +566,10 @@ function kidFilterControlsHtml(allEvents) {
                             ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
                         </button>
                     `;
-                }).join('')}
-            </div>
-            ${allInAppSubjectFilterHtml()}
-            ${allOffAppTypeFilterHtml()}
+            }).join('')}
         </div>
     `;
-    return { combinedFilterHtml, kidsHtml };
+    return { kidsHtml };
 }
 
 function renderHero() {
@@ -622,9 +600,11 @@ function renderHero() {
         : iconHtml(rule);
     const inAppManageHref = isInAppRule && !isAllInAppMode() ? buildInAppCardManageHref(rule) : '';
     const aggregateIconToneClass = isAllOffAppMode() ? ` point-activity-icon--${aggregateActivityConfig().tone}` : '';
-    const heroIconContainerHtml = inAppManageHref
+    const heroIconContainerHtml = isAggregateMode
+        ? `<button type="button" class="point-activity-icon point-activity-icon--in-app point-activity-icon--all-in-app${aggregateIconToneClass}" data-aggregate-filter-reset aria-label="Show all activity" title="Show all">${heroIconHtml}</button>`
+        : inAppManageHref
         ? `<a class="point-activity-icon point-activity-icon--in-app" href="${escapeHtml(inAppManageHref)}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${heroIconHtml}</a>`
-        : `<div class="point-activity-icon${isAggregateMode ? ' point-activity-icon--in-app point-activity-icon--all-in-app' : ''}${aggregateIconToneClass}${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
+        : `<div class="point-activity-icon${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
     const ruleMetaHtml = isAggregateMode
         ? ''
         : isEditingRule
@@ -646,18 +626,25 @@ function renderHero() {
                 ${isInAppRule ? '' : `<span class="point-activity-rule-status">${rule.isActive ? 'Active' : 'Inactive'}</span>`}
             </span>
         `;
-    const ruleEditActionHtml = !canEditRule
-        ? ''
-        : isEditingRule
+    const ruleEditActionsHtml = isEditingRule
         ? `
-            <span class="point-activity-rule-edit-actions">
-                ${canDeleteRule ? `<button type="button" class="point-activity-rule-edit-action is-delete" data-rule-edit-action="delete" aria-label="Delete rule" title="Delete rule"><span class="icon" data-icon="trash" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>` : ''}
-                <button type="button" class="point-activity-rule-edit-action is-save" data-rule-edit-action="save">Save</button>
-                <button type="button" class="point-activity-rule-edit-action is-cancel" data-rule-edit-action="cancel">Cancel</button>
+            <span class="point-activity-rule-edit-actions paradigm-edit-actions">
+                ${canDeleteRule ? `<button type="button" class="paradigm-edit-action paradigm-edit-action--delete" data-rule-edit-action="delete" aria-label="Delete rule" title="Delete rule"><span class="icon" data-icon="trash" data-icon-size="15" data-icon-stroke="2.4" aria-hidden="true"></span></button>` : ''}
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-rule-edit-action="cancel">Cancel</button>
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-rule-edit-action="save">Confirm</button>
             </span>
         `
+        : '';
+    const ruleStartEditHtml = !canEditRule || isEditingRule
+        ? ''
         : `<button type="button" class="point-activity-rules-link" data-rule-edit-action="start" aria-label="Edit point rule" title="Edit rule"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></button>`;
     const filters = kidFilterControlsHtml(allEvents);
+    const aggregateFiltersHtml = isAllInAppMode()
+        ? allInAppSubjectFilterHtml()
+        : (isAllEarningMode() ? allOffAppTypeFilterHtml() : '');
+    const heroPrimaryHtml = isAggregateMode
+        ? aggregateFiltersHtml
+        : `${ruleTitleHtml}${typeBadgeHtml(rule)}${ruleStartEditHtml}<span class="point-activity-rule-detail-row">${ruleMetaHtml}${ruleEditActionsHtml}</span>`;
     if (pageTitle) pageTitle.textContent = title;
     document.title = `${title} - Point Activity History - The Mommy App`;
 
@@ -666,13 +653,7 @@ function renderHero() {
             <div class="point-activity-hero-top">
                 ${heroIconContainerHtml}
                 <div class="point-activity-main">
-                    <div class="point-activity-title-row">
-                        ${ruleTitleHtml}
-                        ${typeBadgeHtml(rule)}
-                        ${ruleMetaHtml}
-                        ${ruleEditActionHtml}
-                    </div>
-                    ${filters.combinedFilterHtml}
+                    ${heroPrimaryHtml ? `<div class="point-activity-title-row">${heroPrimaryHtml}</div>` : ''}
                 </div>
                 ${filters.kidsHtml}
             </div>
@@ -1585,21 +1566,24 @@ pointActivityHero?.addEventListener('click', async (event) => {
         render();
         return;
     }
-    const combinedButton = event.target.closest('[data-point-filter="combined"]');
-    if (combinedButton && pointActivityHero.contains(combinedButton)) {
-        selectedKidId = '';
+    const aggregateReset = event.target.closest('[data-aggregate-filter-reset]');
+    if (aggregateReset && pointActivityHero.contains(aggregateReset)) {
+        selectedAllInAppSubjectKey = '';
+        selectedAllOffAppRuleKind = '';
         render();
         return;
     }
     const subjectFilter = event.target.closest('[data-all-in-app-subject]');
     if (subjectFilter && pointActivityHero.contains(subjectFilter)) {
-        selectedAllInAppSubjectKey = normalizeCategoryKey(subjectFilter.dataset.allInAppSubject);
+        const nextSubjectKey = normalizeCategoryKey(subjectFilter.dataset.allInAppSubject);
+        selectedAllInAppSubjectKey = selectedAllInAppSubjectKey === nextSubjectKey ? '' : nextSubjectKey;
         render();
         return;
     }
     const offAppTypeFilter = event.target.closest('[data-all-off-app-type]');
     if (offAppTypeFilter && pointActivityHero.contains(offAppTypeFilter)) {
-        selectedAllOffAppRuleKind = String(offAppTypeFilter.dataset.allOffAppType || '').trim();
+        const nextRuleKind = String(offAppTypeFilter.dataset.allOffAppType || '').trim();
+        selectedAllOffAppRuleKind = selectedAllOffAppRuleKind === nextRuleKind ? '' : nextRuleKind;
         render();
         return;
     }

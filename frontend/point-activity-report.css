@@ -159,8 +159,7 @@
     color: var(--paradigm-list-item-name-color);
 }
 
-.point-activity-title,
-.point-activity-filter .report-hero-meta-value {
+.point-activity-title {
     font-size: 0.72rem;
     font-weight: 650;
     line-height: 1.1;
@@ -173,6 +172,14 @@
     gap: 0.42rem;
     min-width: 0;
     flex-wrap: wrap;
+}
+
+.point-activity-rule-detail-row {
+    display: inline-flex;
+    align-items: center;
+    flex-basis: 100%;
+    gap: 0.42rem;
+    min-width: 0;
 }
 
 .point-activity-rules-link {
@@ -251,8 +258,7 @@
 }
 
 .point-activity-rule-status-editor,
-.point-activity-rule-edit-actions,
-.point-activity-rule-edit-action {
+.point-activity-rule-edit-actions {
     display: inline-flex;
     align-items: center;
 }
@@ -269,52 +275,7 @@
 }
 
 .point-activity-rule-edit-actions {
-    gap: 0.38rem;
-}
-
-.point-activity-rule-edit-action {
-    appearance: none;
-    -webkit-appearance: none;
-    justify-content: center;
-    min-width: 3.2rem;
-    height: 1.9rem;
-    padding: 0 0.62rem;
-    border: 1px solid #cfd7f5;
-    border-radius: 999px;
-    background: #fff;
-    font: inherit;
-    font-size: 0.73rem;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.point-activity-rule-edit-action.is-save {
-    border-color: #23945a;
-    background: #23945a;
-    color: #fff;
-}
-
-.point-activity-rule-edit-action.is-cancel {
-    border-color: #efb6b6;
-    background: #fff7f7;
-    color: #b33434;
-}
-
-.point-activity-rule-edit-action.is-delete {
-    min-width: 1.9rem;
-    padding: 0;
-    border-color: transparent;
-    background: transparent;
-    color: #b33434;
-}
-
-.point-activity-rule-edit-action:hover {
-    filter: brightness(0.97);
-}
-
-.point-activity-rule-edit-action:focus-visible {
-    outline: 2px solid var(--p-accent);
-    outline-offset: 2px;
+    gap: 0.18rem;
 }
 
 .point-activity-rule-status {
@@ -345,28 +306,6 @@
     flex: 0 0 13px;
 }
 
-.point-activity-filter {
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.28rem;
-    min-height: 1.45rem;
-    width: max-content;
-    max-width: 100%;
-    padding: 0;
-    border: 0;
-    background: transparent;
-    font: inherit;
-    line-height: 1.25;
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.point-activity-filter:disabled {
-    cursor: default;
-}
-
 .point-activity-kids {
     display: grid;
     grid-template-columns: repeat(2, minmax(6.1rem, 1fr));
@@ -375,16 +314,6 @@
     max-width: 30rem;
     justify-self: end;
     width: 100%;
-}
-
-.point-activity-kid-filter-stack {
-    justify-self: end;
-    width: 100%;
-    min-width: 0;
-}
-
-.point-activity-kid-filter-stack .point-activity-subject-filters {
-    margin: 0.42rem 0 0;
 }
 
 .point-activity-kid-card {
@@ -506,6 +435,11 @@
 
 .point-activity-subject-filters::-webkit-scrollbar {
     display: none;
+}
+
+.point-activity-main .point-activity-subject-filters {
+    justify-content: flex-start;
+    margin: 0;
 }
 
 .point-activity-subject-filter {
@@ -1525,13 +1459,10 @@ button.point-activity-day:focus-visible {
     }
 
     .point-activity-kids {
+        grid-column: 1 / -1;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         max-width: none;
         padding-top: 0;
-    }
-
-    .point-activity-kid-filter-stack {
-        grid-column: 1 / -1;
     }
 
     .point-activity-calendar-head {
