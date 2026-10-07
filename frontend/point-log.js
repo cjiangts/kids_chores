@@ -1,5 +1,5 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_HISTORY_LIMIT = 500;
+const DEFAULT_POINT_HISTORY_LIMIT = 500;
 
 const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
 const logError = document.getElementById('logError');
@@ -18,6 +18,10 @@ const pointLogWorkbench = document.querySelector('.point-log-workbench');
 const modeTabs = Array.from(document.querySelectorAll('[data-mode]'));
 const initialParams = new URLSearchParams(window.location.search);
 const requestedKidId = String(initialParams.get('kidId') || initialParams.get('id') || '').trim();
+const requestedHistoryDayKey = /^\d{4}-\d{2}-\d{2}$/.test(String(initialParams.get('day') || '')) ? String(initialParams.get('day')) : '';
+const requestedHistoryEventId = Number.parseInt(initialParams.get('eventId') || '', 10);
+// A calendar link can point to an event older than the normal recent-history window.
+const POINT_HISTORY_LIMIT = requestedHistoryEventId > 0 ? 5000 : DEFAULT_POINT_HISTORY_LIMIT;
 
 const MODE_META = {
     bonus: {
@@ -466,6 +470,7 @@ function renderHistory() {
         showRowActions: false,
         clickToEdit: true,
         showBalance: true,
+        highlightEventId: requestedHistoryEventId,
         mode: 'all',
         emptyDay: 'No point activity for this day.',
     });
@@ -566,10 +571,15 @@ async function loadInitialData() {
     selectedLogKidIds = new Set();
     activeRewardType = defaultRewardTypeFromRules();
     syncSelectedKidNavigation();
-    selectedHistoryDayKey = '';
+    selectedHistoryDayKey = requestedHistoryDayKey;
     clearDraft();
     await loadPointsForSelectedKid();
     render();
+    if (requestedHistoryEventId > 0) {
+        window.requestAnimationFrame(() => {
+            pointHistory.querySelector(`[data-event-id="${requestedHistoryEventId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
 }
 
 async function refreshAfterMutation() {

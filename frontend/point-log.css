@@ -686,6 +686,17 @@
     min-width: 0;
     border: 0;
     padding: 0.55rem 0.65rem;
+    color: inherit;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.point-week-metric:hover,
+.point-week-metric:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(31, 45, 98, 0.12);
+    outline: none;
 }
 
 .point-week-metric.earned {
@@ -963,6 +974,17 @@
 
 .point-history-row--click-edit .point-history-main {
     cursor: pointer;
+}
+
+.point-history-row.is-highlighted {
+    background: #fff8c9;
+    box-shadow: 0 0 0 2px #f0bd31, 0 5px 14px rgba(173, 117, 0, 0.18);
+    border-radius: 8px;
+    animation: point-history-highlight-pulse 1.3s ease-in-out 2;
+}
+
+@keyframes point-history-highlight-pulse {
+    50% { box-shadow: 0 0 0 4px rgba(240, 189, 49, 0.35), 0 5px 14px rgba(173, 117, 0, 0.18); }
 }
 
 .point-history-node.activity-timeline-node {

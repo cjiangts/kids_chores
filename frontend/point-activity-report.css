@@ -81,6 +81,18 @@
     line-height: 1;
 }
 
+.point-activity-icon--loss .point-activity-all-in-app-icon {
+    color: #d72525;
+}
+
+.point-activity-icon--earn .point-activity-all-in-app-icon {
+    color: #1d7d52;
+}
+
+.point-activity-icon--redeem .point-activity-all-in-app-icon {
+    color: #9a6500;
+}
+
 .point-activity-all-in-app-phone {
     display: inline-flex;
     align-items: end;
@@ -798,6 +810,138 @@ button.point-activity-day:focus-visible {
     display: grid;
     gap: 0.42rem;
     min-width: 0;
+}
+
+.point-activity-day-detail-date {
+    margin-bottom: 0.48rem;
+    color: #586585;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+}
+
+.point-activity-monthly-top {
+    margin-top: 0.8rem;
+    padding-top: 0.78rem;
+    border-top: 1px solid rgba(217, 223, 239, 0.8);
+}
+
+.point-activity-monthly-top-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.65rem;
+    color: #7c86a3;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+}
+
+.point-activity-monthly-top-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.34rem;
+    color: #27366f;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+}
+
+.point-activity-monthly-top-title .icon {
+    color: #b97a00;
+}
+
+.point-activity-monthly-top-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.42rem;
+    margin-top: 0.52rem;
+}
+
+.point-activity-monthly-top-item {
+    display: grid;
+    grid-template-columns: auto 28px minmax(0, 1fr);
+    grid-template-areas:
+        'rank icon name'
+        'rank icon points';
+    align-items: center;
+    column-gap: 0.34rem;
+    min-width: 0;
+    padding: 0.44rem;
+    border: 1px solid #e0e6f2;
+    border-radius: 9px;
+    background: #f8faff;
+    color: inherit;
+    text-decoration: none;
+}
+
+.point-activity-monthly-top-item:hover,
+.point-activity-monthly-top-item:focus-visible {
+    border-color: rgba(94, 68, 212, 0.42);
+    box-shadow: 0 2px 8px rgba(65, 80, 138, 0.12);
+    outline: none;
+}
+
+.point-activity-monthly-top-rank {
+    grid-area: rank;
+    color: #7985a5;
+    font-size: 0.74rem;
+    font-weight: 850;
+}
+
+.point-activity-monthly-top-icon {
+    grid-area: icon;
+    display: inline-grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+}
+
+.point-activity-monthly-top-icon .point-activity-event-rule-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    font-size: 1rem;
+}
+
+.point-activity-monthly-top-icon .point-activity-event-subject-icon {
+    width: 25px;
+    height: 25px;
+}
+
+.point-activity-monthly-top-name,
+.point-activity-monthly-top-points {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.point-activity-monthly-top-name {
+    grid-area: name;
+    color: #334061;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+.point-activity-monthly-top-points {
+    grid-area: points;
+    color: #1d7d52;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+    white-space: nowrap;
+}
+
+.point-activity-monthly-top-item.tone-loss .point-activity-monthly-top-points {
+    color: #d72525;
+}
+
+.point-activity-monthly-top-item.tone-redeem .point-activity-monthly-top-points {
+    color: #9a6500;
 }
 
 .point-activity-event-row {

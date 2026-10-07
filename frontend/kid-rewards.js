@@ -1,11 +1,15 @@
 const API_BASE = `${window.location.origin}/api`;
-const POINT_HISTORY_LIMIT = 500;
+const DEFAULT_POINT_HISTORY_LIMIT = 500;
 
 const kidRewardAvatarSwitcher = document.getElementById('kidRewardAvatarSwitcher');
 const kidRewardsError = document.getElementById('kidRewardsError');
 const kidPointHistory = document.getElementById('kidPointHistory');
 const params = new URLSearchParams(window.location.search);
 const requestedKidId = String(params.get('id') || params.get('kidId') || '').trim();
+const requestedHistoryDayKey = /^\d{4}-\d{2}-\d{2}$/.test(String(params.get('day') || '')) ? String(params.get('day')) : '';
+const requestedHistoryEventId = Number.parseInt(params.get('eventId') || '', 10);
+// A calendar link can point to an event older than the normal recent-history window.
+const POINT_HISTORY_LIMIT = requestedHistoryEventId > 0 ? 5000 : DEFAULT_POINT_HISTORY_LIMIT;
 
 let kids = [];
 let selectedKidId = '';
@@ -93,6 +97,7 @@ function renderHistory() {
         showDelete: false,
         showBalance: true,
         splitHistoryColumns: true,
+        highlightEventId: requestedHistoryEventId,
         mode: 'all',
         emptyDay: 'No point activity for this day.',
     });
@@ -159,9 +164,14 @@ async function loadInitialData() {
     kids = Array.isArray(kidsData) ? kidsData : [];
     selectedKidId = initialKidId();
     syncSelectedKidNavigation();
-    selectedHistoryDayKey = '';
+    selectedHistoryDayKey = requestedHistoryDayKey;
     await loadPointsForSelectedKid();
     render();
+    if (requestedHistoryEventId > 0) {
+        window.requestAnimationFrame(() => {
+            kidPointHistory.querySelector(`[data-event-id="${requestedHistoryEventId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
 }
 
 kidPointHistory?.addEventListener('click', (event) => {

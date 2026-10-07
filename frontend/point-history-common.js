@@ -329,12 +329,14 @@
     }
 
     function renderMetricCard(kind, iconName, label, value, valueDirection) {
+        const reportRuleIds = { earned: -2, lost: -3, spent: -4 };
+        const reportHref = `/point-activity-report.html?ruleId=${reportRuleIds[kind]}`;
         return `
-            <div class="point-week-metric ${escapeHtml(kind)}">
+            <a class="point-week-metric ${escapeHtml(kind)}" href="${escapeHtml(reportHref)}" aria-label="View all ${escapeHtml(label.toLowerCase())} activity">
                 <span class="point-week-metric-icon">${icon(iconName, { size: 20, strokeWidth: 2.4 })}</span>
                 <span class="point-week-metric-label">${escapeHtml(label)}</span>
                 <span class="point-week-metric-value">${escapeHtml(signedZero(value, valueDirection))}</span>
-            </div>
+            </a>
         `;
     }
 
@@ -465,7 +467,8 @@
         const dateLabel = formatHistoryDate(event.createdAt, timezone);
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
         const showRowActions = showDelete && opts.showRowActions !== false;
-        const className = `point-history-row activity-timeline-row point-history-row--${deltaClass}${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${extraClass ? ` ${extraClass}` : ''}`;
+        const isHighlighted = Number.parseInt(opts.highlightEventId, 10) === Number.parseInt(event?.eventId, 10);
+        const className = `point-history-row activity-timeline-row point-history-row--${deltaClass}${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${isHighlighted ? ' is-highlighted' : ''}${extraClass ? ` ${extraClass}` : ''}`;
         const reportHref = pointActivityReportHref(event);
         const iconHtml = historyIconHtml(rule, delta);
         const activityIcon = reportHref

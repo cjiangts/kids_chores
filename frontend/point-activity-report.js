@@ -5,7 +5,8 @@ const params = new URLSearchParams(window.location.search);
 const requestedRuleId = String(params.get('ruleId') || '').trim();
 const requestedCategoryKey = normalizeCategoryKey(params.get('categoryKey'));
 const requestedCategoryName = String(params.get('categoryName') || '').trim();
-const ALL_ACTIVITY_RULE_KINDS = ['in_app_chore', 'off_app_chore', 'bonus_event', 'deduction_event', 'redeemed_reward'];
+const requestedMonthKey = /^\d{4}-(0[1-9]|1[0-2])$/.test(String(params.get('month') || '')) ? String(params.get('month')) : '';
+const EARNING_RULE_KINDS = ['in_app_chore', 'off_app_chore', 'bonus_event'];
 const pointActivityHero = document.getElementById('pointActivityHero');
 const pointActivityCalendar = document.getElementById('pointActivityCalendar');
 const pointActivityProgressPanel = document.getElementById('pointActivityProgressPanel');
@@ -27,7 +28,7 @@ let selectedAllInAppSubjectKey = '';
 let selectedAllOffAppRuleKind = '';
 let currentRule = null;
 let isRuleEditing = false;
-let displayedMonthKey = '';
+let displayedMonthKey = requestedMonthKey;
 let selectedCalendarDayKey = '';
 let activityLogQuery = '';
 let currentCalendarMetric = (() => {
@@ -50,7 +51,29 @@ function isAllInAppMode() {
 }
 
 function isAllOffAppMode() {
-    return requestedRuleId === '-1';
+    return ['-2', '-3', '-4'].includes(requestedRuleId);
+}
+
+function aggregateActivityConfig() {
+    if (requestedRuleId === '-3') {
+        return { name: 'All losses', ruleKind: 'all_loss_activity', icon: 'thumbs-down', tone: 'loss', ruleKinds: ['deduction_event'] };
+    }
+    if (requestedRuleId === '-4') {
+        return { name: 'All redeemed rewards', ruleKind: 'all_redeem_activity', icon: 'gift', tone: 'redeem', ruleKinds: ['redeemed_reward'] };
+    }
+    return { name: 'All earned', ruleKind: 'all_earn_activity', icon: 'thumbs-up', tone: 'earn', ruleKinds: EARNING_RULE_KINDS };
+}
+
+function isAllEarningMode() {
+    return isAllOffAppMode() && aggregateActivityConfig().tone === 'earn';
+}
+
+function isAllLossMode() {
+    return isAllOffAppMode() && aggregateActivityConfig().tone === 'loss';
+}
+
+function isAllRedeemMode() {
+    return isAllOffAppMode() && aggregateActivityConfig().tone === 'redeem';
 }
 
 function isCategoryInAppMode() {
@@ -170,19 +193,9 @@ function isSameRule(event) {
     if (!requestedRuleId || isAllInAppMode()) return false;
     if (isAllOffAppMode()) {
         const ruleKind = String(event?.rule?.ruleKind || '').trim();
-        // The all-activity total must use the same full point-event ledger as
-        // the kid's current balance. That balance uses the family's default
-        // reward bucket, so other reward buckets must not reduce it.
-        if (!selectedAllOffAppRuleKind) {
-            if (ruleKind !== 'redeemed_reward') return true;
-            const kidId = String(event?.kid?.id || '').trim();
-            const rewardBuckets = pointDataByKid.get(kidId)?.rewardBucketTotals || {};
-            const defaultBucket = Object.keys(rewardBuckets)[0] || '';
-            if (!defaultBucket) return true;
-            return String(event?.rule?.rewardType || '').trim().toLowerCase() === defaultBucket;
-        }
-        return ALL_ACTIVITY_RULE_KINDS.includes(ruleKind)
-            && ruleKind === selectedAllOffAppRuleKind;
+        const config = aggregateActivityConfig();
+        const selectedKind = isAllEarningMode() ? selectedAllOffAppRuleKind : '';
+        return config.ruleKinds.includes(ruleKind) && (!selectedKind || ruleKind === selectedKind);
     }
     return String(event?.rule?.ruleId || event?.ruleId || '') === requestedRuleId;
 }
@@ -219,6 +232,17 @@ function ensureDisplayedMonth() {
 function shortDateLabel(dayKeyValue) {
     const date = dateFromDayKey(dayKeyValue);
     return date ? date.toLocaleDateString([], { timeZone: 'UTC', month: 'short', day: 'numeric' }) : '';
+}
+
+function dayDetailLabel(dayKeyValue) {
+    const date = dateFromDayKey(dayKeyValue);
+    return date ? date.toLocaleDateString([], {
+        timeZone: 'UTC',
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+    }) : '';
 }
 
 function timeLabel(value) {
@@ -422,11 +446,12 @@ function allInAppIconHtml() {
     return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${phoneIcon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
 }
 
-function allActivityIconHtml() {
-    const gridIcon = typeof window.icon === 'function'
-        ? window.icon('layout-grid', { size: 14, strokeWidth: 2.5 })
-        : '<span class="icon" data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.5"></span>';
-    return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${gridIcon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
+function aggregateActivityIconHtml() {
+    const config = aggregateActivityConfig();
+    const icon = typeof window.icon === 'function'
+        ? window.icon(config.icon, { size: 14, strokeWidth: 2.5 })
+        : `<span class="icon" data-icon="${escapeHtml(config.icon)}" data-icon-size="14" data-icon-stroke="2.5"></span>`;
+    return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${icon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
 }
 
 function allInAppSubjectFilterHtml() {
@@ -447,19 +472,17 @@ function allInAppSubjectFilterHtml() {
 }
 
 function allOffAppTypeFilterHtml() {
-    if (!isAllOffAppMode()) return '';
+    if (!isAllEarningMode()) return '';
     const types = [
         { key: 'in_app_chore', label: 'In-app', icon: 'smartphone' },
         { key: 'off_app_chore', label: 'Off-app chores', icon: 'clipboard-check' },
         { key: 'bonus_event', label: 'Bonus', icon: 'thumbs-up' },
-        { key: 'deduction_event', label: 'Loss', icon: 'thumbs-down' },
-        { key: 'redeemed_reward', label: 'Redeem', icon: 'gift' },
     ];
     const allIcon = typeof window.icon === 'function'
         ? window.icon('layout-grid', { size: 22, strokeWidth: 2.4 })
         : '<span class="icon" data-icon="layout-grid" data-icon-size="22" data-icon-stroke="2.4"></span>';
     const filters = [
-        `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${!selectedAllOffAppRuleKind ? ' active' : ''}" data-all-off-app-type="" aria-label="All activity" title="All activity"><span class="point-activity-off-app-type-icon is-all">${allIcon}</span></button>`,
+        `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${!selectedAllOffAppRuleKind ? ' active' : ''}" data-all-off-app-type="" aria-label="All earned activity" title="All earned activity"><span class="point-activity-off-app-type-icon is-all">${allIcon}</span></button>`,
         ...types.map((type) => {
             const icon = typeof window.icon === 'function'
                 ? window.icon(type.icon, { size: 22, strokeWidth: 2.4 })
@@ -467,7 +490,7 @@ function allOffAppTypeFilterHtml() {
             return `<button type="button" class="point-activity-subject-filter point-activity-off-app-type-filter${selectedAllOffAppRuleKind === type.key ? ' active' : ''}" data-all-off-app-type="${escapeHtml(type.key)}" aria-label="${escapeHtml(type.label)}" title="${escapeHtml(type.label)}"><span class="point-activity-off-app-type-icon is-${escapeHtml(type.key)}">${icon}</span></button>`;
         }),
     ].join('');
-    return `<div class="point-activity-subject-filters" role="group" aria-label="Off-app activity filter">${filters}</div>`;
+    return `<div class="point-activity-subject-filters" role="group" aria-label="Earned activity filter">${filters}</div>`;
 }
 
 function buildInAppCardManageHref(rule) {
@@ -486,8 +509,9 @@ function typeBadge(rule) {
     if (isAllInAppMode()) {
         return { label: 'All in-app', icon: 'thumbs-up', tone: 'earn' };
     }
-    if (isAllOffAppMode() && Number(rule?.ruleId) === -1) {
-        return { label: 'All activity', icon: 'layout-grid', tone: 'earn' };
+    if (isAllOffAppMode() && Number(rule?.ruleId) < 0) {
+        const config = aggregateActivityConfig();
+        return { label: config.name, icon: config.icon, tone: config.tone };
     }
     if (ruleKind === 'deduction_event') {
         return { label: 'Loss', icon: 'thumbs-down', tone: 'loss' };
@@ -580,20 +604,23 @@ function renderHero() {
     const isInAppRule = String(rule.ruleKind || '') === 'in_app_chore';
     const ruleActivityCount = Number.parseInt(ruleActivityCounts[String(rule.ruleId || requestedRuleId)] ?? 0, 10) || 0;
     const canDeleteRule = ruleActivityCount === 0;
-    const ruleTitleHtml = isEditingRule && !isInAppRule
+    const ruleTitleHtml = (isAllInAppMode() || isAllEarningMode() || isAllLossMode() || isAllRedeemMode())
+        ? ''
+        : isEditingRule && !isInAppRule
         ? `<input class="point-activity-title-edit" data-rule-edit-name value="${escapeHtml(title)}" aria-label="Rule name">`
         : `<h2 class="point-activity-title">${escapeHtml(title)}</h2>`;
     const heroIconHtml = isAllInAppMode()
         ? allInAppIconHtml()
         : isAllOffAppMode()
-        ? allActivityIconHtml()
+        ? aggregateActivityIconHtml()
         : isEditingRule && !isInAppRule
         ? `<input class="point-activity-emoji-edit" data-rule-edit-emoji value="${escapeHtml(rule.emoji || '')}" aria-label="Rule emoji" maxlength="8">`
         : iconHtml(rule);
     const inAppManageHref = isInAppRule && !isAllInAppMode() ? buildInAppCardManageHref(rule) : '';
+    const aggregateIconToneClass = isAllOffAppMode() ? ` point-activity-icon--${aggregateActivityConfig().tone}` : '';
     const heroIconContainerHtml = inAppManageHref
         ? `<a class="point-activity-icon point-activity-icon--in-app" href="${escapeHtml(inAppManageHref)}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${heroIconHtml}</a>`
-        : `<div class="point-activity-icon${isAggregateMode ? ' point-activity-icon--in-app point-activity-icon--all-in-app' : ''}${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
+        : `<div class="point-activity-icon${isAggregateMode ? ' point-activity-icon--in-app point-activity-icon--all-in-app' : ''}${aggregateIconToneClass}${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
     const ruleMetaHtml = isAggregateMode
         ? ''
         : isEditingRule
@@ -721,7 +748,7 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const calendarTone = isAllOffAppMode()
         ? (selectedAllOffAppRuleKind
             ? typeBadge({ ruleKind: selectedAllOffAppRuleKind }).tone
-            : (pointTotalValue > 0 ? 'earn' : (pointTotalValue < 0 ? 'loss' : 'balance')))
+            : aggregateActivityConfig().tone)
         : typeBadge(currentRule || {}).tone;
     const canSelect = isSessionCalendar
         ? sessionCount > 0
@@ -752,6 +779,20 @@ function eventsForSelectedDay() {
     return visibleEvents()
         .filter((event) => dayKey(parseDate(event?.createdAt), familyTimezone()) === selectedCalendarDayKey)
         .sort((a, b) => parseDate(a?.createdAt).getTime() - parseDate(b?.createdAt).getTime());
+}
+
+function pointHistoryDestinationHref(event) {
+    const kidId = String(event?.kid?.id || '').trim();
+    const eventId = Number.parseInt(event?.eventId, 10);
+    const day = dayKey(parseDate(event?.createdAt), familyTimezone());
+    if (!kidId || !(eventId > 0) || !day) return '';
+    const query = new URLSearchParams({ day, eventId: String(eventId) });
+    if (isKidUserMode()) {
+        query.set('id', kidId);
+        return `/kid-rewards.html?${query.toString()}`;
+    }
+    query.set('kidId', kidId);
+    return `/point-log.html?${query.toString()}`;
 }
 
 function sessionsForSelectedDay() {
@@ -848,18 +889,16 @@ function renderDayDetails() {
     if (!selectedCalendarDayKey || !events.length) return '';
     return `
         <div class="point-activity-day-detail">
+            <div class="point-activity-day-detail-date">${escapeHtml(dayDetailLabel(selectedCalendarDayKey))}</div>
             <div class="point-activity-day-detail-list">
                 ${events.map((event) => {
                     const kid = event?.kid || {};
                     const note = String(event?.note || '').trim();
-                    const ruleId = Number.parseInt(event?.rule?.ruleId || event?.ruleId, 10);
-                    const reportHref = Number.isInteger(ruleId) && ruleId > 0
-                        ? `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId)}`
-                        : '';
-                    const tagName = reportHref ? 'a' : 'div';
-                    const hrefAttr = reportHref ? ` href="${escapeHtml(reportHref)}"` : '';
+                    const historyHref = pointHistoryDestinationHref(event);
+                    const tagName = historyHref ? 'a' : 'div';
+                    const hrefAttr = historyHref ? ` href="${escapeHtml(historyHref)}"` : '';
                     return `
-                        <${tagName}${hrefAttr} class="point-activity-event-row point-activity-event-row--event point-activity-event-row--has-subject${reportHref ? ' point-activity-event-row-link' : ''}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        <${tagName}${hrefAttr} class="point-activity-event-row point-activity-event-row--event point-activity-event-row--has-subject${historyHref ? ' point-activity-event-row-link' : ''}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                             ${activityRowLeadHtml({ time: timeLabel(event?.createdAt), kid, subjectIconHtml: eventRuleIconHtml(event) })}
                             <span class="point-activity-event-rule-name">${escapeHtml(eventRuleName(event))}</span>
                             <span class="point-activity-event-note">${escapeHtml(note || '-')}</span>
@@ -872,11 +911,63 @@ function renderDayDetails() {
     `;
 }
 
+function monthlyTopRules() {
+    if (!isAllOffAppMode()) return [];
+    const timezone = familyTimezone();
+    const rankedRules = new Map();
+    visibleEvents().forEach((event) => {
+        if (dayKey(parseDate(event?.createdAt), timezone).slice(0, 7) !== displayedMonthKey) return;
+        const rule = event?.rule || {};
+        const ruleId = Number.parseInt(rule?.ruleId || event?.ruleId, 10);
+        if (!(ruleId > 0)) return;
+        const current = rankedRules.get(ruleId) || { rule, total: 0, count: 0 };
+        current.total += Math.abs(Number.parseInt(event?.pointsDelta, 10) || 0);
+        current.count += 1;
+        rankedRules.set(ruleId, current);
+    });
+    return [...rankedRules.entries()]
+        .map(([ruleId, entry]) => ({ ...entry, ruleId }))
+        .sort((a, b) => b.total - a.total || b.count - a.count || String(a.rule?.name || '').localeCompare(String(b.rule?.name || '')))
+        .slice(0, 3);
+}
+
+function monthlyTopRulesHtml() {
+    const rankedRules = monthlyTopRules();
+    if (!rankedRules.length) return '';
+    const config = aggregateActivityConfig();
+    const label = config.tone === 'loss' ? 'lost' : (config.tone === 'redeem' ? 'spent' : 'earned');
+    return `
+        <section class="point-activity-monthly-top" aria-label="Monthly top three">
+            <div class="point-activity-monthly-top-head">
+                <span class="point-activity-monthly-top-title"><span class="icon" data-icon="trophy" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>Monthly Top 3</span>
+                <span>${escapeHtml(monthLabel(displayedMonthKey))}</span>
+            </div>
+            <div class="point-activity-monthly-top-list">
+                ${rankedRules.map((entry, index) => {
+                    const rule = entry.rule || {};
+                    const name = String(rule.name || 'Point activity').trim() || 'Point activity';
+                    const icon = eventRuleIconHtml({ rule });
+                    const reportQuery = new URLSearchParams({ ruleId: String(entry.ruleId), month: displayedMonthKey });
+                    return `
+                        <a class="point-activity-monthly-top-item tone-${escapeHtml(typeBadge(rule).tone)}" href="/point-activity-report.html?${escapeHtml(reportQuery.toString())}" aria-label="Open ${escapeHtml(name)} activity report">
+                            <span class="point-activity-monthly-top-rank">${index + 1}</span>
+                            <span class="point-activity-monthly-top-icon">${icon}</span>
+                            <span class="point-activity-monthly-top-name">${escapeHtml(name)}</span>
+                            <span class="point-activity-monthly-top-points">${escapeHtml(`${entry.total.toLocaleString()} ${label}`)}</span>
+                        </a>
+                    `;
+                }).join('')}
+            </div>
+        </section>
+    `;
+}
+
 function renderSessionDayDetails() {
     const sessions = sessionsForSelectedDay();
     if (!selectedCalendarDayKey || !sessions.length) return '';
     return `
         <div class="point-activity-day-detail">
+            <div class="point-activity-day-detail-date">${escapeHtml(dayDetailLabel(selectedCalendarDayKey))}</div>
             <div class="point-activity-day-detail-list">
                 ${sessions.map((session) => {
                     const kid = session?.kid || {};
@@ -1254,6 +1345,7 @@ function renderCalendar() {
             ${cells.join('')}
         </div>
         ${renderDayDetails()}
+        ${monthlyTopRulesHtml()}
     `;
     window.hydrateIcons?.(pointActivityCalendar);
 }
@@ -1341,10 +1433,11 @@ function resolveCurrentRule(rules) {
         return;
     }
     if (isAllOffAppMode()) {
+        const config = aggregateActivityConfig();
         currentRule = {
-            ruleId: -1,
-            name: 'All activity',
-            ruleKind: 'all_activity',
+            ruleId: Number.parseInt(requestedRuleId, 10) || -2,
+            name: config.name,
+            ruleKind: config.ruleKind,
             triggerKey: '',
             maxPoint: null,
             isActive: true,
@@ -1522,7 +1615,13 @@ pointActivityCalendar?.addEventListener('click', async (event) => {
     }
     const dayButton = event.target.closest('[data-calendar-day]');
     if (dayButton && pointActivityCalendar.contains(dayButton)) {
-        selectedCalendarDayKey = String(dayButton.dataset.calendarDay || '');
+        const nextDayKey = String(dayButton.dataset.calendarDay || '');
+        if (selectedCalendarDayKey === nextDayKey) {
+            selectedCalendarDayKey = '';
+            renderCalendar();
+            return;
+        }
+        selectedCalendarDayKey = nextDayKey;
         renderCalendar();
         await loadSelectedSessionDetails();
         renderCalendar();

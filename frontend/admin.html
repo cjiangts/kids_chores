@@ -194,12 +194,6 @@
             text-align: right !important;
             vertical-align: middle !important;
         }
-        .parent-admin-page .admin-off-app-header-actions {
-            display: inline-flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 0.36rem;
-        }
         .parent-admin-page .admin-matrix-subject-head .admin-panel-menu-btn {
             vertical-align: middle;
             margin-left: 0.03rem;
@@ -250,7 +244,7 @@
             color: #2f4cb5;
             outline: none;
         }
-        .parent-admin-page :is(.admin-matrix-all-report-link, .admin-off-app-add-btn, .admin-off-app-summary-report-link) {
+        .parent-admin-page :is(.admin-matrix-all-report-link, .admin-off-app-add-btn) {
             box-sizing: border-box;
             display: inline-flex;
             align-items: center;
@@ -269,21 +263,16 @@
         .parent-admin-page .admin-off-app-add-btn {
             cursor: pointer;
         }
-        .parent-admin-page .admin-off-app-header-actions .admin-off-app-add-btn {
-            margin-left: 0;
-        }
         .parent-admin-page .admin-matrix-all-report-link:hover,
         .parent-admin-page .admin-matrix-all-report-link:focus-visible,
         .parent-admin-page .admin-off-app-add-btn:hover,
-        .parent-admin-page .admin-off-app-add-btn:focus-visible,
-        .parent-admin-page .admin-off-app-summary-report-link:hover,
-        .parent-admin-page .admin-off-app-summary-report-link:focus-visible {
+        .parent-admin-page .admin-off-app-add-btn:focus-visible {
             border-color: #8175f7;
             color: #3267d6;
             box-shadow: 0 3px 8px rgba(107, 92, 246, 0.16);
             outline: none;
         }
-        .parent-admin-page :is(.admin-matrix-all-report-icon, .admin-off-app-add-icon, .admin-off-app-summary-report-icon) {
+        .parent-admin-page :is(.admin-matrix-all-report-icon, .admin-off-app-add-icon) {
             display: grid;
             grid-template-rows: 1fr auto;
             place-items: center;
@@ -294,17 +283,17 @@
             color: #3267d6;
             line-height: 1;
         }
-        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol, .admin-off-app-summary-report-symbol) {
+        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol) {
             display: inline-flex;
             align-items: end;
             height: 13px;
         }
-        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol, .admin-off-app-summary-report-symbol) :is(.icon, svg) {
+        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol) :is(.icon, svg) {
             width: 11px;
             height: 11px;
             stroke: currentColor;
         }
-        .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label, .admin-off-app-summary-report-label) {
+        .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label) {
             margin-bottom: 2px;
             font-size: 0.42rem;
             font-weight: 850;
