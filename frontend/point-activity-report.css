@@ -968,7 +968,7 @@ button.point-activity-day:focus-visible {
 }
 
 .point-activity-event-row--event.point-activity-event-row--has-subject {
-    grid-template-columns: 3.45rem 26px 18px minmax(3.7rem, 0.32fr) minmax(0, 1fr) auto;
+    grid-template-columns: 3.45rem 26px 18px minmax(0, 1fr) auto;
 }
 
 .point-activity-event-wrong-pill {
@@ -1028,16 +1028,6 @@ button.point-activity-day:focus-visible {
 .point-activity-event-name > :first-child {
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-.point-activity-event-rule-name {
-    overflow: hidden;
-    color: #586585;
-    font-size: var(--paradigm-list-item-sub-font-size);
-    font-weight: var(--paradigm-list-item-sub-font-weight);
-    line-height: var(--paradigm-list-item-sub-line-height);
-    text-overflow: ellipsis;
-    white-space: nowrap;
 }
 
 .point-activity-event-subject-icon {
@@ -1222,11 +1212,28 @@ button.point-activity-day:focus-visible {
 
 .point-activity-log-row {
     display: grid;
-    grid-template-columns: 7.15rem minmax(3.7rem, 0.28fr) minmax(0, 1fr) auto;
+    grid-template-columns: 7.15rem 26px minmax(0, 1fr) auto;
     align-items: center;
     gap: 0.42rem;
     min-width: 0;
     padding: 0.3rem 0;
+}
+
+.point-activity-log-row-link {
+    border-radius: 8px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.point-activity-log-row-link:hover,
+.point-activity-log-row-link:focus-visible {
+    outline: none;
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.point-activity-log-row .point-activity-avatar {
+    width: 26px;
+    height: 26px;
 }
 
 .point-activity-log-row:first-child {
@@ -1250,16 +1257,6 @@ button.point-activity-day:focus-visible {
     grid-template-columns: 3.2rem 3.65rem;
     gap: 0.3rem;
     font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.point-activity-log-name {
-    overflow: hidden;
-    color: var(--kid-color, #526fd4);
-    font-size: var(--paradigm-list-item-name-font-size);
-    font-weight: var(--paradigm-list-item-name-font-weight);
-    line-height: var(--paradigm-list-item-name-line-height);
-    text-overflow: ellipsis;
     white-space: nowrap;
 }
 
@@ -1580,11 +1577,11 @@ button.point-activity-day:focus-visible {
     }
 
     .point-activity-event-row--event.point-activity-event-row--has-subject {
-        grid-template-columns: 3.25rem 24px 18px minmax(3rem, 0.35fr) minmax(0, 1fr) auto;
+        grid-template-columns: 3.25rem 24px 18px minmax(0, 1fr) auto;
     }
 
     .point-activity-log-row {
-        grid-template-columns: 7.15rem minmax(3rem, 0.35fr) minmax(0, 1fr) auto;
+        grid-template-columns: 7.15rem 24px minmax(0, 1fr) auto;
         gap: 0.3rem;
     }
 
@@ -1622,11 +1619,16 @@ button.point-activity-day:focus-visible {
     }
 
     .point-activity-event-row--event.point-activity-event-row--has-subject {
-        grid-template-columns: 3.1rem 22px 18px minmax(2.8rem, 0.35fr) minmax(0, 1fr) auto;
+        grid-template-columns: 3.1rem 22px 18px minmax(0, 1fr) auto;
     }
 
     .point-activity-log-row {
-        grid-template-columns: 7.15rem minmax(2.8rem, 0.35fr) minmax(0, 1fr) auto;
+        grid-template-columns: 7.15rem 22px minmax(0, 1fr) auto;
         gap: 0.24rem;
+    }
+
+    .point-activity-log-row .point-activity-avatar {
+        width: 22px;
+        height: 22px;
     }
 }

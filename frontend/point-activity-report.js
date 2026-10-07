@@ -853,10 +853,6 @@ function eventRuleIconHtml(event) {
     return `<span class="point-activity-event-rule-icon tone-${escapeHtml(typeBadge(rule).tone)}" aria-hidden="true">${iconMarkup}</span>`;
 }
 
-function eventRuleName(event) {
-    return String(event?.rule?.name || 'Point adjustment').trim() || 'Point adjustment';
-}
-
 function activityRowLeadHtml({ time, kid, subjectIconHtml }) {
     return `
         <span class="point-activity-event-time">${escapeHtml(time)}</span>
@@ -900,7 +896,6 @@ function renderDayDetails() {
                     return `
                         <${tagName}${hrefAttr} class="point-activity-event-row point-activity-event-row--event point-activity-event-row--has-subject${historyHref ? ' point-activity-event-row-link' : ''}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                             ${activityRowLeadHtml({ time: timeLabel(event?.createdAt), kid, subjectIconHtml: eventRuleIconHtml(event) })}
-                            <span class="point-activity-event-rule-name">${escapeHtml(eventRuleName(event))}</span>
                             <span class="point-activity-event-note">${escapeHtml(note || '-')}</span>
                             <span class="point-activity-event-points point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(isAllOffAppMode() ? event?.rule : (currentRule || event?.rule || {})))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
                         </${tagName}>
@@ -1344,8 +1339,8 @@ function renderCalendar() {
         <div class="point-activity-calendar-grid">
             ${cells.join('')}
         </div>
-        ${renderDayDetails()}
         ${monthlyTopRulesHtml()}
+        ${renderDayDetails()}
     `;
     window.hydrateIcons?.(pointActivityCalendar);
 }
@@ -1390,16 +1385,19 @@ function renderActivityLog() {
             ${events.length ? events.map((event) => {
                 const kid = event?.kid || {};
                 const note = String(event?.note || '').trim();
+                const historyHref = pointHistoryDestinationHref(event);
+                const tagName = historyHref ? 'a' : 'article';
+                const hrefAttr = historyHref ? ` href="${escapeHtml(historyHref)}"` : '';
                 return `
-                    <article class="point-activity-log-row" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                    <${tagName}${hrefAttr} class="point-activity-log-row${historyHref ? ' point-activity-log-row-link' : ''}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                         <time class="point-activity-log-time" datetime="${escapeHtml(event?.createdAt || '')}">
                             <span class="point-activity-log-date">${escapeHtml(logDateLabel(event?.createdAt))}</span>
                             <span class="point-activity-log-clock">${escapeHtml(timeLabel(event?.createdAt))}</span>
                         </time>
-                        <span class="point-activity-log-name">${escapeHtml(kid?.name || 'Kid')}</span>
+                        ${avatarHtml(kid)}
                         <span class="point-activity-log-note">${escapeHtml(note || '-')}</span>
                         <span class="point-rule-delta paradigm-pill ${escapeHtml(pointPillClass(isAllOffAppMode() ? event?.rule : (currentRule || event?.rule || {})))}">${escapeHtml(formatSignedPoints(event?.pointsDelta))}</span>
-                    </article>
+                    </${tagName}>
                 `;
             }).join('') : `
                 <div class="point-activity-log-empty">${escapeHtml(query ? 'No parent notes match your search.' : (allCount ? 'No parent notes yet.' : 'No activity logged yet.'))}</div>
