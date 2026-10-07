@@ -1,0 +1,52 @@
+.grade-row {
+    box-sizing: border-box;
+    display: inline-flex;
+    height: var(--paradigm-button-height, 26px);
+    align-items: center;
+    gap: 0.12rem;
+    padding: 2px;
+    border: 1px solid #d9d7fb;
+    border-radius: 999px;
+    background: #f4f2ff;
+}
+
+.grade-btn {
+    appearance: none;
+    -webkit-appearance: none;
+    box-sizing: border-box;
+    height: 100%;
+    min-height: 0;
+    padding: 0 0.58rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: #5b5a91;
+    font: inherit;
+    font-size: var(--paradigm-row-text-font-size);
+    font-weight: var(--paradigm-row-text-font-weight);
+    line-height: 1;
+    cursor: pointer;
+}
+
+.grade-btn.is-selected {
+    background: #6b5cf6;
+    color: #fff;
+    box-shadow: 0 1px 3px rgba(76, 63, 194, 0.22);
+}
+
+.grade-btn:hover:not(:disabled),
+.grade-btn:focus-visible:not(:disabled) {
+    background: rgba(107, 92, 246, 0.12);
+    outline: none;
+}
+
+.grade-btn.is-selected:hover:not(:disabled),
+.grade-btn.is-selected:focus-visible:not(:disabled) {
+    background: #5748df;
+    color: #fff;
+}
+
+.grade-btn:disabled {
+    cursor: wait;
+    opacity: 0.6;
+}
