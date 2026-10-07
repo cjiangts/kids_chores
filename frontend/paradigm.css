@@ -38,18 +38,18 @@
 
     /* Panel title row */
     --paradigm-panel-title-icon-size: 18px;
-    --paradigm-button-height: 32px;
+    --paradigm-button-height: 26px;
     --paradigm-panel-title-action-size: 34px;
     --paradigm-panel-title-height: 44px;
-    --paradigm-input-height: 34px;
-    --paradigm-compact-bar-height: 28px;
-    --paradigm-input-font-size: 0.86rem;
-    --paradigm-input-font-weight: 480;
+    --paradigm-compact-bar-height: 26px;
+    --paradigm-input-height: var(--paradigm-compact-bar-height);
+    --paradigm-input-font-size: var(--paradigm-list-item-sub-font-size);
+    --paradigm-input-font-weight: var(--paradigm-list-item-sub-font-weight);
     --paradigm-search-input-height: var(--paradigm-button-height);
     --paradigm-search-input-radius: 8px;
     --paradigm-search-input-font-size: 0.85rem;
     --paradigm-search-input-font-weight: 500;
-    --paradigm-decision-btn-size: var(--paradigm-input-height);
+    --paradigm-decision-btn-size: 34px;
     --paradigm-decision-btn-icon-size: 16px;
     --paradigm-chip-toggle-height: 25px;
     --paradigm-chip-toggle-font-size: 0.74rem;
@@ -147,6 +147,40 @@
 .paradigm-input:focus {
     border-color: var(--p-accent-border);
     box-shadow: 0 0 0 3px rgba(122, 154, 240, 0.18);
+}
+
+/* Site-wide baseline for ordinary text-entry bars. Large content editors and
+ * bespoke steppers keep their more-specific component sizing. */
+body :is(
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"]:not(.paradigm-compact-stepper-value),
+    textarea:not(.deck-csv-textarea):not(.deck-bulk-textarea)
+) {
+    box-sizing: border-box;
+    min-height: var(--paradigm-input-height);
+    font-family: inherit;
+    font-size: var(--paradigm-input-font-size);
+    font-weight: var(--paradigm-input-font-weight);
+}
+
+body :is(
+    input:not([type]),
+    input[type="text"],
+    input[type="search"],
+    input[type="email"],
+    input[type="password"],
+    input[type="tel"],
+    input[type="url"],
+    input[type="number"]:not(.paradigm-compact-stepper-value)
+) {
+    height: var(--paradigm-input-height);
+    line-height: 1;
 }
 
 /* Compact text field shared by dense inline editors and entry forms. */
@@ -1654,6 +1688,7 @@ svg.cards-view-toggle-btn-icon,
 
 /* Shared button base class */
 .paradigm-btn {
+    --paradigm-btn-icon-size: 12px;
     appearance: none;
     -webkit-appearance: none;
     display: inline-flex;
@@ -1666,14 +1701,20 @@ svg.cards-view-toggle-btn-icon,
     border-radius: 8px;
     background: #fff;
     color: var(--p-ink-title);
-    font-size: 0.8rem;
-    font-weight: 450;
+    font-size: var(--paradigm-row-text-font-size);
+    font-weight: var(--paradigm-row-text-font-weight);
     font-family: inherit;
     line-height: 1;
     cursor: pointer;
     transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
     text-decoration: none;
     white-space: nowrap;
+}
+
+.paradigm-btn :is(.icon, [data-icon], svg) {
+    width: var(--paradigm-btn-icon-size);
+    height: var(--paradigm-btn-icon-size);
+    flex: 0 0 var(--paradigm-btn-icon-size);
 }
 
 .paradigm-btn:hover:not(:disabled) {
@@ -1815,8 +1856,8 @@ tr.paradigm-editing-row > :last-child {
     border-radius: 8px;
     background: #fff;
     color: var(--p-ink-title);
-    font-size: 0.8rem;
-    font-weight: 450;
+    font-size: var(--paradigm-row-text-font-size);
+    font-weight: var(--paradigm-row-text-font-weight);
     line-height: 1;
     cursor: pointer;
     text-align: left;
@@ -1846,8 +1887,8 @@ tr.paradigm-editing-row > :last-child {
 
 .sort-menu-btn-icon,
 .tz-dropdown-btn-icon {
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
 }
 
 .sort-menu-btn-caret,
