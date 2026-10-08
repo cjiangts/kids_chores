@@ -217,6 +217,10 @@
                 ...(container.__pointHistoryLastOptions || {}),
                 weekAnchorDayKey: anchorDayKey,
             });
+            container.dispatchEvent(new CustomEvent('point-history-week-change', {
+                bubbles: true,
+                detail: { weekAnchorDayKey: anchorDayKey },
+            }));
         });
     }
 

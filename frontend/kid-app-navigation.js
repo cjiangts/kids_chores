@@ -9,19 +9,16 @@
         rewards: '/point-log.html?tab=rewards',
         practice: '/kid-practice-home.html',
         kid_rewards: '/kid-rewards.html',
-        stats: '/stats2.html',
         settings: '/parent-settings.html',
     };
     const PARENT_ITEMS = [
         { key: 'home', label: 'Home', icon: 'home' },
-        { key: 'rewards', label: 'Rewards', icon: 'gift' },
-        { key: 'stats', label: 'Stats', icon: 'bar-chart-3' },
+        { key: 'rewards', label: 'Points', icon: 'star' },
         { key: 'settings', label: 'Settings', icon: 'settings' },
     ];
     const KID_ITEMS = [
         { key: 'practice', label: 'Practice', icon: 'graduation-cap' },
-        { key: 'rewards', label: 'Rewards', icon: 'gift', path: PAGE_PATHS.kid_rewards },
-        { key: 'stats', label: 'Stats', icon: 'bar-chart-3' },
+        { key: 'rewards', label: 'Points', icon: 'star', path: PAGE_PATHS.kid_rewards },
     ];
 
     const state = {
@@ -119,7 +116,6 @@
         const path = window.location.pathname || '';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
         if (path.endsWith('/point-log.html')) return 'rewards';
-        if (path.endsWith('/stats2.html')) return 'stats';
         if (path.endsWith('/parent-settings.html')) return 'settings';
         if (
             path.endsWith('/kid-rewards.html')

@@ -1,125 +1,80 @@
+/* Keep the activity log first on narrow screens; desktop places it in the left column. */
+.kid-rewards-page .point-log-layout {
+    display: flex;
+    flex-direction: column;
+}
+
+.kid-rewards-page #kidRewardsError { order: 0; }
+.kid-rewards-page .point-history-section { order: 1; }
+.kid-rewards-page .kid-rewards-race-section { order: 2; }
+
 @media (min-width: 900px) {
     .kid-rewards-page .point-log-layout {
-        display: block;
-        max-width: 64rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(24rem, 1fr);
+        grid-template-areas:
+            'error error'
+            'history race';
+        align-items: start;
+        gap: var(--section-stack-gap);
+        max-width: 86rem;
         margin-inline: auto;
+    }
+
+    .kid-rewards-page #kidRewardsError { grid-area: error; }
+
+    .kid-rewards-page .point-history-section {
+        grid-area: history;
+    }
+
+    .kid-rewards-page .kid-rewards-race-section {
+        grid-area: race;
     }
 
     .kid-rewards-page .point-history-section {
         margin-bottom: 0;
     }
 
-    .kid-rewards-page .point-history-group-list {
-        --point-history-time-width: 3.25rem;
-        --point-history-column-gap: 0.24rem;
-    }
-
-    .kid-rewards-page .point-history-group-list::before {
-        content: none;
-    }
-
-    .kid-rewards-page .point-history-day-columns {
-        position: relative;
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        column-gap: 1.2rem;
-    }
-
-    .kid-rewards-page .point-history-day-columns::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 50%;
-        width: 1px;
-        background: #d8deee;
-        transform: translateX(-0.5px);
-    }
-
-    .kid-rewards-page .point-history-day-boundary {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        align-items: center;
-        min-height: 2rem;
-        padding-inline: 0.55rem;
-        border: 1px solid #e1e6f4;
-        border-radius: 0.58rem;
-        background: #f7f8fe;
-    }
-
-    .kid-rewards-page .point-history-day-boundary-label {
-        position: static;
-        grid-column: 1 / 2;
-        grid-row: 1;
-        justify-self: start;
-        transform: none;
-        border: 0;
-        background: transparent;
-        padding: 0;
-    }
-
-    .kid-rewards-page .point-history-day-column {
-        display: grid;
-        align-content: start;
-    }
-
-    .kid-rewards-page .point-history-period-marker {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        justify-self: center;
-        grid-row: 1;
-        width: 1.5rem;
-        height: 1.5rem;
-        border-radius: 999px;
-    }
-
-    .kid-rewards-page .point-history-period-marker--am {
-        grid-column: 1 / 3;
-    }
-
-    .kid-rewards-page .point-history-period-marker--pm {
-        grid-column: 3 / 5;
-    }
-
-    .kid-rewards-page .point-history-period-marker--am {
-        background: #fff4c9;
-        color: #b67800;
-    }
-
-    .kid-rewards-page .point-history-period-marker--pm {
-        background: #edeaff;
-        color: #6859d8;
-    }
-
-    .kid-rewards-page .point-history-row,
-    .kid-rewards-page .point-history-row.no-delete,
-    .kid-rewards-page .point-history-row.has-balance.no-delete {
-        grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) auto;
-    }
-
-    .kid-rewards-page .point-history-node {
-        display: none;
-    }
-
-    .kid-rewards-page .point-history-icon {
-        grid-column: 2 / 3;
-    }
-
-    .kid-rewards-page .point-history-main {
-        grid-column: 3 / 4;
-    }
-
-    .kid-rewards-page .point-history-metrics {
-        grid-column: 4 / 5;
-    }
-
-    .kid-rewards-page .activity-timeline-title {
-        font-size: 0.95rem;
-    }
 }
 
 /* The compact, single-line metrics leave room for a denser activity timeline. */
+.kid-rewards-race-workbench { display: grid; gap: 0.7rem; padding-top: 0.65rem; }
+.kid-rewards-race-heading { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+.kid-rewards-race-title, .kid-rewards-board-heading { display: flex; align-items: center; gap: 0.62rem; }
+.kid-rewards-race-title > span, .kid-rewards-board-heading > span { font-size: 1.4rem; }
+.kid-rewards-race-title h2, .kid-rewards-board-heading h2 { margin: 0; color: #243062; font-size: 0.98rem; font-weight: 760; }
+.kid-rewards-race-title p { margin: 0.12rem 0 0; color: #66718f; font-size: 0.72rem; }
+.kid-rewards-week-controls { display: inline-flex; align-items: center; gap: 0.28rem; flex: 0 0 auto; }
+.kid-rewards-week-controls > span:last-child { display: inline-flex; align-items: center; gap: 0.22rem; min-height: 30px; box-sizing: border-box; border-radius: 999px; background: #f4f1ff; color: #6b5cf6; padding: 0 0.68rem; font-size: 0.78rem; font-weight: 620; white-space: nowrap; }
+.kid-rewards-balance-race { display: grid; grid-template-columns: minmax(0, 1fr) minmax(7.6rem, 0.34fr); gap: 0.68rem; align-items: stretch; padding: 0.2rem 0 0.58rem 0.58rem; }
+.kid-rewards-race-loading { display: inline-flex; grid-column: 1 / -1; align-items: center; justify-content: center; gap: 0.5rem; min-height: 7rem; color: #66718f; font-size: 0.82rem; }
+.kid-rewards-race-loading .app-spinner { width: 1.1rem; height: 1.1rem; }
+.kid-rewards-racer-list { display: grid; gap: 0.48rem; }
+.kid-rewards-racer-row { display: grid; grid-template-columns: 40px minmax(4.35rem, 0.3fr) minmax(0, 1fr); gap: 0.5rem; align-items: center; }
+.kid-rewards-racer-meta, .kid-rewards-mini-racer > span:last-child { text-align: center; }
+.kid-rewards-racer-meta > b, .kid-rewards-mini-racer b { display: block; color: var(--paradigm-list-item-name-color); font-size: var(--paradigm-list-item-name-font-size); font-weight: var(--paradigm-list-item-name-font-weight); line-height: var(--paradigm-list-item-name-line-height); }
+.kid-rewards-racer-row em, .kid-rewards-mini-racer em { font-style: normal; }
+.kid-rewards-racer-row > i { height: 0.45rem; overflow: hidden; border-radius: 999px; background: #e7eaf3; }
+.kid-rewards-racer-row > i > span { display: block; height: 100%; border-radius: inherit; background: #6b5cf6; }
+.kid-rewards-race-avatar { position: relative; display: inline-flex; width: 40px; height: 40px; border-radius: 50%; overflow: visible; background: #eef2ff; }
+.kid-rewards-race-avatar img, .kid-rewards-race-avatar > span { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
+.kid-rewards-race-avatar > span { display: grid; place-items: center; color: #6b5cf6; font-weight: 760; }
+.kid-rewards-race-avatar b { position: absolute; top: -0.5rem; left: 50%; transform: translateX(-50%); font-size: 1rem; }
+.kid-rewards-race-lead { display: grid; place-content: center; min-height: 5.9rem; border-radius: 8px; background: #f4f1ff; color: #435184; padding: 0.65rem; text-align: center; }
+.kid-rewards-race-lead strong { color: #435184; font-size: 0.86rem; line-height: 1.1; }
+.kid-rewards-race-lead span { margin-top: 0.22rem; color: #66718f; font-size: 0.72rem; font-weight: 620; }
+.kid-rewards-race-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+.kid-rewards-race-card { border: 1px solid transparent; border-radius: 8px; padding: 0.55rem; }
+.kid-rewards-race-card--earned, .kid-rewards-race-card--improved { background: #eaf8ef; }
+.kid-rewards-race-card--lost, .kid-rewards-race-card--closest { background: #fff0f6; }
+.kid-rewards-race-card h3 { display: flex; align-items: center; gap: 0.35rem; margin: 0 0 0.48rem; color: #177d55; font-size: 0.74rem; }
+.kid-rewards-race-card--lost h3, .kid-rewards-race-card--closest h3 { color: #d61b63; }
+.kid-rewards-race-card > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.35rem; }
+.kid-rewards-mini-racer { display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 0.34rem; justify-self: center; width: 100%; min-width: 0; }
+.kid-rewards-mini-racer .kid-rewards-race-avatar { width: 30px; height: 30px; }
+.kid-rewards-mini-racer > span:last-child { min-width: 0; }
+.kid-rewards-mini-racer b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.76rem; }
+.kid-rewards-mini-racer em { --p-pill-height: 1.22rem; --p-pill-font-size: 0.65rem; --p-pill-font-weight: 680; display: inline-flex; max-width: 100%; margin-top: 0.08rem; padding-inline: 0.32rem; font-size: 0.65rem; }
 .kid-rewards-page .point-history-group {
     gap: 0.08rem;
 }
@@ -129,10 +84,6 @@
 }
 
 @media (max-width: 899px) {
-    .kid-rewards-page .point-history-period-marker {
-        display: none;
-    }
-
     /* Keep an activity's change and resulting balance together on one line. */
     .kid-rewards-page .point-history-metrics {
         flex-direction: row;
@@ -140,4 +91,20 @@
         gap: 0.28rem;
         white-space: nowrap;
     }
+}
+
+@media (max-width: 700px) {
+    .kid-rewards-race-heading { align-items: flex-start; }
+    .kid-rewards-week-controls { gap: 0.22rem; }
+    .kid-rewards-week-controls > span:last-child { padding-inline: 0.54rem; }
+    .kid-rewards-balance-race { grid-template-columns: minmax(0, 1fr) minmax(6.25rem, 0.34fr); gap: 0.56rem; padding: 0.48rem 0 0.48rem 0.48rem; }
+    .kid-rewards-race-lead { min-height: 0; }
+    .kid-rewards-racer-row { grid-template-columns: 36px minmax(4rem, 0.32fr) minmax(0, 1fr); gap: 0.56rem; }
+    .kid-rewards-race-avatar { width: 36px; height: 36px; }
+    .kid-rewards-race-cards { gap: 0.42rem; }
+    .kid-rewards-race-card { padding: 0.48rem; }
+    .kid-rewards-race-card h3 { font-size: 0.68rem; }
+    .kid-rewards-race-card > div { gap: 0.3rem; }
+    .kid-rewards-mini-racer { grid-template-columns: 28px minmax(0, 1fr); gap: 0.3rem; width: 100%; }
+    .kid-rewards-mini-racer .kid-rewards-race-avatar { width: 28px; height: 28px; }
 }

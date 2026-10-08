@@ -36,8 +36,8 @@
         host.classList.remove('hidden');
         host.innerHTML = `
             <a href="/point-log.html?tab=rewards" class="back-btn paradigm-btn page-header-back-btn">
-                ${iconHtml('gift')}
-                <span>Rewards</span>
+                ${iconHtml('star')}
+                <span>Points</span>
             </a>
         `;
         if (typeof window.hydrateIcons === 'function') {

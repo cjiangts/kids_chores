@@ -10,7 +10,7 @@
     <script src="idle-home-redirect.js"></script>
     <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Rewards - The Mommy App</title>
+    <title>Points - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
@@ -25,8 +25,8 @@
         <header class="page-header-with-back page-header-with-actions kid-rewards-header">
             <div class="page-header-row">
                 <h1>
-                    <span class="page-title-icon" aria-hidden="true">🎁</span>
-                    Rewards
+                    <span class="page-title-icon" aria-hidden="true">⭐</span>
+                    Points
                 </h1>
                 <div class="page-header-end">
                     <div id="kidRewardAvatarSwitcher" class="kid-avatar-switcher hidden" role="tablist" aria-label="Kids"></div>
@@ -37,6 +37,18 @@
 
         <main class="point-log-layout">
             <div id="kidRewardsError" class="error hidden"></div>
+
+            <section class="settings-card settings-section paradigm-settings-panel paradigm-settings-panel--content-first kid-rewards-race-section">
+                <div class="settings-card-body kid-rewards-race-workbench">
+                    <div class="kid-rewards-race-heading">
+                        <div class="kid-rewards-race-title"><span aria-hidden="true">🏆</span><div><h2 id="kidRewardsRaceTitle" class="paradigm-panel-heading">This Week's Race</h2><p id="kidRewardsWeekMeta"></p></div></div>
+                        <div class="kid-rewards-week-controls"><span id="kidRewardsDaysLeft"></span></div>
+                    </div>
+                    <div id="kidRewardsBalanceRace" class="kid-rewards-balance-race"></div>
+                    <div class="kid-rewards-board-heading"><span aria-hidden="true">🎯</span><h2 class="paradigm-panel-heading">Race Board</h2></div>
+                    <div id="kidRewardsRaceCards" class="kid-rewards-race-cards"></div>
+                </div>
+            </section>
 
             <section class="settings-card settings-section point-history-section">
                 <div class="settings-card-body">
