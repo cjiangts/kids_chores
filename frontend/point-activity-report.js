@@ -930,7 +930,6 @@ function monthlyTopRules() {
 
 function monthlyTopRulesHtml() {
     const rankedRules = monthlyTopRules();
-    if (!rankedRules.length) return '';
     const config = aggregateActivityConfig();
     const label = config.tone === 'loss' ? 'lost' : (config.tone === 'redeem' ? 'spent' : 'earned');
     return `
@@ -939,7 +938,7 @@ function monthlyTopRulesHtml() {
                 <span class="point-activity-monthly-top-title"><span class="icon" data-icon="crown" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>Top 3</span>
             </div>
             <div class="point-activity-monthly-top-list">
-                ${rankedRules.map((entry, index) => {
+                ${rankedRules.length ? rankedRules.map((entry, index) => {
                     const rule = entry.rule || {};
                     const name = String(rule.name || 'Point activity').trim() || 'Point activity';
                     const icon = eventRuleIconHtml({ rule });
@@ -952,7 +951,7 @@ function monthlyTopRulesHtml() {
                             <span class="point-activity-monthly-top-points">${escapeHtml(`${entry.total.toLocaleString()} ${label}`)}</span>
                         </a>
                     `;
-                }).join('')}
+                }).join('') : '<div class="point-activity-monthly-top-empty">No activity this month.</div>'}
             </div>
         </section>
     `;
@@ -1414,11 +1413,11 @@ function renderCalendar() {
                 <span class="paradigm-panel-heading">${escapeHtml(monthLabel(displayedMonthKey))}</span>
             </h2>
             <div class="point-activity-calendar-month-actions">
-                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="-1" aria-label="Previous month">
-                    <span class="icon" data-icon="chevron-left" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+                <button type="button" class="paradigm-icon-btn paradigm-compact-stepper-button point-activity-calendar-month-btn" data-calendar-month="-1" aria-label="Previous month">
+                    <span class="icon" data-icon="chevron-left" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span>
                 </button>
-                <button type="button" class="paradigm-icon-btn paradigm-panel-action--circle" data-calendar-month="1" aria-label="Next month">
-                    <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
+                <button type="button" class="paradigm-icon-btn paradigm-compact-stepper-button point-activity-calendar-month-btn" data-calendar-month="1" aria-label="Next month">
+                    <span class="icon" data-icon="chevron-right" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span>
                 </button>
             </div>
             <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
@@ -1742,7 +1741,7 @@ pointActivityCalendar?.addEventListener('click', async (event) => {
     if (!button || !pointActivityCalendar.contains(button)) return;
     displayedMonthKey = addMonths(displayedMonthKey, button.dataset.calendarMonth || 0);
     selectedCalendarDayKey = '';
-    render();
+    renderCalendar();
 });
 
 pointActivityProgress?.addEventListener('click', (event) => {
