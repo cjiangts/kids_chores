@@ -967,15 +967,17 @@ function monthlyHighlightsHtml(totals) {
             value: formatCalendarHighlightValue(highlights.total),
         },
         {
-            icon: 'trending-up',
-            label: 'Best daily average',
-            value: highlights.best ? `${highlights.best.label} · ${formatCalendarHighlightValue(highlights.best.average, true)}` : 'No activity',
+            icon: 'bar-chart-3',
+            label: 'Daily avg',
+            value: formatCalendarHighlightValue(highlights.dailyAverage),
             tone: 'best',
         },
         {
-            icon: 'trending-down',
-            label: 'Lowest daily average',
-            value: highlights.worst ? `${highlights.worst.label} · ${formatCalendarHighlightValue(highlights.worst.average, true)}` : 'No activity',
+            icon: 'award',
+            label: '',
+            valueHtml: highlights.best && highlights.worst
+                ? `<span>Best: ${escapeHtml(highlights.best.label)}</span><span>Worst: ${escapeHtml(highlights.worst.label)}</span>`
+                : 'No activity',
             tone: 'worst',
         },
     ];
@@ -986,10 +988,10 @@ function monthlyHighlightsHtml(totals) {
             </div>
             <div class="point-activity-monthly-top-list point-activity-monthly-highlight-list">
                 ${cards.map((card) => `
-                    <div class="point-activity-monthly-highlight-item${card.tone ? ` tone-${card.tone}` : ''}">
+                    <div class="point-activity-monthly-highlight-item${card.tone ? ` tone-${card.tone}` : ''}${card.label ? '' : ' is-titleless'}">
                         <span class="icon" data-icon="${card.icon}" data-icon-size="14" data-icon-stroke="2.4" aria-hidden="true"></span>
-                        <span class="point-activity-monthly-highlight-label">${escapeHtml(card.label)}</span>
-                        <span class="point-activity-monthly-highlight-value">${escapeHtml(card.value)}</span>
+                        ${card.label ? `<span class="point-activity-monthly-highlight-label">${escapeHtml(card.label)}</span>` : ''}
+                        <span class="point-activity-monthly-highlight-value">${card.valueHtml || escapeHtml(card.value)}</span>
                     </div>
                 `).join('')}
             </div>
@@ -1004,6 +1006,7 @@ function monthlyCalendarHighlights(totals) {
     const weekdayStats = weekdayNames.map((label) => ({ label, total: 0, dayCount: 0, hasActivity: false }));
     let total = 0;
     const days = daysInMonth(displayedMonthKey);
+    const todayKey = getTodayDateKeyInTimezone(familyTimezone());
     for (let dayNumber = 1; dayNumber <= days; dayNumber += 1) {
         const key = `${displayedMonthKey}-${String(dayNumber).padStart(2, '0')}`;
         const date = dateFromDayKey(key);
@@ -1012,18 +1015,24 @@ function monthlyCalendarHighlights(totals) {
         const value = isSessionCalendar
             ? Number(entry?.[metricKey]) || 0
             : Number(entry) || 0;
+        total += value;
+        // Daily averages only use fully completed days. Today's result can still change,
+        // and future dates must never dilute the average as zero-value denominators.
+        if (todayKey && key >= todayKey) continue;
         const stat = weekdayStats[weekday];
         stat.dayCount += 1;
         stat.total += value;
         stat.hasActivity ||= value !== 0;
-        total += value;
     }
     const hasAnyActivity = weekdayStats.some((item) => item.hasActivity);
     const ranked = hasAnyActivity
         ? weekdayStats.map((item) => ({ ...item, average: item.total / item.dayCount }))
         : [];
+    const completedDayCount = weekdayStats.reduce((sum, item) => sum + item.dayCount, 0);
+    const completedTotal = weekdayStats.reduce((sum, item) => sum + item.total, 0);
     return {
         total,
+        dailyAverage: completedDayCount ? completedTotal / completedDayCount : 0,
         best: ranked.length ? [...ranked].sort((a, b) => b.average - a.average || a.label.localeCompare(b.label))[0] : null,
         worst: ranked.length ? [...ranked].sort((a, b) => a.average - b.average || a.label.localeCompare(b.label))[0] : null,
     };

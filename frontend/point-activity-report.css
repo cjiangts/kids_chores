@@ -981,6 +981,15 @@ button.point-activity-day.active:focus-visible {
     color: #b26000;
 }
 
+.point-activity-monthly-highlight-item.is-titleless {
+    grid-template-areas: 'icon value';
+}
+
+.point-activity-monthly-highlight-item.is-titleless .point-activity-monthly-highlight-value {
+    display: grid;
+    gap: 0.04rem;
+}
+
 .point-activity-monthly-highlight-label,
 .point-activity-monthly-highlight-value {
     min-width: 0;
