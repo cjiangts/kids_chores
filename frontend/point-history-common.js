@@ -206,7 +206,7 @@
         if (!container || container.dataset.pointHistoryWeekNavBound) return;
         container.dataset.pointHistoryWeekNavBound = '1';
         container.addEventListener('click', (event) => {
-            const button = event.target.closest('[data-history-week-anchor]');
+            const button = event.target.closest('.point-week-nav-btn[data-history-week-anchor]');
             if (!button) return;
             const anchorDayKey = String(button.dataset.historyWeekAnchor || '').trim();
             if (!anchorDayKey) return;
@@ -217,10 +217,7 @@
                 ...(container.__pointHistoryLastOptions || {}),
                 weekAnchorDayKey: anchorDayKey,
             });
-            container.dispatchEvent(new CustomEvent('point-history-week-change', {
-                bubbles: true,
-                detail: { weekAnchorDayKey: anchorDayKey },
-            }));
+            container.__pointHistoryLastOptions?.onWeekChange?.(anchorDayKey, weekStartKey(anchorDayKey));
         });
     }
 
@@ -422,7 +419,6 @@
                     role="tab"
                     aria-selected="${isActive ? 'true' : 'false'}"
                     data-history-day="${escapeHtml(dayKey)}"
-                    ${hasEvents || isActive ? '' : 'disabled'}
                 >
                     <span class="point-week-day-name">${escapeHtml(day ? day.toLocaleDateString([], { timeZone: 'UTC', weekday: 'short' }) : '')}</span>
                     <span class="point-week-day-total ${valueClass}">${escapeHtml(value)}</span>
@@ -860,8 +856,9 @@
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
         }
+        opts.onWeekRendered?.(anchorDayKey, weekStartKey(anchorDayKey));
         const weekDayKeys = weekDayKeysForSelectedDay(anchorDayKey);
-        const activeDayKey = requestedActiveDayKey || (weekDayKeys.includes(todayDayKey) ? todayDayKey : '');
+        const activeDayKey = weekDayKeys.includes(requestedActiveDayKey) ? requestedActiveDayKey : anchorDayKey;
         const displayedActiveDayKey = weekDayKeys.includes(activeDayKey) ? activeDayKey : '';
         const showDelete = opts.showDelete !== false;
         const mode = opts.mode === 'redeemed' ? 'redeemed' : (opts.mode === 'all' ? 'all' : 'points');
@@ -892,7 +889,7 @@
         `
             : `
             <section class="point-history-group activity-timeline-group">
-                <div class="point-empty">${escapeHtml(displayedActiveDayKey ? (opts.emptyDay || 'No point events for this day.') : (opts.emptyWeek || opts.emptyRecent || 'No point activity for this week.'))}</div>
+                <div class="point-empty">${escapeHtml(opts.emptyDay || 'No point events for this day.')}</div>
             </section>
         `;
         container.innerHTML = `${renderWeekHero(scopedEvents, anchorDayKey, displayedActiveDayKey, timezone, mode)}${selectedListHtml}`;

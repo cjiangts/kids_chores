@@ -92,8 +92,22 @@ function weekLabel(startKey) {
     const end = dateFromKey(addDays(startKey, 6));
     if (!start || !end) return '';
     const startText = start.toLocaleDateString([], { timeZone: 'UTC', month: 'short', day: 'numeric' });
-    const endText = end.toLocaleDateString([], { timeZone: start.getUTCMonth() === end.getUTCMonth() ? undefined : 'short', day: 'numeric' });
+    const endText = end.toLocaleDateString([], {
+        timeZone: 'UTC',
+        month: start.getUTCMonth() === end.getUTCMonth() ? undefined : 'short',
+        day: 'numeric',
+    });
     return `${startText} - ${endText}`;
+}
+
+function relativeWeekLabel(startKey, currentStartKey) {
+    const start = dateFromKey(startKey);
+    const currentStart = dateFromKey(currentStartKey);
+    if (!start || !currentStart) return 'This week';
+    const diffWeeks = Math.round((currentStart.getTime() - start.getTime()) / (7 * 24 * 60 * 60 * 1000));
+    if (diffWeeks === 0) return 'This week';
+    if (diffWeeks === 1) return 'Last week';
+    return diffWeeks > 1 ? `-${diffWeeks} weeks` : `+${Math.abs(diffWeeks)} weeks`;
 }
 
 function formatPoints(value) { return `${(Number.parseInt(value, 10) || 0).toLocaleString()} pts`; }
@@ -158,16 +172,13 @@ function weekTimeLeftLabel(now, timezone) {
     return `${hoursLeft} ${hoursLeft === 1 ? 'hour' : 'hours'} left`;
 }
 
-function rowsForRace() {
-    const timezone = selectedFamilyTimezone();
-    const currentStart = currentRaceWeekStart(timezone);
-    if (!selectedRaceWeekStart || selectedRaceWeekStart > currentStart) selectedRaceWeekStart = currentStart;
-    const next = addDays(selectedRaceWeekStart, 7);
-    const previous = addDays(selectedRaceWeekStart, -7);
+function rowsForRace(startKey, timezone) {
+    const next = addDays(startKey, 7);
+    const previous = addDays(startKey, -7);
     return kids.map((kid) => {
         const points = pointDataByKid.get(String(kid.id)) || {};
-        const current = periodSummary(points.events, selectedRaceWeekStart, next, timezone);
-        const last = periodSummary(points.events, previous, selectedRaceWeekStart, timezone);
+        const current = periodSummary(points.events, startKey, next, timezone);
+        const last = periodSummary(points.events, previous, startKey, timezone);
         const ratio = (now, before) => before <= 0 ? (now > 0 ? 100 : 0) : (now / before) * 100;
         return { kid, total: balanceAtWeekEnd(points, next, timezone), earned: current.earned, lost: current.lost, earnedRatio: ratio(current.earned, last.earned), lostRatio: ratio(current.lost, last.lost) };
     });
@@ -179,7 +190,7 @@ function renderRaceCard(theme, icon, title, rows, getter, formatter, higherWins 
     return `<article class="kid-rewards-race-card kid-rewards-race-card--${escapeHtml(theme)}"><h3><span class="icon" data-icon="${icon}" data-icon-size="16" aria-hidden="true"></span>${escapeHtml(title)}</h3><div>${rows.map((row) => `<div class="kid-rewards-mini-racer${hasWinner && winner.kid.id === row.kid.id ? ' is-leader' : ''}">${avatar(row.kid, hasWinner && winner.kid.id === row.kid.id)}<span><b>${escapeHtml(row.kid.name)}</b><em class="point-rule-delta paradigm-pill ${racePillClass(theme)}">${escapeHtml(formatter(getter(row)))}</em></span></div>`).join('')}</div></article>`;
 }
 
-function renderRace() {
+function renderRace(weekStartOverride = '') {
     if (!kids.length) return;
     if (raceLoading) {
         kidRewardsBalanceRace.innerHTML = '<div class="kid-rewards-race-loading"><span class="app-spinner" aria-hidden="true"></span><span>Loading race…</span></div>';
@@ -187,10 +198,12 @@ function renderRace() {
         return;
     }
     const timezone = selectedFamilyTimezone();
-    const rows = rowsForRace();
-    const isCurrentWeek = selectedRaceWeekStart === currentRaceWeekStart(timezone);
-    kidRewardsRaceTitle.textContent = isCurrentWeek ? "This Week's Race" : "Week's Race";
-    kidRewardsWeekMeta.textContent = weekLabel(selectedRaceWeekStart);
+    const currentWeekStart = currentRaceWeekStart(timezone);
+    const raceWeekStart = weekStartOverride || selectedRaceWeekStart || currentWeekStart;
+    const rows = rowsForRace(raceWeekStart, timezone);
+    const isCurrentWeek = raceWeekStart === currentWeekStart;
+    kidRewardsRaceTitle.textContent = relativeWeekLabel(raceWeekStart, currentWeekStart);
+    kidRewardsWeekMeta.textContent = weekLabel(raceWeekStart);
     kidRewardsDaysLeft.innerHTML = isCurrentWeek
         ? `<span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>${escapeHtml(weekTimeLeftLabel(new Date(), timezone))}</span>`
         : `<span class="icon" data-icon="circle-check" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>Completed</span>`;
@@ -259,6 +272,15 @@ function renderHistory() {
         highlightEventId: requestedHistoryEventId,
         mode: 'all',
         emptyDay: 'No point activity for this day.',
+        onWeekChange: (anchorDayKey, nextWeekStart) => {
+            nextWeekStart = nextWeekStart || weekStart(anchorDayKey);
+            selectedRaceWeekStart = nextWeekStart;
+            renderRace(nextWeekStart);
+            window.requestAnimationFrame(() => renderRace(nextWeekStart));
+        },
+        onWeekRendered: (anchorDayKey, renderedWeekStart) => {
+            selectedRaceWeekStart = renderedWeekStart || weekStart(anchorDayKey);
+        },
     });
 }
 
@@ -298,15 +320,14 @@ function handleHistoryDayClick(event) {
     if (!dayButton) return;
     const nextDayKey = String(dayButton.dataset.historyDay || '');
     if (!nextDayKey) return;
-    selectedHistoryDayKey = nextDayKey === selectedHistoryDayKey ? '' : nextDayKey;
+    selectedHistoryDayKey = nextDayKey;
+    kidPointHistory.dataset.pointHistoryWeekAnchorDayKey = nextDayKey;
     renderHistory();
 }
 
 function render() {
     renderKids();
     renderHistory();
-    const historyAnchor = String(kidPointHistory?.dataset.pointHistoryWeekAnchorDayKey || '');
-    if (historyAnchor) selectedRaceWeekStart = weekStart(historyAnchor);
     renderRace();
     hydrateIcons(document);
 }
@@ -355,13 +376,8 @@ async function loadInitialData() {
 }
 
 kidPointHistory?.addEventListener('click', (event) => {
-    if (event.target.closest('[data-history-week-anchor]')) return;
+    if (event.target.closest('.point-week-nav-btn[data-history-week-anchor]')) return;
     handleHistoryDayClick(event);
-});
-
-kidPointHistory?.addEventListener('point-history-week-change', (event) => {
-    selectedRaceWeekStart = weekStart(String(event.detail?.weekAnchorDayKey || ''));
-    renderRace();
 });
 
 loadInitialData().catch((error) => {

@@ -783,7 +783,8 @@ pointHistory.addEventListener('click', async (event) => {
     if (dayButton) {
         const nextDayKey = String(dayButton.dataset.historyDay || '');
         if (!nextDayKey) return;
-        selectedHistoryDayKey = nextDayKey === selectedHistoryDayKey ? '' : nextDayKey;
+        selectedHistoryDayKey = nextDayKey;
+        pointHistory.dataset.pointHistoryWeekAnchorDayKey = nextDayKey;
         renderHistory();
         return;
     }
