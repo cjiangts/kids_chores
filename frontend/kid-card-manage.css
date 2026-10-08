@@ -107,7 +107,6 @@
         }
 
         #openDeckOptInActionBtn .manage-popup-btn-emoji { color: var(--p-accent); }
-        #openPrintableSheetsBtn .manage-popup-btn-emoji { color: #22a45a; }
         #openType4DeckCountsModalBtn .manage-popup-btn-emoji { color: #f59e0b; }
         .manage-popup-modal {
             z-index: 1300;
@@ -1212,7 +1211,7 @@
             }
 
             .cards-bulk-action-message-wrap {
-                justify-content: stretch;
+                justify-content: flex-start;
                 margin-top: -0.08rem;
             }
 
@@ -1304,11 +1303,27 @@
 
         /* Narrow only the shared controls' horizontal footprint on this page. */
         .kid-card-manage-page .queue-stepper.paradigm-compact-stepper {
-            --paradigm-compact-stepper-value-width: 3.33rem;
+            --paradigm-compact-stepper-button-size: 1.25rem;
+            --paradigm-compact-stepper-value-width: 2.5rem;
+            justify-content: space-between;
         }
 
         .kid-card-manage-page .queue-save-pill {
-            min-width: 4.41rem;
+            flex: 0 0 calc(40% - 0.3rem);
+            min-width: 3.55rem;
+            padding-right: 0;
+            padding-left: 0;
+        }
+
+        .kid-card-manage-page .queue-field-controls {
+            flex-wrap: nowrap;
+            gap: 0.3rem;
+            width: 100%;
+        }
+
+        .kid-card-manage-page .queue-field-controls .queue-stepper {
+            flex: 1 1 60%;
+            min-width: 0;
         }
 
         .queue-settings-row {
@@ -2955,26 +2970,40 @@
 
         @media (max-width: 759px) {
             .kid-card-manage-page .queue-actions-layout {
-                flex-wrap: nowrap;
-                align-items: center;
-                justify-content: center;
+                align-items: stretch;
+                justify-content: flex-start;
                 gap: 0.55rem;
                 margin: 0.45rem 0 0.62rem;
+                width: 100%;
+            }
+
+            .kid-card-manage-page .queue-actions-layout #queueSettingsSubgroup,
+            .kid-card-manage-page .queue-actions-layout .deck-setup-actions {
+                flex: 1 1 100%;
+                width: 100%;
             }
 
             .kid-card-manage-page #queueSettingsSubgroup .queue-settings-form {
-                flex-direction: row;
-                flex-wrap: nowrap;
-                align-items: center;
-                justify-content: center;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+                align-items: stretch;
                 gap: 0.48rem;
+                width: 100%;
             }
 
             .kid-card-manage-page #queueSettingsSubgroup .queue-field {
-                flex: 0 0 205px;
-                min-width: 205px;
+                box-sizing: border-box;
+                min-width: 0;
+                width: 100%;
                 padding-left: 0.5rem;
                 padding-right: 0.5rem;
+            }
+
+            .kid-card-manage-page #queueSettingsSubgroup .queue-settings-form:has(> .queue-drill-speed-group.hidden) {
+                grid-template-columns: minmax(0, 1fr);
+                max-width: 14rem;
+                margin-right: auto;
+                margin-left: auto;
             }
 
             .kid-card-manage-page .deck-setup-actions {
@@ -3045,6 +3074,17 @@
 
         .kid-card-manage-page .cards-section > .paradigm-panel-title {
             margin-bottom: 0;
+        }
+
+        .kid-card-manage-page .cards-title-actions {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.36rem;
+        }
+
+        .kid-card-manage-page .cards-title-worksheet-btn {
+            color: #22a45a;
         }
 
         .kid-card-manage-page .cards-section > .paradigm-panel-title + .queue-actions-layout {

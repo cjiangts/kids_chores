@@ -1533,6 +1533,9 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'created_at': card_row[3].isoformat() if card_row[3] else None,
                 'deck_id': int(card_row[4]) if card_row[4] is not None else None,
                 'deck_name': card_row[5] or '',
+                'chinese_back_content': str(
+                    (category_meta_by_key.get(category_key) or {}).get('chinese_back_content') or ''
+                ).strip().lower(),
             },
             'summary': {
                 'attempt_count': attempts_count,

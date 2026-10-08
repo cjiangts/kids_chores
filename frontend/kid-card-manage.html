@@ -41,6 +41,10 @@
             <h2 class="paradigm-panel-title">
                 <a id="cardsSectionTitleIcon" class="paradigm-panel-title-icon kid-card-manage-report-link" aria-label="View activity history" title="View activity history"></a>
                 <span id="cardsSectionTitleText" class="paradigm-panel-heading">Cards</span>
+                <span class="cards-title-actions">
+                    <button id="openDeckDictionaryBtn" type="button" class="paradigm-icon-btn paradigm-panel-action--circle hidden" aria-label="Manage dictionary" title="Manage dictionary"><span data-icon="book-text" data-icon-size="17" data-icon-stroke="2.3"></span></button>
+                    <a id="openPrintableSheetsBtn" class="paradigm-icon-btn paradigm-panel-action--circle cards-title-worksheet-btn hidden" aria-label="Manage worksheets" title="Manage worksheets" href="#"><span data-icon="printer" data-icon-size="17" data-icon-stroke="2.3"></span></a>
+                </span>
             </h2>
             <div class="queue-actions-layout">
                 <div id="queueSettingsSubgroup" class="queue-settings-subgroup">
@@ -56,7 +60,7 @@
                                     <input class="paradigm-compact-stepper-value" type="number" id="sessionCardCount" min="0" step="1" required>
                                     <button type="button" class="queue-stepper-btn paradigm-compact-stepper-button" data-session-count-step="1" aria-label="Increase cards per day"><span data-icon="plus"></span></button>
                                 </div>
-                                <button id="queueSettingsSaveBtn" type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="session" data-state="saved" aria-label="Save cards per day" disabled>Confirm</button>
+                                <button id="queueSettingsSaveBtn" type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="session" data-state="saved" aria-label="Save cards per day" disabled>Save</button>
                             </div>
                         </fieldset>
 
@@ -71,7 +75,7 @@
                                     <input class="paradigm-compact-stepper-value" type="number" id="drillSpeedTargetInput" min="0.5" max="30" step="0.5" required>
                                     <button type="button" class="queue-stepper-btn paradigm-compact-stepper-button" data-drill-speed-step="1" aria-label="Increase speed target"><span data-icon="plus"></span></button>
                                 </div>
-                                <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="speed" data-state="saved" aria-label="Save speed target" disabled>Confirm</button>
+                                <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="speed" data-state="saved" aria-label="Save speed target" disabled>Save</button>
                             </div>
                         </fieldset>
                     </form>
@@ -87,16 +91,6 @@
                         </span>
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
-                    <a id="openPrintableSheetsBtn" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden" href="#">
-                        <span class="manage-popup-btn-text">
-                            <span class="manage-popup-btn-emoji" aria-hidden="true">
-                                <span class="icon" data-icon="printer" data-icon-size="24"></span>
-                            </span>
-                            <span class="manage-popup-btn-title">Worksheets</span>
-                            <span class="manage-popup-btn-meta">Print practice worksheets</span>
-                        </span>
-                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
-                    </a>
                     <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
                         <span class="manage-popup-btn-text">
                             <span class="manage-popup-btn-emoji" aria-hidden="true">
@@ -200,7 +194,6 @@
                         <input id="deckTreeSearchInput" type="text" class="paradigm-search-input" placeholder="Search decks or card content...">
                     </div>
                     <button id="openDeckBulkAddBtn" type="button" class="paradigm-icon-btn paradigm-panel-action--circle hidden" aria-label="Bulk add new decks" title="Bulk add new decks"><span data-icon="list-plus" data-icon-size="17" data-icon-stroke="2.4"></span></button>
-                    <button id="openDeckDictionaryBtn" type="button" class="paradigm-icon-btn paradigm-panel-action--circle hidden" aria-label="Manage dictionary" title="Manage dictionary"><span data-icon="book-text" data-icon-size="17" data-icon-stroke="2.3"></span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">

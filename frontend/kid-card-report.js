@@ -133,13 +133,14 @@ function renderHero(card, attempts, queuePreview) {
     const cardLabel = getCardDisplayLabel(card?.front, card?.back)
         || `#${card?.id || cardId}`;
     const labelText = String(cardLabel || '');
-    const len = [...labelText].length;
-    let sizeClass = 'size-xl';
-    if (len > 12) sizeClass = 'size-sm';
-    else if (len > 6) sizeClass = 'size-md';
-    else if (len > 2) sizeClass = 'size-lg';
-    const labelClasses = ['card-report-hero-icon-text', sizeClass];
-    if (isChineseLikeText(labelText)) labelClasses.push('chinese-specific');
+    const chineseBankMode = getChineseBankMode(card?.chinese_back_content);
+    const heroIconHtml = chineseBankMode && labelText
+        ? `<a class="card-report-hero-icon card-report-hero-icon-link" href="${escapeHtml(buildChineseBankUrl(chineseBankMode, labelText))}" aria-label="Search Chinese Bank for ${escapeHtml(labelText)}">
+                <span class="${getCardReportHeroLabelClasses(labelText)}">${escapeHtml(labelText)}</span>
+            </a>`
+        : `<div class="card-report-hero-icon">
+                <span class="${getCardReportHeroLabelClasses(labelText)}">${escapeHtml(labelText)}</span>
+            </div>`;
 
     const counts = { right: 0, fixed: 0, wrong: 0 };
     attempts.forEach((item) => {
@@ -200,9 +201,7 @@ function renderHero(card, attempts, queuePreview) {
 
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
-            <div class="card-report-hero-icon">
-                <span class="${labelClasses.join(' ')}">${escapeHtml(labelText)}</span>
-            </div>
+            ${heroIconHtml}
             <div class="card-report-hero-content">
                 <div class="report-hero-meta-row">
                     ${metaHtml}
@@ -210,6 +209,27 @@ function renderHero(card, attempts, queuePreview) {
             </div>
         </div>
     `;
+}
+
+function getCardReportHeroLabelClasses(labelText) {
+    const len = [...String(labelText || '')].length;
+    let sizeClass = 'size-xl';
+    if (len > 12) sizeClass = 'size-sm';
+    else if (len > 6) sizeClass = 'size-md';
+    else if (len > 2) sizeClass = 'size-lg';
+    const classes = ['card-report-hero-icon-text', sizeClass];
+    if (isChineseLikeText(labelText)) classes.push('chinese-specific');
+    return classes.join(' ');
+}
+
+function getChineseBankMode(value) {
+    const mode = String(value || '').trim().toLowerCase();
+    return mode === 'pinyin' || mode === 'english' ? mode : '';
+}
+
+function buildChineseBankUrl(mode, search) {
+    const query = new URLSearchParams({ mode, search });
+    return `/chinese-bank.html?${query.toString()}`;
 }
 
 function buildCardReportStatMetaItems(counts) {

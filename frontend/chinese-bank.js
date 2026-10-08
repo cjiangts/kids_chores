@@ -20,6 +20,7 @@ const MODE = (() => {
     const raw = (new URLSearchParams(window.location.search).get('mode') || '').trim().toLowerCase();
     return raw === 'english' ? 'english' : 'pinyin';
 })();
+const INITIAL_SEARCH = (new URLSearchParams(window.location.search).get('search') || '').trim();
 
 const MODE_CONFIG = {
     pinyin: {
@@ -607,5 +608,6 @@ csvClearBtn.addEventListener('click', () => {
 });
 
 applyModeChrome();
+searchInput.value = INITIAL_SEARCH;
 renderSortUpdatedTh();
 loadPage();

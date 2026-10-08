@@ -762,10 +762,6 @@ function applyCategoryUiText() {
     if (openPrintableSheetsBtn) {
         const supportsPrintableSheets = isType4Behavior() || (isType2Behavior() && isChineseSpecificLogic);
         openPrintableSheetsBtn.classList.toggle('hidden', !supportsPrintableSheets);
-        const printableTitleEl = openPrintableSheetsBtn.querySelector('.manage-popup-btn-title');
-        if (printableTitleEl) {
-            printableTitleEl.textContent = 'Worksheets';
-        }
         if (supportsPrintableSheets) {
             const printParams = new URLSearchParams();
             printParams.set('id', String(kidId || ''));

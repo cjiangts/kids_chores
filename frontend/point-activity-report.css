@@ -402,8 +402,8 @@
 .point-activity-calendar-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.8rem;
+    justify-content: flex-start;
+    gap: 0.5rem;
     margin-bottom: 0.5rem;
 }
 
@@ -420,7 +420,7 @@
 
 .point-activity-calendar-metric-toggle {
     width: fit-content;
-    margin: 0 auto 0.72rem;
+    margin: 0;
 }
 
 .point-activity-subject-filters {
@@ -557,6 +557,54 @@
     font-size: 0.72rem;
     font-weight: 650;
     text-align: center;
+}
+
+.point-activity-calendar-body--has-monthly-top {
+    display: grid;
+    grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+    align-items: start;
+    gap: 0.62rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-weekdays,
+.point-activity-calendar-body--has-monthly-top .point-activity-calendar-grid {
+    gap: 0.2rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-weekdays {
+    margin-bottom: 0.22rem;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day {
+    min-height: 2.36rem;
+    padding: 0.22rem;
+    border-radius: 6px;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-number {
+    top: 0.22rem;
+    left: 0.24rem;
+    font-size: 0.54rem;
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-total {
+    font-size: 0.56rem;
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-note-dot {
+    top: 0.22rem;
+    right: 0.22rem;
+    width: 0.25rem;
+    height: 0.25rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day.is-today .point-activity-day-number::before {
+    width: 1.08rem;
+    height: 1.08rem;
 }
 
 .point-activity-day {
@@ -720,6 +768,37 @@ button.point-activity-day:focus-visible {
     font-variant-numeric: tabular-nums;
 }
 
+.point-activity-day-unit {
+    color: currentColor;
+    font-size: 0.58rem;
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: 1;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-metrics {
+    position: absolute;
+    inset: 0;
+    display: block;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-total {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-unit {
+    position: absolute;
+    top: calc(50% + 0.34rem);
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-day-unit {
+    font-size: 0.42rem;
+}
+
 .point-activity-day-note-dot {
     position: absolute;
     right: 0.38rem;
@@ -761,6 +840,15 @@ button.point-activity-day:focus-visible {
     border-top: 1px solid rgba(217, 223, 239, 0.8);
 }
 
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top {
+    align-self: stretch;
+    margin-top: 0;
+    padding: 0 0 0 0.62rem;
+    border-top: 0;
+    border-left: 1px solid rgba(217, 223, 239, 0.9);
+    min-width: 0;
+}
+
 .point-activity-monthly-top-head {
     display: flex;
     align-items: center;
@@ -791,6 +879,101 @@ button.point-activity-day:focus-visible {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.42rem;
     margin-top: 0.52rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-head {
+    justify-content: flex-start;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-list {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.3rem;
+    margin-top: 0.34rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-item {
+    grid-template-columns: auto 22px minmax(0, 1fr);
+    column-gap: 0.22rem;
+    padding: 0.3rem;
+    border-radius: 7px;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-rank,
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-name,
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-points {
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-icon,
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-icon .point-activity-event-rule-icon {
+    width: 22px;
+    height: 22px;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-icon .point-activity-event-rule-icon {
+    border-radius: 6px;
+    font-size: 0.78rem;
+}
+
+.point-activity-calendar-body--has-monthly-top .point-activity-monthly-top-icon .point-activity-event-subject-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.point-activity-monthly-highlight-list {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.point-activity-monthly-highlight-item {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr);
+    grid-template-areas:
+        'icon label'
+        'icon value';
+    align-items: center;
+    column-gap: 0.28rem;
+    row-gap: 0.04rem;
+    min-width: 0;
+    padding: 0.34rem;
+    border: 1px solid #e0e6f2;
+    border-radius: 7px;
+    background: #f8faff;
+}
+
+.point-activity-monthly-highlight-item > .icon {
+    grid-area: icon;
+    color: #5b6acf;
+}
+
+.point-activity-monthly-highlight-item.tone-best > .icon,
+.point-activity-monthly-highlight-item.tone-best .point-activity-monthly-highlight-value {
+    color: #168454;
+}
+
+.point-activity-monthly-highlight-item.tone-worst > .icon,
+.point-activity-monthly-highlight-item.tone-worst .point-activity-monthly-highlight-value {
+    color: #b26000;
+}
+
+.point-activity-monthly-highlight-label,
+.point-activity-monthly-highlight-value {
+    min-width: 0;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    line-height: var(--paradigm-list-item-sub-line-height);
+    overflow-wrap: anywhere;
+}
+
+.point-activity-monthly-highlight-label {
+    grid-area: label;
+    color: #586585;
+}
+
+.point-activity-monthly-highlight-value {
+    grid-area: value;
+    color: #27366f;
 }
 
 .point-activity-monthly-top-item {

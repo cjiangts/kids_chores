@@ -33,7 +33,8 @@ let selectedCalendarDayKey = '';
 let activityLogQuery = '';
 let currentCalendarMetric = (() => {
     try {
-        return localStorage.getItem('pointActivityReport.calendarMetric') === 'cards' ? 'cards' : 'minutes';
+        const stored = localStorage.getItem('pointActivityReport.calendarMetric');
+        return ['minutes', 'cards', 'points', 'count'].includes(stored) ? stored : 'minutes';
     } catch (_err) {
         return 'minutes';
     }
@@ -673,6 +674,17 @@ function calendarTotalsByDay(events) {
     return totals;
 }
 
+function calendarEventCountsByDay(events) {
+    const timezone = familyTimezone();
+    const counts = new Map();
+    events.forEach((event) => {
+        const key = dayKey(parseDate(event?.createdAt), timezone);
+        if (!key || key.slice(0, 7) !== displayedMonthKey) return;
+        counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return counts;
+}
+
 function calendarSessionsByDay() {
     const timezone = familyTimezone();
     const totals = new Map();
@@ -714,7 +726,7 @@ function calendarLevel(total, maxTotal) {
     return Math.min(5, Math.max(1, Math.ceil((absTotal / max) * 5)));
 }
 
-function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
+function calendarCellHtml(dayNumber, totals, noteDays, maxTotal, eventCounts = new Map()) {
     const key = `${displayedMonthKey}-${String(dayNumber).padStart(2, '0')}`;
     const isToday = key === getTodayDateKeyInTimezone(familyTimezone());
     const hasTotal = totals.has(key);
@@ -726,9 +738,11 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
     const cardCount = isSessionCalendar ? Number.parseInt(total.cards, 10) || 0 : 0;
     const wrongCount = isSessionCalendar ? Number.parseInt(total.wrong, 10) || 0 : 0;
     const pointTotalValue = isSessionCalendar ? 0 : Number(total) || 0;
+    const eventCount = isSessionCalendar ? 0 : Number(eventCounts.get(key)) || 0;
     const showingCards = isSessionCalendar && currentCalendarMetric === 'cards';
+    const showingCount = !isSessionCalendar && currentCalendarMetric === 'count';
     const sessionMetric = showingCards ? cardCount : minutes;
-    const metricTotal = isSessionCalendar ? sessionMetric : pointTotalValue;
+    const metricTotal = isSessionCalendar ? sessionMetric : (showingCount ? eventCount : pointTotalValue);
     const level = calendarLevel(metricTotal, maxTotal);
     const calendarTone = isAllOffAppMode()
         ? (selectedAllOffAppRuleKind
@@ -737,11 +751,13 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
         : typeBadge(currentRule || {}).tone;
     const canSelect = isSessionCalendar
         ? sessionCount > 0
-        : (isAllOffAppMode() ? hasTotal : Math.abs(pointTotalValue) > 0);
+        : (showingCount ? eventCount > 0 : (isAllOffAppMode() ? hasTotal : Math.abs(pointTotalValue) > 0));
     const tagName = canSelect ? 'button' : 'div';
     const ariaMetric = isSessionCalendar
         ? `${formatCalendarMinutes(minutes)} minutes, ${cardCount.toLocaleString()} cards`
-        : `${isAllOffAppMode() ? formatSignedPoints(pointTotalValue) : `${Math.abs(pointTotalValue).toLocaleString()} points`}`;
+        : (showingCount
+            ? `${eventCount.toLocaleString()} activities`
+            : `${isAllOffAppMode() ? formatSignedPoints(pointTotalValue) : `${Math.abs(pointTotalValue).toLocaleString()} points`}`);
     const attrs = canSelect
         ? `type="button" data-calendar-day="${escapeHtml(key)}" aria-label="${escapeHtml(`${shortDateLabel(key)} ${ariaMetric}`)}"`
         : '';
@@ -749,7 +765,8 @@ function calendarCellHtml(dayNumber, totals, noteDays, maxTotal) {
         <${tagName} class="point-activity-day${hasTotal ? ` has-total level-${level}` : ''}${hasNote ? ' has-note' : ''}${isToday ? ' is-today' : ''}${selectedCalendarDayKey === key ? ' active' : ''} tone-${escapeHtml(calendarTone)}" ${attrs}>
             <span class="point-activity-day-number">${dayNumber}</span>
             <span class="point-activity-day-metrics${isSessionCalendar ? ' point-activity-day-metrics--session' : ''}">
-                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : (isAllOffAppMode() ? `${pointTotalValue >= 0 ? '+' : ''}${pointTotalValue.toLocaleString()}` : Math.abs(pointTotalValue).toLocaleString())) : '0'}</span>
+                <span class="point-activity-day-total">${hasTotal ? escapeHtml(isSessionCalendar ? (showingCards ? cardCount.toLocaleString() : formatCalendarMinutes(minutes)) : (showingCount ? eventCount.toLocaleString() : (isAllOffAppMode() ? `${pointTotalValue >= 0 ? '+' : ''}${pointTotalValue.toLocaleString()}` : Math.abs(pointTotalValue).toLocaleString()))) : '0'}</span>
+                <span class="point-activity-day-unit">${isSessionCalendar ? (showingCards ? 'cards' : 'min') : (showingCount ? 'times' : 'pts')}</span>
             </span>
             ${isSessionCalendar && wrongCount > 0 ? `
                 <span class="point-activity-day-note-dot" aria-label="${escapeHtml(`${wrongCount} wrong cards`)}"></span>
@@ -919,8 +936,7 @@ function monthlyTopRulesHtml() {
     return `
         <section class="point-activity-monthly-top" aria-label="Monthly top three">
             <div class="point-activity-monthly-top-head">
-                <span class="point-activity-monthly-top-title"><span class="icon" data-icon="trophy" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>Monthly Top 3</span>
-                <span>${escapeHtml(monthLabel(displayedMonthKey))}</span>
+                <span class="point-activity-monthly-top-title"><span class="icon" data-icon="crown" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>Top 3</span>
             </div>
             <div class="point-activity-monthly-top-list">
                 ${rankedRules.map((entry, index) => {
@@ -940,6 +956,92 @@ function monthlyTopRulesHtml() {
             </div>
         </section>
     `;
+}
+
+function monthlyHighlightsHtml(totals) {
+    if (isAllOffAppMode()) return '';
+    const highlights = monthlyCalendarHighlights(totals);
+    const cards = [
+        {
+            icon: 'calendar',
+            label: 'Monthly total',
+            value: formatCalendarHighlightValue(highlights.total),
+        },
+        {
+            icon: 'trending-up',
+            label: 'Best daily average',
+            value: highlights.best ? `${highlights.best.label} · ${formatCalendarHighlightValue(highlights.best.average, true)}` : 'No activity',
+            tone: 'best',
+        },
+        {
+            icon: 'trending-down',
+            label: 'Lowest daily average',
+            value: highlights.worst ? `${highlights.worst.label} · ${formatCalendarHighlightValue(highlights.worst.average, true)}` : 'No activity',
+            tone: 'worst',
+        },
+    ];
+    return `
+        <section class="point-activity-monthly-top point-activity-monthly-highlights" aria-label="Monthly highlights">
+            <div class="point-activity-monthly-top-head">
+                <span class="point-activity-monthly-top-title"><span class="icon" data-icon="sparkles" data-icon-size="17" data-icon-stroke="2.5" aria-hidden="true"></span>Highlights</span>
+            </div>
+            <div class="point-activity-monthly-top-list point-activity-monthly-highlight-list">
+                ${cards.map((card) => `
+                    <div class="point-activity-monthly-highlight-item${card.tone ? ` tone-${card.tone}` : ''}">
+                        <span class="icon" data-icon="${card.icon}" data-icon-size="14" data-icon-stroke="2.4" aria-hidden="true"></span>
+                        <span class="point-activity-monthly-highlight-label">${escapeHtml(card.label)}</span>
+                        <span class="point-activity-monthly-highlight-value">${escapeHtml(card.value)}</span>
+                    </div>
+                `).join('')}
+            </div>
+        </section>
+    `;
+}
+
+function monthlyCalendarHighlights(totals) {
+    const isSessionCalendar = isInAppChore();
+    const metricKey = currentCalendarMetric === 'cards' ? 'cards' : 'minutes';
+    const weekdayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const weekdayStats = weekdayNames.map((label) => ({ label, total: 0, dayCount: 0, hasActivity: false }));
+    let total = 0;
+    const days = daysInMonth(displayedMonthKey);
+    for (let dayNumber = 1; dayNumber <= days; dayNumber += 1) {
+        const key = `${displayedMonthKey}-${String(dayNumber).padStart(2, '0')}`;
+        const date = dateFromDayKey(key);
+        const weekday = date ? weekdayIndexMondayFirst(date) : 0;
+        const entry = totals.get(key);
+        const value = isSessionCalendar
+            ? Number(entry?.[metricKey]) || 0
+            : Number(entry) || 0;
+        const stat = weekdayStats[weekday];
+        stat.dayCount += 1;
+        stat.total += value;
+        stat.hasActivity ||= value !== 0;
+        total += value;
+    }
+    const hasAnyActivity = weekdayStats.some((item) => item.hasActivity);
+    const ranked = hasAnyActivity
+        ? weekdayStats.map((item) => ({ ...item, average: item.total / item.dayCount }))
+        : [];
+    return {
+        total,
+        best: ranked.length ? [...ranked].sort((a, b) => b.average - a.average || a.label.localeCompare(b.label))[0] : null,
+        worst: ranked.length ? [...ranked].sort((a, b) => a.average - b.average || a.label.localeCompare(b.label))[0] : null,
+    };
+}
+
+function formatCalendarHighlightValue(value, isAverage = false) {
+    const number = Number(value) || 0;
+    const rounded = isAverage && !Number.isInteger(number) ? Math.round(number * 10) / 10 : Math.round(number);
+    if (isInAppChore()) {
+        return currentCalendarMetric === 'cards'
+            ? `${rounded.toLocaleString()} cards${isAverage ? ' / day' : ''}`
+            : `${rounded.toLocaleString()} min${isAverage ? ' / day' : ''}`;
+    }
+    if (currentCalendarMetric === 'count') {
+        return `${rounded.toLocaleString()} times${isAverage ? ' / day' : ''}`;
+    }
+    return `${rounded > 0 ? '+' : ''}${rounded.toLocaleString()} pts${isAverage ? ' / day' : ''}`;
 }
 
 function renderSessionDayDetails() {
@@ -1278,21 +1380,32 @@ function renderProgressPanel() {
 
 function renderCalendar() {
     if (!pointActivityCalendar) return;
+    if (isInAppChore()) {
+        currentCalendarMetric = currentCalendarMetric === 'cards' ? 'cards' : 'minutes';
+    } else {
+        currentCalendarMetric = currentCalendarMetric === 'count' ? 'count' : 'points';
+    }
     ensureDisplayedMonth();
     const firstDay = monthDateFromKey(displayedMonthKey);
     const leadingBlanks = firstDay ? weekdayIndexMondayFirst(firstDay) : 0;
     const totalDays = daysInMonth(displayedMonthKey);
-    const totals = isInAppChore() ? calendarSessionsByDay() : calendarTotalsByDay(visibleEvents());
+    const pointTotals = isInAppChore() ? null : calendarTotalsByDay(visibleEvents());
+    const eventCounts = isInAppChore() ? new Map() : calendarEventCountsByDay(visibleEvents());
+    const totals = isInAppChore() ? calendarSessionsByDay() : pointTotals;
+    const displayTotals = isInAppChore()
+        ? totals
+        : (currentCalendarMetric === 'count' ? eventCounts : totals);
     const noteDays = isInAppChore() ? new Set() : calendarNoteDays(visibleEvents());
-    const maxTotal = Math.max(1, ...[...totals.values()].map((value) => (
+    const maxTotal = Math.max(1, ...[...displayTotals.values()].map((value) => (
         isInAppChore()
             ? Math.abs(Number(currentCalendarMetric === 'cards' ? value?.cards : value?.minutes) || 0)
             : Math.abs(value)
     )));
     const cells = [
         ...Array.from({ length: leadingBlanks }, () => '<div class="point-activity-day is-blank" aria-hidden="true"></div>'),
-        ...Array.from({ length: totalDays }, (_, index) => calendarCellHtml(index + 1, totals, noteDays, maxTotal)),
+        ...Array.from({ length: totalDays }, (_, index) => calendarCellHtml(index + 1, totals, noteDays, maxTotal, eventCounts)),
     ];
+    const sidebarHtml = isAllOffAppMode() ? monthlyTopRulesHtml() : monthlyHighlightsHtml(displayTotals);
 
     pointActivityCalendar.innerHTML = `
         <div class="point-activity-calendar-head">
@@ -1308,20 +1421,27 @@ function renderCalendar() {
                     <span class="icon" data-icon="chevron-right" data-icon-size="16" data-icon-stroke="2.8" aria-hidden="true"></span>
                 </button>
             </div>
-        </div>
-        ${isInAppChore() ? `
             <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
-                <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
-                <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>
+                ${isInAppChore() ? `
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>
+                ` : `
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'points' ? ' active' : ''}" data-calendar-metric="points">Points</button>
+                    <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'count' ? ' active' : ''}" data-calendar-metric="count">Count</button>
+                `}
             </div>
-        ` : ''}
-        <div class="point-activity-weekdays" aria-hidden="true">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
         </div>
-        <div class="point-activity-calendar-grid">
-            ${cells.join('')}
+        <div class="point-activity-calendar-body${sidebarHtml ? ' point-activity-calendar-body--has-monthly-top' : ''}">
+            <div class="point-activity-calendar-main">
+                <div class="point-activity-weekdays" aria-hidden="true">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                </div>
+                <div class="point-activity-calendar-grid">
+                    ${cells.join('')}
+                </div>
+            </div>
+            ${sidebarHtml}
         </div>
-        ${monthlyTopRulesHtml()}
         ${renderDayDetails()}
     `;
     window.hydrateIcons?.(pointActivityCalendar);
@@ -1592,7 +1712,10 @@ pointActivityHero?.addEventListener('click', async (event) => {
 pointActivityCalendar?.addEventListener('click', async (event) => {
     const metricButton = event.target.closest('[data-calendar-metric]');
     if (metricButton && pointActivityCalendar.contains(metricButton)) {
-        currentCalendarMetric = String(metricButton.dataset.calendarMetric || '') === 'cards' ? 'cards' : 'minutes';
+        const requestedMetric = String(metricButton.dataset.calendarMetric || '');
+        currentCalendarMetric = isInAppChore()
+            ? (requestedMetric === 'cards' ? 'cards' : 'minutes')
+            : (requestedMetric === 'count' ? 'count' : 'points');
         try { localStorage.setItem('pointActivityReport.calendarMetric', currentCalendarMetric); } catch (_err) {}
         renderCalendar();
         return;
@@ -1606,6 +1729,10 @@ pointActivityCalendar?.addEventListener('click', async (event) => {
             return;
         }
         selectedCalendarDayKey = nextDayKey;
+        dayButton.classList.add('active');
+        if (isInAppChore()) {
+            await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+        }
         renderCalendar();
         await loadSelectedSessionDetails();
         renderCalendar();
