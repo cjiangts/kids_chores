@@ -15,6 +15,16 @@
     gap: 0.72rem;
 }
 
+@media (min-width: 800px) {
+    .point-activity-hero-top {
+        grid-template-columns: 74px minmax(0, 1fr) 50%;
+    }
+
+    .point-activity-kids {
+        max-width: none;
+    }
+}
+
 .point-activity-icon {
     display: grid;
     place-items: center;
@@ -160,8 +170,8 @@
 }
 
 .point-activity-title {
-    font-size: 0.72rem;
-    font-weight: 650;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1.1;
     overflow-wrap: anywhere;
 }
@@ -169,7 +179,8 @@
 .point-activity-title-row {
     display: flex;
     align-items: center;
-    gap: 0.42rem;
+    column-gap: 0.42rem;
+    row-gap: 0.08rem;
     min-width: 0;
     flex-wrap: wrap;
 }
@@ -214,8 +225,8 @@
     align-items: center;
     gap: 0.35rem;
     color: #697692;
-    font-size: 0.72rem;
-    font-weight: 650;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1.1;
     white-space: nowrap;
 }
@@ -246,8 +257,8 @@
     width: min(13rem, 45vw);
     padding: 0.2rem 0.35rem;
     color: var(--paradigm-list-item-name-color);
-    font-size: 0.72rem;
-    font-weight: 650;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1.1;
 }
 
@@ -286,8 +297,8 @@
     align-items: center;
     gap: 0.2rem;
     color: #178754;
-    font-size: 0.7rem;
-    font-weight: 700;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1.1;
     white-space: nowrap;
 }
@@ -320,7 +331,7 @@
     appearance: none;
     -webkit-appearance: none;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 14px;
+    grid-template-columns: 34px minmax(0, 1fr);
     align-items: center;
     gap: 0.38rem;
     min-height: 3.2rem;
@@ -332,10 +343,6 @@
     color: #10175a;
     text-align: left;
     cursor: pointer;
-}
-
-.point-activity-kid-card.no-chevron {
-    grid-template-columns: 34px minmax(0, 1fr);
 }
 
 .point-activity-kid-card.active {
@@ -374,8 +381,8 @@
 .point-activity-kid-points {
     display: block;
     margin-top: 0.12rem;
-    font-size: 0.86rem;
-    font-weight: 800;
+    font-size: 0.84rem;
+    font-weight: 620;
     line-height: 1.12;
     font-variant-numeric: tabular-nums;
 }
@@ -391,12 +398,17 @@
 
 .point-activity-kid-count--sessions {
     display: flex;
-    flex-direction: column;
-    gap: 0.04rem;
+    flex-direction: row;
+    gap: 0.28rem;
 }
 
 .point-activity-kid-count--sessions > span {
     white-space: nowrap;
+}
+
+.point-activity-kid-count--sessions > span + span::before {
+    content: '·';
+    margin-right: 0.28rem;
 }
 
 .point-activity-calendar-head {
@@ -598,7 +610,7 @@
 }
 
 .point-activity-calendar-body--has-monthly-top .point-activity-day-total {
-    font-size: 0.56rem;
+    font-size: 0.66rem;
     font-weight: var(--paradigm-list-item-sub-font-weight);
 }
 

@@ -555,7 +555,7 @@ function kidFilterControlsHtml(allEvents) {
                     const sessionTotals = sessionTotalsForKid(kid.id);
                     const sessionCardTotal = sessionCardTotalForKid(kid.id);
                     return `
-                        <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}${isSessionsMetricView() ? ' no-chevron' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
+                        <button type="button" class="point-activity-kid-card${selectedKidId === String(kid.id) ? ' active' : ''}" data-point-filter-kid="${escapeHtml(kid.id)}" style="--kid-color: ${escapeHtml(colorForKid(kid))}">
                             ${avatarHtml(kid)}
                             <span>
                                 <span class="point-activity-kid-name">${escapeHtml(kid.name || 'Kid')}</span>
@@ -564,7 +564,6 @@ function kidFilterControlsHtml(allEvents) {
                                     ? `<span class="point-activity-kid-count point-activity-kid-count--sessions"><span>${escapeHtml(formatSessionCount(sessionTotals.count))}</span><span>${escapeHtml(`${sessionCardTotal.toLocaleString()} ${sessionCardTotal === 1 ? 'card' : 'cards'}`)}</span></span>`
                                     : `<span class="point-activity-kid-count">${escapeHtml(`${kidEvents.length} ${kidEvents.length === 1 ? 'time' : 'times'}`)}</span>`}
                             </span>
-                            ${isSessionsMetricView() ? '' : '<span class="icon" data-icon="chevron-right" data-icon-size="15" data-icon-stroke="2.7" aria-hidden="true"></span>'}
                         </button>
                     `;
             }).join('')}

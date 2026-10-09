@@ -1733,7 +1733,17 @@ function applyKidInfo(kid) {
     currentKidName = String(kid.name || '').trim();
     applyCategoryUiText();
 
-    kidNameEl.textContent = 'Manage Cards';
+    if (window.PracticeUiCommon?.applyKidPageTitle) {
+        window.PracticeUiCommon.applyKidPageTitle({
+            titleEl: kidNameEl?.closest('h1'),
+            iconEl: kidNameEl?.closest('h1')?.querySelector('.page-title-icon'),
+            labelEl: kidNameEl,
+            kid,
+            label: 'Cards',
+        });
+    } else if (kidNameEl) {
+        kidNameEl.textContent = 'Cards';
+    }
     includeOrphanByCategory = toCategoryMap(kid[INCLUDE_ORPHAN_BY_CATEGORY_FIELD]);
     baselineIncludeOrphanInQueue = Boolean(includeOrphanByCategory[categoryKey]);
     stagedIncludeOrphanInQueue = baselineIncludeOrphanInQueue;

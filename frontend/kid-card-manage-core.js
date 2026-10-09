@@ -70,8 +70,6 @@ const {
 const categoryKey = normalizeCategoryKey(params.get('categoryKey'));
 
 const kidNameEl = document.getElementById('kidName');
-const kidAvatarSwitcher = document.getElementById('kidAvatarSwitcher');
-let cachedKidsForNav = [];
 const errorMessage = document.getElementById('errorMessage');
 const successMessage = document.getElementById('successMessage');
 
@@ -665,50 +663,11 @@ async function loadKidsAndApplyKidInfo() {
         const errorMessage = kids && kids.error ? kids.error : `Failed to load kids (HTTP ${response.status})`;
         throw new Error(errorMessage);
     }
-    cachedKidsForNav = Array.isArray(kids) ? kids : [];
-    const currentKid = cachedKidsForNav.find((kid) => String(kid && kid.id) === String(kidId));
+    const currentKid = (Array.isArray(kids) ? kids : []).find((kid) => String(kid && kid.id) === String(kidId));
     if (!currentKid) {
         throw new Error('Kid not found');
     }
     applyKidInfo(currentKid);
-    renderKidNav();
-}
-
-function renderKidNav() {
-    if (!kidAvatarSwitcher) {
-        return;
-    }
-    const kids = Array.isArray(cachedKidsForNav) ? cachedKidsForNav : [];
-    if (window.KidAppNavigation?.renderKidAvatarSwitcher) {
-        window.KidAppNavigation.renderKidAvatarSwitcher(kidAvatarSwitcher, kids, {
-            selectedKidId: String(kidId || ''),
-            hrefForKid: (kid) => buildKidCardManageHref(String(kid?.id || ''), kid),
-            persist: false,
-        });
-        return;
-    }
-    kidAvatarSwitcher.classList.add('hidden');
-    kidAvatarSwitcher.innerHTML = '';
-}
-
-function buildKidCardManageHref(targetKidId, targetKid) {
-    const qs = new URLSearchParams();
-    qs.set('id', String(targetKidId));
-    const optedInKeys = Array.isArray(targetKid?.optedInDeckCategoryKeys)
-        ? targetKid.optedInDeckCategoryKeys.map(normalizeCategoryKey).filter(Boolean)
-        : [];
-    let resolvedCategoryKey = '';
-    if (categoryKey && (optedInKeys.length === 0 || optedInKeys.includes(categoryKey))) {
-        resolvedCategoryKey = categoryKey;
-    } else if (optedInKeys.length > 0) {
-        resolvedCategoryKey = optedInKeys[0];
-    } else if (categoryKey) {
-        resolvedCategoryKey = categoryKey;
-    }
-    if (resolvedCategoryKey) {
-        qs.set('categoryKey', resolvedCategoryKey);
-    }
-    return `/kid-card-manage.html?${qs.toString()}`;
 }
 
 function updatePageTitle() {

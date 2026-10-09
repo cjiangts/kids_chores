@@ -692,6 +692,23 @@
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
+.point-week-metric:not(.is-readonly) {
+    border: 1.5px solid #c3cdec;
+    box-shadow: 0 2px 4px rgba(47, 61, 118, 0.18);
+}
+
+.point-week-metric.earned:not(.is-readonly) {
+    border-color: #83cfa8;
+}
+
+.point-week-metric.lost:not(.is-readonly) {
+    border-color: #efa5bb;
+}
+
+.point-week-metric.spent:not(.is-readonly) {
+    border-color: #e7c783;
+}
+
 .point-week-metric:not(.is-readonly):hover,
 .point-week-metric:not(.is-readonly):focus-visible {
     transform: translateY(-1px);

@@ -353,28 +353,9 @@
 
     function placeNav(nav) {
         const headerRow = document.querySelector('.page-header-with-back .page-header-row');
-        // On mobile the nav is a fixed bottom bar — keep it as a direct child of
-        // <body> so iOS WebKit pins it to the viewport instead of trapping it
-        // inside the (flex) header and letting it drift while the page scrolls.
-        // The in-header placement is desktop-only (centered pill needs the
-        // relatively-positioned header row as its containing block).
-        if (!headerRow || isMobileNavLayout()) {
-            if (headerRow) headerRow.classList.remove('kid-app-nav-row');
-            if (nav.parentNode !== document.body) {
-                document.body.appendChild(nav);
-            }
-            return;
-        }
-        headerRow.classList.add('kid-app-nav-row');
-        const actions = Array.from(headerRow.children).find((el) => (
-            el.classList.contains('page-header-end') || el.classList.contains('page-header-actions')
-        ));
-        if (actions && nav.nextSibling !== actions) {
-            headerRow.insertBefore(nav, actions);
-            return;
-        }
-        if (!actions && nav.parentNode !== headerRow) {
-            headerRow.appendChild(nav);
+        if (headerRow) headerRow.classList.remove('kid-app-nav-row');
+        if (nav.parentNode !== document.body) {
+            document.body.appendChild(nav);
         }
     }
 
