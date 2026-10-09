@@ -341,6 +341,7 @@ async function loadPointsForSelectedKid() {
     const cached = pointDataByKid.get(selectedKidId);
     const data = cached || await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
+    window.KidAppNavigation?.cacheKidAvatarPointData?.(selectedKidId, pointData);
 }
 
 async function loadRacePoints() {
@@ -352,7 +353,11 @@ async function loadRacePoints() {
             return null;
         }
     }));
-    entries.filter(Boolean).forEach(([kidId, data]) => pointDataByKid.set(kidId, data || { totalPoints: 0, events: [] }));
+    entries.filter(Boolean).forEach(([kidId, data]) => {
+        const pointData = data || { totalPoints: 0, events: [] };
+        pointDataByKid.set(kidId, pointData);
+        window.KidAppNavigation?.cacheKidAvatarPointData?.(kidId, pointData);
+    });
     raceLoading = false;
     renderRace();
 }

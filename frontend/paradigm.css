@@ -1395,7 +1395,7 @@ input.paradigm-compact-stepper-value {
     gap: 0.28rem;
     margin-right: 0.78rem;
     padding: 0.18rem;
-    border: 1px solid rgba(255, 255, 255, 0.9);
+    border: 0.5px solid rgba(255, 255, 255, 0.9);
     border-radius: 999px;
     background: #fff;
     box-shadow: 0 4px 12px rgba(31, 45, 98, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.8);
@@ -1448,6 +1448,7 @@ input.paradigm-compact-stepper-value {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.03rem;
+    width: 64px;
     max-width: 64px;
     min-width: 0;
 }
@@ -1475,7 +1476,8 @@ input.paradigm-compact-stepper-value {
 }
 
 .kid-avatar-switcher-points[hidden] {
-    display: none;
+    display: block;
+    visibility: hidden;
 }
 
 .kid-avatar-switcher-item.active {
@@ -1526,6 +1528,7 @@ input.paradigm-compact-stepper-value {
     }
 
     .kid-avatar-switcher-text {
+        width: 50px;
         max-width: 50px;
     }
 

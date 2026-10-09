@@ -1139,7 +1139,7 @@ header p {
 }
 
 .page-header-with-back {
-    margin-bottom: 7px;
+    margin-bottom: 2px;
     color: #fff;
 }
 
@@ -1259,7 +1259,7 @@ header p {
     }
 
     .page-header-with-back {
-        margin-bottom: 11px;
+        margin-bottom: 2px;
     }
 
     .page-header-with-back.page-header-with-actions .page-header-row {
@@ -1375,7 +1375,7 @@ header p {
 
 @media (max-width: 520px) {
     .page-header-with-back {
-        margin-bottom: 8px;
+        margin-bottom: 2px;
     }
 }
 

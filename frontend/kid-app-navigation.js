@@ -26,6 +26,10 @@
         suppressed: false,
     };
     let kidAvatarPointsRequestId = 0;
+    // Keep the last known balances while a page re-renders its kid picker.
+    // Several parent views re-render after selecting a child; without this,
+    // each render briefly removes every balance before its request completes.
+    const kidAvatarPointBalances = new Map();
 
     function readKidIdFromUrl() {
         try {
@@ -187,6 +191,22 @@
         return `${Number.parseInt(value, 10) || 0} pts`;
     }
 
+    function cacheKidAvatarPointBalance(kidId, value) {
+        const id = String(kidId || '').trim();
+        const balance = Number.parseInt(value, 10);
+        if (!id || !Number.isFinite(balance)) return;
+        kidAvatarPointBalances.set(id, balance);
+        document.querySelectorAll(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`).forEach((target) => {
+            target.textContent = formatPoints(balance);
+            target.hidden = false;
+        });
+    }
+
+    function cacheKidAvatarPointData(kidId, pointData) {
+        const balance = currentBalanceFromPointData(pointData);
+        if (balance !== null) cacheKidAvatarPointBalance(kidId, balance);
+    }
+
     async function fetchKidPointBalance(kidId) {
         const normalizedKidId = String(kidId || '').trim();
         if (!normalizedKidId) return null;
@@ -203,13 +223,15 @@
         list.forEach(async (kid) => {
             const id = String(kid?.id || '').trim();
             if (!id) return;
+            // A selected child only changes local UI state.  Do not re-query
+            // every child's balance each time that state re-renders.
+            if (kidAvatarPointBalances.has(id)) return;
             try {
                 const balance = await fetchKidPointBalance(id);
                 if (kidAvatarPointsRequestId !== requestId || balance === null) return;
                 const target = container.querySelector(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`);
                 if (!target) return;
-                target.textContent = formatPoints(balance);
-                target.hidden = false;
+                cacheKidAvatarPointBalance(id, balance);
             } catch (error) {
                 if (kidAvatarPointsRequestId !== requestId) return;
                 const target = container.querySelector(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`);
@@ -262,6 +284,8 @@
         container.innerHTML = list.map((kid) => {
             const id = String(kid?.id || '');
             const isActive = id === selectedKidId;
+            const cachedBalance = kidAvatarPointBalances.get(id);
+            const hasCachedBalance = kidAvatarPointBalances.has(id) && Number.isFinite(cachedBalance);
             const href = typeof options.hrefForKid === 'function'
                 ? String(options.hrefForKid(kid) || '')
                 : '';
@@ -274,7 +298,7 @@
                     ${kidAvatarHtml(kid)}
                     <span class="kid-avatar-switcher-text">
                         <span class="kid-avatar-switcher-name">${escapeHtml(kidName(kid))}</span>
-                        ${showPoints ? `<span class="kid-avatar-switcher-points" data-kid-avatar-points="${escapeHtml(id)}" hidden></span>` : ''}
+                        ${showPoints ? `<span class="kid-avatar-switcher-points" data-kid-avatar-points="${escapeHtml(id)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>` : ''}
                     </span>
                 </${tagName}>
             `;
@@ -429,6 +453,7 @@
         remove: removeNav,
         render,
         renderKidAvatarSwitcher,
+        cacheKidAvatarPointData,
         setKidId,
         setKids,
         setSuppressed,

@@ -48,6 +48,7 @@ let activeRewardType = '';
 let inactiveRulesExpanded = false;
 let pointDraft = { emoji: '', name: '', points: '0', note: '' };
 let pointData = { totalPoints: 0, events: [] };
+const pointDataByKid = new Map();
 let selectedHistoryDayKey = '';
 let pointLogSuccessTimer = null;
 
@@ -550,13 +551,18 @@ function renderWorkbench() {
     window.hydrateIcons?.(pointLogWorkbench);
 }
 
-async function loadPointsForSelectedKid() {
+async function loadPointsForSelectedKid({ force = false } = {}) {
     if (!selectedKidId) {
         pointData = { totalPoints: 0, events: [] };
         return;
     }
-    const data = await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
+    const cached = pointDataByKid.get(selectedKidId);
+    const data = (!force && cached)
+        ? cached
+        : await fetchJson(`${API_BASE}/kids/${encodeURIComponent(selectedKidId)}/points?limit=${POINT_HISTORY_LIMIT}`);
     pointData = data || { totalPoints: 0, events: [] };
+    pointDataByKid.set(selectedKidId, pointData);
+    window.KidAppNavigation?.cacheKidAvatarPointData?.(selectedKidId, pointData);
 }
 
 async function loadInitialData() {
@@ -583,7 +589,7 @@ async function loadInitialData() {
 }
 
 async function refreshAfterMutation() {
-    await loadPointsForSelectedKid();
+    await loadPointsForSelectedKid({ force: true });
     render();
 }
 
