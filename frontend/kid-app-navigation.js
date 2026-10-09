@@ -125,7 +125,10 @@
             path.endsWith('/kid-rewards.html')
             || path.endsWith('/parent-rewards.html')
         ) return 'rewards';
-        return 'home';
+        // Detail, report, and management pages are outside the bottom-nav
+        // destinations.  They should not masquerade as the Home page.
+        if (path.endsWith('/admin.html')) return 'home';
+        return '';
     }
 
     function hrefFor(item) {

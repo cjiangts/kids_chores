@@ -15,9 +15,17 @@
     gap: 0.72rem;
 }
 
+.point-activity-hero-top--without-icon {
+    grid-template-columns: minmax(10rem, 1fr) minmax(18rem, 0.9fr);
+}
+
 @media (min-width: 800px) {
     .point-activity-hero-top {
         grid-template-columns: 74px minmax(0, 1fr) 50%;
+    }
+
+    .point-activity-hero-top--without-icon {
+        grid-template-columns: minmax(0, 1fr) 50%;
     }
 
     .point-activity-kids {
@@ -1691,6 +1699,10 @@ button.point-activity-day.active:focus-visible {
         grid-template-columns: 54px minmax(0, 1fr);
         gap: 0.54rem;
         align-items: start;
+    }
+
+    .point-activity-hero-top--without-icon {
+        grid-template-columns: minmax(0, 1fr);
     }
 
     .point-activity-kids {

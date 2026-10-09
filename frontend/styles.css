@@ -1329,6 +1329,29 @@ header p {
         font-size: 0.86rem;
     }
 
+    /* On compact screens, the selected child and active bottom-nav item
+       identify these pages without spending a separate row on the title. */
+    body:is(.parent-admin-page, .point-log-page, .kid-rewards-page):has(.kid-avatar-switcher:not(.hidden))
+        .page-header-with-back.page-header-with-actions .page-header-row {
+        justify-content: flex-start;
+    }
+
+    body:is(.parent-admin-page, .point-log-page, .kid-rewards-page):has(.kid-avatar-switcher:not(.hidden))
+        .page-header-with-back.page-header-with-actions .page-header-row h1 {
+        display: none;
+    }
+
+    body:is(.parent-admin-page, .point-log-page, .kid-rewards-page):has(.kid-avatar-switcher:not(.hidden))
+        .page-header-with-back .page-header-end {
+        flex: 1 1 auto;
+        width: 100%;
+    }
+
+    body:is(.parent-admin-page, .point-log-page, .kid-rewards-page):has(.kid-avatar-switcher:not(.hidden))
+        .page-header-with-back .page-header-actions {
+        margin-left: auto;
+    }
+
     .parent-admin-page .page-header-actions .page-header-back-btn {
         width: 40px;
         min-width: 40px;

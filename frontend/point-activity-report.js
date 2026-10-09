@@ -586,6 +586,9 @@ function renderHero() {
     const isInAppRule = String(rule.ruleKind || '') === 'in_app_chore';
     const ruleActivityCount = Number.parseInt(ruleActivityCounts[String(rule.ruleId || requestedRuleId)] ?? 0, 10) || 0;
     const canDeleteRule = ruleActivityCount === 0;
+    const aggregateFiltersHtml = isAllInAppMode()
+        ? allInAppSubjectFilterHtml()
+        : (isAllEarningMode() ? allOffAppTypeFilterHtml() : '');
     const ruleTitleHtml = (isAllInAppMode() || isAllEarningMode() || isAllLossMode() || isAllRedeemMode())
         ? ''
         : isEditingRule && !isInAppRule
@@ -600,8 +603,10 @@ function renderHero() {
         : iconHtml(rule);
     const inAppManageHref = isInAppRule && !isAllInAppMode() ? buildInAppCardManageHref(rule) : '';
     const aggregateIconToneClass = isAllOffAppMode() ? ` point-activity-icon--${aggregateActivityConfig().tone}` : '';
-    const heroIconContainerHtml = isAggregateMode
+    const heroIconContainerHtml = isAggregateMode && aggregateFiltersHtml
         ? `<button type="button" class="point-activity-icon point-activity-icon--in-app point-activity-icon--all-in-app${aggregateIconToneClass}" data-aggregate-filter-reset aria-label="Show all activity" title="Show all">${heroIconHtml}</button>`
+        : isAggregateMode
+        ? ''
         : inAppManageHref
         ? `<a class="point-activity-icon point-activity-icon--in-app" href="${escapeHtml(inAppManageHref)}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${heroIconHtml}</a>`
         : `<div class="point-activity-icon${isEditingRule && !isInAppRule ? ' point-activity-icon--editing' : ''}"${isEditingRule && !isInAppRule ? '' : ' aria-hidden="true"'}>${heroIconHtml}</div>`;
@@ -639,18 +644,16 @@ function renderHero() {
         ? ''
         : `<button type="button" class="point-activity-rules-link" data-rule-edit-action="start" aria-label="Edit point rule" title="Edit rule"><span class="icon" data-icon="pencil" data-icon-size="14" data-icon-stroke="2.5" aria-hidden="true"></span></button>`;
     const filters = kidFilterControlsHtml(allEvents);
-    const aggregateFiltersHtml = isAllInAppMode()
-        ? allInAppSubjectFilterHtml()
-        : (isAllEarningMode() ? allOffAppTypeFilterHtml() : '');
     const heroPrimaryHtml = isAggregateMode
         ? aggregateFiltersHtml
         : `${ruleTitleHtml}${typeBadgeHtml(rule)}${ruleStartEditHtml}<span class="point-activity-rule-detail-row">${ruleMetaHtml}${ruleEditActionsHtml}</span>`;
+    const heroTopClass = `point-activity-hero-top${heroIconContainerHtml ? '' : ' point-activity-hero-top--without-icon'}`;
     if (pageTitle) pageTitle.textContent = title;
     document.title = `${title} - Point Activity History - The Mommy App`;
 
     pointActivityHero.innerHTML = `
         <div class="point-activity-hero">
-            <div class="point-activity-hero-top">
+            <div class="${heroTopClass}">
                 ${heroIconContainerHtml}
                 <div class="point-activity-main">
                     ${heroPrimaryHtml ? `<div class="point-activity-title-row">${heroPrimaryHtml}</div>` : ''}
