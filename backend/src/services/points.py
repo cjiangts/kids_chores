@@ -695,7 +695,7 @@ def delete_point_event(kid_conn, event_id):
     return bool(row)
 
 
-def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points_delta=None, note=None):
+def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points_delta=None, note=None, created_at=None):
     rule = get_family_rule(shared_conn, family_id, rule_id)
     if not rule or not rule['isActive']:
         raise ValueError('Rule not found')
@@ -730,6 +730,7 @@ def apply_direct_rule_event(kid_conn, shared_conn, family_id, rule_id, *, points
         rule['ruleId'],
         points_delta,
         note=note,
+        created_at=created_at,
     )
 
 

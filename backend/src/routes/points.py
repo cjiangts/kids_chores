@@ -193,6 +193,7 @@ def post_kid_point_event(kid_id):
             payload.get('ruleId'),
             points_delta=payload.get('pointsDelta'),
             note=payload.get('note'),
+            created_at=payload.get('createdAt'),
         )
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400

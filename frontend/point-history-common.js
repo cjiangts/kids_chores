@@ -416,8 +416,8 @@
         `;
     }
 
-    function sortEventsNewestFirst(events) {
-        return [...events].sort((a, b) => {
+    function sortEvents(events, order = 'desc') {
+        const newestFirst = [...events].sort((a, b) => {
             const bTime = parseHistoryDate(b?.createdAt).getTime();
             const aTime = parseHistoryDate(a?.createdAt).getTime();
             const safeB = Number.isFinite(bTime) ? bTime : 0;
@@ -425,6 +425,7 @@
             if (safeB !== safeA) return safeB - safeA;
             return (Number.parseInt(b?.eventId, 10) || 0) - (Number.parseInt(a?.eventId, 10) || 0);
         });
+        return order === 'asc' ? newestFirst.reverse() : newestFirst;
     }
 
     function eventRowHtml(event, opts, timezone, showDelete) {
@@ -795,7 +796,7 @@
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyNoKid || 'Select a kid to see point history.')}</div>`;
             return displayedActiveDayKey;
         }
-        const scopedEvents = sortEventsNewestFirst(events.filter((event) => shouldIncludeEvent(event, mode)));
+        const scopedEvents = sortEvents(events.filter((event) => shouldIncludeEvent(event, mode)), opts.sortOrder);
         let selectedEvents = displayedActiveDayKey
             ? scopedEvents.filter((event) => dateKeyInTimezone(parseHistoryDate(event.createdAt), timezone) === displayedActiveDayKey)
             : scopedEvents.filter((event) => isEventInWeek(event, anchorDayKey, timezone));

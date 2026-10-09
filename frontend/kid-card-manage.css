@@ -116,15 +116,16 @@
             width: min(1480px, calc(100vw - 24px));
             max-width: min(1480px, calc(100vw - 24px));
             max-height: calc(100vh - 26px);
-            padding: 1rem 1rem 0.95rem;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
-        .manage-popup-modal .modal-content.personal-modal {
-            width: min(840px, calc(100vw - 24px));
-            max-width: min(840px, calc(100vw - 24px));
+        @media (min-width: 761px) {
+            .manage-popup-modal .modal-content.personal-modal {
+                width: min(840px, calc(100vw - 24px));
+                max-width: min(840px, calc(100vw - 24px));
+            }
         }
 
         .manage-popup-modal-body {
@@ -591,11 +592,13 @@
         }
 
         /* Personal-deck modal layout (deck-tree-modal styles live in deck-tree-view.css). */
-        #personalDeckModal .modal-content {
-            width: min(1100px, calc(100vw - 24px));
-            max-width: min(1100px, calc(100vw - 24px));
-            height: min(820px, calc(100vh - 26px));
-            max-height: calc(100vh - 26px);
+        @media (min-width: 761px) {
+            #personalDeckModal .modal-content {
+                width: min(1100px, calc(100vw - 24px));
+                max-width: min(1100px, calc(100vw - 24px));
+                height: min(820px, calc(100vh - 26px));
+                max-height: calc(100vh - 26px);
+            }
         }
 
         #personalDeckModal .manage-popup-modal-body {
@@ -617,20 +620,6 @@
         #personalDeckModal #personalDeckPreviewWrap {
             flex: 1 1 auto;
             min-height: 0;
-        }
-
-        @media (max-width: 520px) {
-            #personalDeckModal {
-                align-items: flex-start;
-            }
-
-            #personalDeckModal .modal-content {
-                width: calc(100vw - 12px);
-                max-width: calc(100vw - 12px);
-                height: calc(90dvh - 8px);
-                max-height: calc(90dvh - 8px);
-                margin-top: 8px;
-            }
         }
 
         .collapsible-section-head {
@@ -1791,13 +1780,9 @@
             background: rgba(0, 0, 0, 0.06);
         }
 
-        #personalDeckActionRow.is-preview {
-            grid-template-columns: var(--control-height, 38px) minmax(0, 1fr) var(--control-height, 38px);
-        }
-
         #personalDeckEditWrap,
         #personalDeckPreviewWrap {
-            margin-bottom: 20px;
+            margin-bottom: 10px;
             min-height: 360px;
             display: flex;
             flex-direction: column;
@@ -3089,4 +3074,12 @@
 
         .kid-card-manage-page .cards-section > .paradigm-panel-title + .queue-actions-layout {
             margin-top: 0;
+        }
+
+        #personalDeckModal #personalDeckActionRow {
+            grid-template-columns: minmax(0, 1fr);
+        }
+
+        #personalDeckModal #personalDeckActionRow.is-preview {
+            grid-template-columns: auto minmax(0, 1fr);
         }

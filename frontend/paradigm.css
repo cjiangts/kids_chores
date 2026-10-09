@@ -1701,6 +1701,36 @@ svg.cards-view-toggle-btn-icon,
     cursor: not-allowed;
 }
 
+/* Primary confirmation action used by compact editors and composer sheets. */
+.paradigm-btn.paradigm-submit-confirm {
+    gap: 0.45rem;
+    width: 100%;
+    height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
+    min-height: var(--paradigm-compact-control-height, var(--paradigm-input-height));
+    padding: 0 var(--paradigm-input-padding, 0.72rem);
+    border-color: #198253;
+    border-radius: 999px;
+    background: #1f8f5f;
+    box-shadow: 0 3px 7px rgba(69, 57, 182, 0.2);
+    color: #fff;
+    font-size: var(--paradigm-compact-control-font-size, var(--paradigm-input-font-size));
+    font-weight: var(--paradigm-compact-control-font-weight, var(--paradigm-input-font-weight));
+}
+
+.paradigm-btn.paradigm-submit-confirm:hover:not(:disabled) {
+    border-color: #198253;
+    background: #187a50;
+}
+
+.paradigm-btn.paradigm-submit-confirm:disabled {
+    opacity: 1;
+    border-color: #d8d5f7;
+    background: #ecebfa;
+    box-shadow: none;
+    color: #8d89bd;
+    cursor: not-allowed;
+}
+
 .paradigm-btn.is-danger {
     color: #c0392b;
 }
@@ -1744,6 +1774,84 @@ svg.cards-view-toggle-btn-icon,
 .paradigm-icon-btn[aria-disabled="true"] {
     opacity: 0.55;
     cursor: not-allowed;
+}
+
+/* Shared mobile sheet chrome for compact editors and composers. */
+.manage-popup-modal .modal-content {
+    padding: 1rem 1rem 0.95rem;
+}
+
+.paradigm-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0;
+}
+
+.paradigm-sheet-header .paradigm-sheet-title {
+    margin: 0;
+    color: var(--p-ink-title);
+    font-size: 0.84rem;
+    font-weight: 620;
+    letter-spacing: 0;
+    line-height: 1.12;
+}
+
+.paradigm-icon-btn.paradigm-sheet-close {
+    flex: 0 0 auto;
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+    font-size: 1.45rem;
+    line-height: 1;
+}
+
+.paradigm-icon-btn.paradigm-sheet-close:hover:not(:disabled),
+.paradigm-icon-btn.paradigm-sheet-close:focus-visible:not(:disabled) {
+    border-color: transparent;
+    background: transparent;
+}
+
+@media (max-width: 760px) {
+    .paradigm-sheet-modal {
+        align-items: flex-end;
+        padding: 0;
+        background: rgba(21, 26, 54, 0.42);
+    }
+
+    .paradigm-sheet-modal.modal .paradigm-sheet-dialog {
+        width: 100%;
+        max-width: none;
+        height: min(88dvh, 760px);
+        max-height: min(88dvh, 760px);
+        margin: 0;
+        padding: 0.25rem 0.9rem calc(1.75rem + env(safe-area-inset-bottom));
+        border-radius: 20px 20px 0 0;
+        animation: paradigm-sheet-slide-up 180ms ease-out;
+    }
+
+    .paradigm-sheet-header {
+        position: relative;
+        padding-top: 0.42rem;
+    }
+
+    .paradigm-sheet-header::before {
+        position: absolute;
+        top: 0.45rem;
+        left: 50%;
+        width: 2.5rem;
+        height: 0.26rem;
+        border-radius: 999px;
+        background: #dce1f2;
+        content: '';
+        transform: translateX(-50%);
+    }
+}
+
+@keyframes paradigm-sheet-slide-up {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
 }
 
 .paradigm-icon-btn.is-danger {

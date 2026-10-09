@@ -82,7 +82,6 @@ const deckTreeModal = document.getElementById('deckTreeModal');
 const deckTreeContainer = document.getElementById('deckTreeContainer');
 const deckTreeSearchInput = document.getElementById('deckTreeSearchInput');
 const deckTreeCounter = document.getElementById('deckTreeCounter');
-const deckTreeInfoBtn = document.getElementById('deckTreeInfoBtn');
 const openDeckBulkAddBtn = document.getElementById('openDeckBulkAddBtn');
 const openDeckDictionaryBtn = document.getElementById('openDeckDictionaryBtn');
 const applyDeckTreeChangesBtn = document.getElementById('applyDeckTreeChangesBtn');

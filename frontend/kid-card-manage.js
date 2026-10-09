@@ -47,26 +47,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             await applyDeckTreeChanges();
         });
     }
-    if (deckTreeInfoBtn) {
-        deckTreeInfoBtn.addEventListener('click', () => {
-            const existing = document.querySelector('.deck-tree-info-popover');
-            if (existing) {
-                existing.remove();
-                return;
-            }
-            const popover = document.createElement('div');
-            popover.className = 'deck-tree-info-popover';
-            popover.textContent = getOptInDecksHelpText();
-            deckTreeInfoBtn.parentElement.appendChild(popover);
-            const dismiss = (e) => {
-                if (!popover.contains(e.target) && e.target !== deckTreeInfoBtn) {
-                    popover.remove();
-                    document.removeEventListener('click', dismiss);
-                }
-            };
-            setTimeout(() => document.addEventListener('click', dismiss), 0);
-        });
-    }
     const openDeckBulkAddBtn = document.getElementById('openDeckBulkAddBtn');
     if (openDeckBulkAddBtn) {
         openDeckBulkAddBtn.addEventListener('click', () => {

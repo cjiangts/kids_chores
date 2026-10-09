@@ -654,15 +654,15 @@
                 const selCards = this._getSelectedCardCount();
                 const totCards = this._getTotalCardCount();
                 this.counter.innerHTML = `
-                    <span class="deck-tree-counter-line"><span class="deck-tree-counter-icon" data-icon="layers" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${selDecks}</strong> of ${totDecks} decks selected</span></span>
-                    <span class="deck-tree-counter-line deck-tree-counter-sub"><span class="deck-tree-counter-icon" data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${selCards.toLocaleString()}</strong> of ${totCards.toLocaleString()} cards selected</span></span>
+                    <span class="deck-tree-counter-line"><span class="deck-tree-counter-icon" data-icon="layers" data-icon-size="12" data-icon-stroke="2.2"></span><span><strong>${selDecks}</strong> of ${totDecks} decks selected</span></span>
+                    <span class="deck-tree-counter-line deck-tree-counter-sub"><span class="deck-tree-counter-icon" data-icon="layout-grid" data-icon-size="12" data-icon-stroke="2.2"></span><span><strong>${selCards.toLocaleString()}</strong> of ${totCards.toLocaleString()} cards selected</span></span>
                 `;
             } else {
                 const totDecks = this._getTotalDeckCount();
                 const totCards = this._getTotalCardCount();
                 this.counter.innerHTML = `
-                    <span class="deck-tree-counter-line"><span class="deck-tree-counter-icon" data-icon="layers" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${totDecks}</strong> ${totDecks === 1 ? 'deck' : 'decks'}</span></span>
-                    <span class="deck-tree-counter-line deck-tree-counter-sub"><span class="deck-tree-counter-icon" data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.2"></span><span><strong>${totCards.toLocaleString()}</strong> ${totCards === 1 ? 'card' : 'cards'}</span></span>
+                    <span class="deck-tree-counter-line"><span class="deck-tree-counter-icon" data-icon="layers" data-icon-size="12" data-icon-stroke="2.2"></span><span><strong>${totDecks}</strong> ${totDecks === 1 ? 'deck' : 'decks'}</span></span>
+                    <span class="deck-tree-counter-line deck-tree-counter-sub"><span class="deck-tree-counter-icon" data-icon="layout-grid" data-icon-size="12" data-icon-stroke="2.2"></span><span><strong>${totCards.toLocaleString()}</strong> ${totCards === 1 ? 'card' : 'cards'}</span></span>
                 `;
             }
             if (window.hydrateIcons) window.hydrateIcons(this.counter);
@@ -724,7 +724,7 @@
             const cardChunk = `<span class="apply-btn-chunk"><span data-icon="layout-grid" data-icon-size="14" data-icon-stroke="2.4"></span>${fmtDelta(cardIn, cardOut)} ${cardLabel}</span>`;
             const textDeckDelta = fmtDelta(deckIn, deckOut);
             const textCardDelta = fmtDelta(cardIn, cardOut);
-            labelEl.innerHTML = `(${deckChunk} · ${cardChunk})`;
+            labelEl.innerHTML = `${deckChunk} · ${cardChunk}`;
             this.applyButton.setAttribute('aria-label', `Apply deck changes (${textDeckDelta} ${deckLabel}; ${textCardDelta} ${cardLabel})`);
             this.applyButton.title = `Apply deck changes (${textDeckDelta} ${deckLabel}; ${textCardDelta} ${cardLabel})`;
             if (window.hydrateIcons) window.hydrateIcons(labelEl);

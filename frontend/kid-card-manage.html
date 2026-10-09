@@ -13,11 +13,11 @@
     <title>Cards - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="paradigm.css">
+    <link rel="stylesheet" href="paradigm.css?v=sheet-header-gap-zero-20261009">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
-    <link rel="stylesheet" href="deck-tree-view.css">
-    <link rel="stylesheet" href="kid-card-manage.css">
+    <link rel="stylesheet" href="deck-tree-view.css?v=deck-tree-90dvh-20261009">
+    <link rel="stylesheet" href="kid-card-manage.css?v=deck-tree-sheet-20261009">
 </head>
 <body class="practice-page manage-page kid-card-manage-page">
     <div class="container">
@@ -180,28 +180,29 @@
         </section>
     </div>
 
-    <div id="deckTreeModal" class="modal hidden manage-popup-modal deck-tree-modal" aria-hidden="true">
-        <div class="modal-content modal-large" role="dialog" aria-modal="true" aria-labelledby="deckTreeHeading">
+    <div id="deckTreeModal" class="modal hidden manage-popup-modal deck-tree-modal paradigm-sheet-modal" aria-hidden="true">
+        <div class="modal-content modal-large paradigm-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="deckTreeHeading">
             <div class="deck-tree-header">
-                <div class="deck-tree-header-left">
-                    <h2 id="deckTreeHeading" style="margin:0"><span class="icon" data-icon="layers" data-icon-size="22"></span> Decks</h2>
-                    <button id="deckTreeInfoBtn" type="button" class="optin-note-btn" aria-label="How deck opt-in works" title="How deck opt-in works"><span data-icon="info" data-icon-size="18" data-icon-stroke="2.2"></span></button>
-                    <span id="deckTreeCounter" class="deck-tree-counter"></span>
+                    <div class="deck-tree-title-row paradigm-sheet-header">
+                    <div class="deck-tree-header-left">
+                        <h2 id="deckTreeHeading" class="paradigm-sheet-title">Decks</h2>
+                    </div>
+                    <button id="cancelDeckTreeModalBtn" type="button" class="paradigm-icon-btn paradigm-sheet-close" aria-label="Close" title="Close">×</button>
                 </div>
                 <div class="deck-tree-search-row">
                     <div class="search-bar deck-tree-search-wrap">
                         <input id="deckTreeSearchInput" type="text" class="paradigm-search-input" placeholder="Search decks or card content...">
                     </div>
-                    <button id="openDeckBulkAddBtn" type="button" class="paradigm-icon-btn paradigm-panel-action--circle hidden" aria-label="Bulk add new decks" title="Bulk add new decks"><span data-icon="list-plus" data-icon-size="17" data-icon-stroke="2.4"></span></button>
+                    <button id="openDeckBulkAddBtn" type="button" class="paradigm-btn paradigm-compact-control hidden" aria-label="Bulk add new decks" title="Bulk add new decks"><span data-icon="list-plus" data-icon-size="14" data-icon-stroke="2.4"></span><span>Bulk add</span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
                 <div id="deckTreeContainer" class="deck-tree-container"></div>
-                <div class="deck-v2-actions deck-tree-actions">
-                    <div class="deck-v2-action-row deck-tree-action-row-primary manage-modal-action-row">
-                        <button id="cancelDeckTreeModalBtn" type="button" class="paradigm-icon-btn manage-modal-close-btn deck-tree-close-btn" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="16" data-icon-stroke="2.2"></span></button>
-                        <button id="applyDeckTreeChangesBtn" type="button" class="paradigm-btn" aria-label="Apply deck changes" title="Apply deck changes" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label"></span></button>
-                    </div>
+                    <div class="deck-v2-actions deck-tree-actions">
+                        <div class="deck-v2-action-row deck-tree-action-row-primary manage-modal-action-row">
+                            <span id="deckTreeCounter" class="deck-tree-counter"></span>
+                            <button id="applyDeckTreeChangesBtn" type="button" class="paradigm-btn paradigm-submit-confirm paradigm-compact-control" aria-label="Apply deck changes" title="Apply deck changes" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span><span class="apply-btn-label"></span></button>
+                        </div>
                     <div id="deckTreeChangeMessage" class="success hidden"></div>
                 </div>
             </div>
@@ -267,11 +268,12 @@
         </div>
     </div>
 
-    <div id="personalDeckModal" class="modal hidden manage-popup-modal" aria-hidden="true">
-        <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="personalDeckModalHeading">
-            <div class="manage-popup-title-row">
-                <h2 id="personalDeckModalHeading"><span class="icon" data-icon="pencil" data-icon-size="22"></span> Personal Deck Editor</h2>
-            </div>
+    <div id="personalDeckModal" class="modal hidden manage-popup-modal paradigm-sheet-modal" aria-hidden="true">
+            <div class="modal-content personal-modal paradigm-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="personalDeckModalHeading">
+                <div class="manage-popup-title-row paradigm-sheet-header">
+                    <h2 id="personalDeckModalHeading" class="paradigm-panel-heading paradigm-sheet-title">Personal Deck Editor</h2>
+                    <button id="cancelPersonalDeckModalBtn" type="button" class="paradigm-icon-btn personal-deck-modal-close paradigm-sheet-close" aria-label="Close" title="Close">×</button>
+                </div>
             <div class="manage-popup-modal-body">
                 <p id="personalDeckModalNote" class="deck-v2-note">Bulk add Chinese characters to the Personal Deck.</p>
                 <form id="addCardForm">
@@ -304,9 +306,8 @@
                             <span id="addCardStatusText" class="status-toast-text"></span>
                             <button id="addCardStatusDismissBtn" type="button" class="status-toast-dismiss" aria-label="Dismiss">&times;</button>
                         </div>
-                        <button id="cancelPersonalDeckModalBtn" type="button" class="paradigm-icon-btn manage-modal-close-btn" aria-label="Close" title="Close"><span class="icon" data-icon="x" data-icon-size="18"></span></button>
-                        <button type="submit" id="addReadingBtn" class="paradigm-btn" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
-                        <button id="personalDeckBackBtn" type="button" class="paradigm-icon-btn manage-modal-icon-btn hidden" aria-label="Back" title="Back"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span></button>
+                        <button id="personalDeckBackBtn" type="button" class="paradigm-edit-action paradigm-edit-action--cancel hidden" aria-label="Back" title="Back">Back</button>
+                        <button type="submit" id="addReadingBtn" class="paradigm-btn paradigm-submit-confirm paradigm-compact-control" disabled><span class="icon" data-icon="eye" data-icon-size="18"></span> Preview</button>
                     </div>
                 </form>
             </div>
@@ -355,7 +356,7 @@
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/ace.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/theme-github_light_default.js"></script>
-    <script src="deck-tree-view.js"></script>
+    <script src="deck-tree-view.js?v=deck-tree-summary-typography-20261009"></script>
     <script src="kid-card-manage-core.js?v=cards-kid-title-20261008"></script>
     <script src="kid-card-manage-type4-generator.js"></script>
     <script src="kid-card-manage-type4-counts.js"></script>

@@ -12,9 +12,10 @@ const pointNote = document.getElementById('pointNote');
 const submitPointLogBtn = document.getElementById('submitPointLogBtn');
 const pointLogKidPicker = document.getElementById('pointLogKidPicker');
 const templateList = document.getElementById('templateList');
-const selectionPanel = document.getElementById('selectionPanel');
 const pointHistory = document.getElementById('pointHistory');
-const pointLogWorkbench = document.querySelector('.point-log-workbench');
+const pointLogComposerModal = document.getElementById('pointLogComposerModal');
+const pointLogComposerClose = document.querySelector('[data-point-log-composer-close]');
+const pointLogComposerTitle = document.getElementById('pointLogComposerTitle');
 const modeTabs = Array.from(document.querySelectorAll('[data-mode]'));
 const initialParams = new URLSearchParams(window.location.search);
 const requestedKidId = String(initialParams.get('kidId') || initialParams.get('id') || '').trim();
@@ -50,6 +51,7 @@ let pointDraft = { emoji: '', name: '', points: '0', note: '' };
 let pointData = { totalPoints: 0, events: [] };
 const pointDataByKid = new Map();
 let selectedHistoryDayKey = '';
+let highlightedHistoryEventId = requestedHistoryEventId;
 let pointLogSuccessTimer = null;
 
 function escapeHtml(value) {
@@ -133,6 +135,77 @@ function selectedFamilyTimezone() {
 
 function todayHistoryDayKey() {
     return window.PointHistoryCommon.dateKeyInTimezone(new Date(), selectedFamilyTimezone());
+}
+
+function dateTimePartsInTimezone(date, timezone) {
+    try {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone || undefined,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23',
+        }).formatToParts(date);
+        const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return {
+            year: Number.parseInt(values.year, 10),
+            month: Number.parseInt(values.month, 10),
+            day: Number.parseInt(values.day, 10),
+            hour: Number.parseInt(values.hour, 10),
+            minute: Number.parseInt(values.minute, 10),
+            second: Number.parseInt(values.second, 10),
+        };
+    } catch (_error) {
+        return null;
+    }
+}
+
+function createdAtForSelectedHistoryDay() {
+    const selectedDay = String(selectedHistoryDayKey || '').trim();
+    const match = selectedDay.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return '';
+
+    const now = new Date();
+    const timezone = selectedFamilyTimezone();
+    const current = dateTimePartsInTimezone(now, timezone);
+    const [year, month, day] = match.slice(1).map(Number);
+    if (!current || !year || !month || !day) {
+        return new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds()).toISOString();
+    }
+
+    // Interpret the selected calendar date with the current wall-clock time in
+    // the family's timezone, then submit the equivalent UTC instant.
+    const targetWallTime = Date.UTC(year, month - 1, day, current.hour, current.minute, current.second, now.getMilliseconds());
+    const timezoneOffsetAt = (date) => {
+        const local = dateTimePartsInTimezone(date, timezone);
+        if (!local) return 0;
+        return Date.UTC(local.year, local.month - 1, local.day, local.hour, local.minute, local.second) - date.getTime();
+    };
+    let result = new Date(targetWallTime - timezoneOffsetAt(new Date(targetWallTime)));
+    // Recalculate once for a possible daylight-saving offset on the selected day.
+    result = new Date(targetWallTime - timezoneOffsetAt(result));
+    return Number.isNaN(result.getTime()) ? '' : result.toISOString();
+}
+
+function selectedHistoryDayLabel() {
+    const dayKey = String(selectedHistoryDayKey || '').trim();
+    if (!dayKey || dayKey === todayHistoryDayKey()) return 'Today';
+    const match = dayKey.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return 'Today';
+    const [year, month, day] = match.slice(1).map(Number);
+    return new Intl.DateTimeFormat(undefined, {
+        timeZone: 'UTC',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    }).format(new Date(Date.UTC(year, month - 1, day)));
+}
+
+function updateComposerTitle() {
+    if (pointLogComposerTitle) pointLogComposerTitle.textContent = `Add event · ${selectedHistoryDayLabel()}`;
 }
 
 function currentRulesForMode() {
@@ -383,7 +456,6 @@ function renderModeTabs() {
     pointLogForm.classList.toggle('is-bonus', activeMode === 'bonus');
     pointLogForm.classList.toggle('is-deduction', activeMode === 'deduction');
     pointLogForm.classList.toggle('is-rewards', activeMode === 'rewards');
-    pointLogWorkbench?.classList.toggle('is-mode-unselected', !activeMode);
 }
 
 function templateRow(rule) {
@@ -456,11 +528,6 @@ function refreshTemplateSelection(ruleIds) {
     window.hydrateIcons?.(templateList);
 }
 
-function renderSelectionPanel() {
-    selectionPanel.classList.add('hidden');
-    selectionPanel.innerHTML = '';
-}
-
 function renderHistory() {
     selectedHistoryDayKey = window.PointHistoryCommon.render(pointHistory, {
         selectedKidId,
@@ -471,17 +538,27 @@ function renderHistory() {
         showRowActions: false,
         clickToEdit: true,
         showBalance: true,
-        highlightEventId: requestedHistoryEventId,
+        highlightEventId: highlightedHistoryEventId,
         mode: 'all',
+        sortOrder: 'asc',
         emptyDay: 'No point activity for this day.',
     });
+    pointHistory.insertAdjacentHTML('beforeend', `
+        <div class="point-history-add-event-row" role="group" aria-label="Add point event">
+            <span class="point-history-add-event-label">Add event</span>
+            <button type="button" class="point-history-add-event-btn earn" data-point-composer-mode="bonus"><span class="icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span>Earn</button>
+            <button type="button" class="point-history-add-event-btn loss" data-point-composer-mode="deduction"><span class="icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span>Loss</button>
+            <button type="button" class="point-history-add-event-btn redeem" data-point-composer-mode="rewards"><span class="icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span>Redeem</button>
+        </div>
+    `);
+    window.hydrateIcons?.(pointHistory);
 }
 
 function activityEventsWithBalance() {
     const events = Array.isArray(pointData.events) ? pointData.events : [];
     const rewardBucket = activeRewardType || defaultRewardTypeFromRules();
     let balance = selectedRewardBucketBalance(rewardBucket);
-    return [...events]
+    const newestFirst = [...events]
         .filter((event) => {
             const rule = event?.rule || {};
             return !isRedeemedRewardRule(rule) || rewardType(rule) === rewardBucket;
@@ -496,6 +573,29 @@ function activityEventsWithBalance() {
             balance -= delta;
             return result;
         });
+    return newestFirst.reverse();
+}
+
+function openPointLogComposer(mode) {
+    const nextMode = ['bonus', 'deduction', 'rewards'].includes(mode) ? mode : 'bonus';
+    activeMode = nextMode;
+    inactiveRulesExpanded = false;
+    clearDraft();
+    showError('');
+    updateComposerTitle();
+    renderWorkbench();
+    pointLogComposerModal?.classList.remove('hidden');
+    pointLogComposerModal?.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+}
+
+function closePointLogComposer() {
+    pointLogComposerModal?.classList.add('hidden');
+    pointLogComposerModal?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    activeMode = '';
+    clearDraft();
+    renderWorkbench();
 }
 
 function updateSubmitState() {
@@ -536,7 +636,6 @@ function render() {
     renderLogKidPicker();
     renderModeTabs();
     renderTemplates();
-    renderSelectionPanel();
     renderHistory();
     updateSubmitState();
     hydrateIcons(document);
@@ -546,9 +645,8 @@ function renderWorkbench() {
     renderModeTabs();
     renderLogKidPicker();
     renderTemplates();
-    renderSelectionPanel();
     updateSubmitState();
-    window.hydrateIcons?.(pointLogWorkbench);
+    window.hydrateIcons?.(pointLogComposerModal);
 }
 
 async function loadPointsForSelectedKid({ force = false } = {}) {
@@ -581,9 +679,9 @@ async function loadInitialData() {
     clearDraft();
     await loadPointsForSelectedKid();
     render();
-    if (requestedHistoryEventId > 0) {
+    if (highlightedHistoryEventId > 0) {
         window.requestAnimationFrame(() => {
-            pointHistory.querySelector(`[data-event-id="${requestedHistoryEventId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            pointHistory.querySelector(`[data-event-id="${highlightedHistoryEventId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
     }
 }
@@ -591,6 +689,11 @@ async function loadInitialData() {
 async function refreshAfterMutation() {
     await loadPointsForSelectedKid({ force: true });
     render();
+    if (highlightedHistoryEventId > 0) {
+        window.requestAnimationFrame(() => {
+            pointHistory.querySelector(`[data-event-id="${highlightedHistoryEventId}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }
 }
 
 async function createAdhocRuleFromDraft() {
@@ -661,6 +764,22 @@ modeTabs.forEach((tab) => {
     });
 });
 
+pointHistory.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-point-composer-mode]');
+    if (!button) return;
+    openPointLogComposer(button.dataset.pointComposerMode);
+});
+
+pointLogComposerClose?.addEventListener('click', closePointLogComposer);
+pointLogComposerModal?.addEventListener('click', (event) => {
+    if (event.target === pointLogComposerModal) closePointLogComposer();
+});
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !pointLogComposerModal?.classList.contains('hidden')) {
+        closePointLogComposer();
+    }
+});
+
 templateList.addEventListener('click', (event) => {
     if (event.target.closest('[data-inactive-rule-toggle]')) {
         inactiveRulesExpanded = !inactiveRulesExpanded;
@@ -729,14 +848,15 @@ async function resolveSubmitRule() {
     return rule;
 }
 
-async function awardDraftToKid(kidId, rule) {
+async function awardDraftToKid(kidId, rule, createdAt) {
     try {
-        await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
+        return await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kidId)}/points/events`, {
             method: 'POST',
             body: JSON.stringify({
                 ruleId: rule.ruleId,
                 pointsDelta: Number.parseInt(pointDraft.points, 10),
                 note: pointDraft.note,
+                ...(createdAt ? { createdAt } : {}),
             }),
         });
     } catch (error) {
@@ -754,8 +874,23 @@ pointLogForm.addEventListener('submit', async (event) => {
         if (!targetKidIds.length) return;
         const targetKids = selectedLogKids();
         const rule = await resolveSubmitRule();
+        const createdAt = createdAtForSelectedHistoryDay();
+        let selectedKidEventId = 0;
+        let soleKidEventId = 0;
         for (const kidId of targetKidIds) {
-            await awardDraftToKid(kidId, rule);
+            const result = await awardDraftToKid(kidId, rule, createdAt);
+            const eventId = Number.parseInt(result?.event?.eventId, 10) || 0;
+            if (targetKidIds.length === 1) soleKidEventId = eventId;
+            if (String(kidId) === selectedKidId) {
+                selectedKidEventId = eventId;
+            }
+        }
+        if (targetKidIds.length === 1 && soleKidEventId > 0) {
+            selectedKidId = String(targetKidIds[0]);
+            syncSelectedKidNavigation();
+            highlightedHistoryEventId = soleKidEventId;
+        } else if (selectedKidEventId > 0) {
+            highlightedHistoryEventId = selectedKidEventId;
         }
         const signedPoints = signedPointValueForRule(rule, Number.parseInt(pointDraft.points, 10));
         const names = targetKids.map(kidName).join(', ');
@@ -765,6 +900,7 @@ pointLogForm.addEventListener('submit', async (event) => {
         clearDraft();
         selectedLogKidIds.clear();
         activeMode = '';
+        closePointLogComposer();
         await refreshAfterMutation();
         showSuccess(`${verb} ${formatDelta(signedPoints)}${ruleName ? ` · ${ruleName}` : ''} ${preposition} ${names}.`);
     } catch (error) {

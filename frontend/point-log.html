@@ -13,11 +13,11 @@
     <title>Points - The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="paradigm.css?v=kid-picker-thinner-outline-20261008">
+    <link rel="stylesheet" href="paradigm.css?v=sheet-header-gap-zero-20261009">
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="subject-icons.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
-    <link rel="stylesheet" href="point-log.css?v=header-gap-quarter-20261008">
+    <link rel="stylesheet" href="point-log.css?v=event-composer-close-plain-20261009">
 </head>
 <body class="manage-page point-log-page">
     <div class="container">
@@ -38,17 +38,23 @@
             <div id="logError" class="error hidden"></div>
             <div id="pointLogSuccess" class="point-log-success-banner hidden" role="status" aria-live="polite"></div>
 
-            <section class="settings-card settings-section point-log-workbench is-mode-unselected">
+            <div id="pointLogComposerModal" class="point-log-composer-modal paradigm-sheet-modal modal hidden" aria-hidden="true">
+                <div class="modal-content point-log-composer-dialog paradigm-sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="pointLogComposerTitle">
+                    <div class="point-log-composer-head paradigm-sheet-header">
+                        <h2 id="pointLogComposerTitle" class="paradigm-panel-heading paradigm-sheet-title">Add event · Today</h2>
+                        <button type="button" class="paradigm-icon-btn point-log-composer-close paradigm-sheet-close" data-point-log-composer-close aria-label="Close add event">×</button>
+                    </div>
+            <section class="settings-card settings-section point-log-workbench">
                 <div class="settings-card-body">
                     <div class="point-log-mode-row">
                         <div class="cards-view-toggle-group cards-view-toggle-group-centered" role="group" aria-label="Point log modes">
-                            <button type="button" class="cards-view-toggle-btn" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-up" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Earn</span><span class="point-rule-tab-short">Earn</span></button>
-                            <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="thumbs-down" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Loss</span><span class="point-rule-tab-short">Loss</span></button>
-                            <button type="button" class="cards-view-toggle-btn" data-mode="rewards"><span class="cards-view-toggle-btn-icon" data-icon="gift" data-icon-size="16" data-icon-stroke="2.4"></span><span class="point-rule-tab-long">Redeem</span><span class="point-rule-tab-short">Redeem</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="bonus"><span class="cards-view-toggle-btn-icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span><span class="point-rule-tab-long">Earn</span><span class="point-rule-tab-short">Earn</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="deduction"><span class="cards-view-toggle-btn-icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span><span class="point-rule-tab-long">Loss</span><span class="point-rule-tab-short">Loss</span></button>
+                            <button type="button" class="cards-view-toggle-btn" data-mode="rewards"><span class="cards-view-toggle-btn-icon" data-icon="plus" data-icon-size="14" data-icon-stroke="3"></span><span class="point-rule-tab-long">Redeem</span><span class="point-rule-tab-short">Redeem</span></button>
                         </div>
                     </div>
 
-                    <div id="pointLogEntryContent" class="point-log-entry-content">
+                    <div class="point-log-entry-content">
                     <form id="pointLogForm" class="point-log-form paradigm-editing-row">
                         <div class="point-log-entry-row">
                             <div class="form-group point-log-emoji-group">
@@ -80,15 +86,16 @@
                             </div>
                         </div>
                         <div id="pointLogKidPicker" class="point-log-kid-picker" role="group" aria-label="Choose kids"></div>
-                        <button id="submitPointLogBtn" type="submit" class="point-log-submit-btn paradigm-compact-control" aria-label="Confirm" disabled></button>
+                        <button id="submitPointLogBtn" type="submit" class="point-log-submit-btn paradigm-btn paradigm-submit-confirm paradigm-compact-control" aria-label="Confirm" disabled></button>
                     </form>
 
                     <div id="templateList" class="point-template-list"></div>
 
-                    <div id="selectionPanel" class="point-selection-panel hidden"></div>
                     </div>
                 </div>
             </section>
+                </div>
+            </div>
 
             <section class="settings-card settings-section point-history-section">
                 <div class="settings-card-body">
@@ -102,8 +109,8 @@
     <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="subject-icons.js"></script>
-    <script src="point-history-common.js?v=week-today-circle-20261008"></script>
+    <script src="point-history-common.js?v=event-order-20261009"></script>
     <script src="point-rule-template-common.js"></script>
-    <script src="point-log.js?v=selected-day-week-anchor-20261008"></script>
+    <script src="point-log.js?v=added-event-kid-highlight-20261009"></script>
 </body>
 </html>

@@ -277,10 +277,3 @@ async function runType4GeneratorPreview() {
         }
     }
 }
-
-function getOptInDecksHelpText() {
-    if (currentBehaviorType === BEHAVIOR_TYPE_TYPE_IV) {
-        return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept.';
-    }
-    return 'Tap a deck to toggle it on or off, then tap Apply Deck Changes.\n\nYou can freely add or remove decks at any time — all practice records are always kept. Cards you\'ve already practiced will stay visible under Personal Deck so nothing is lost.';
-}

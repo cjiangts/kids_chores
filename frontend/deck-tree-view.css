@@ -1,43 +1,5 @@
 /* Shared deck-tree view styles. Used by kid-card-manage (opt-in) and admin (browse). */
 
-.deck-tree-info-popover {
-    position: absolute;
-    top: 2.2rem;
-    left: 0;
-    z-index: 10;
-    background: #fff;
-    border: 1px solid #ccc;
-    border-radius: 0.5rem;
-    padding: 0.75rem 1rem;
-    font-size: 0.85rem;
-    color: #333;
-    line-height: 1.5;
-    max-width: 20rem;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-    white-space: pre-line;
-}
-
-.optin-note-btn {
-    width: 2rem;
-    height: 2rem;
-    padding: 0;
-    border: 1px solid #d6dbe5;
-    background: #f3f5fa;
-    color: #4a5b80;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 999px;
-    transition: background 0.15s, color 0.15s, border-color 0.15s;
-}
-
-.optin-note-btn:hover {
-    background: #e0e7ff;
-    color: #3730a3;
-    border-color: #c7d2fe;
-}
-
 .deck-tree-header {
     display: flex;
     align-items: center;
@@ -63,20 +25,21 @@
 .deck-tree-counter {
     display: inline-flex;
     flex-direction: column;
-    line-height: 1.2;
-    font-size: 0.85rem;
-    color: #555;
+    line-height: var(--paradigm-list-item-sub-line-height);
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
+    color: var(--paradigm-list-item-sub-color);
     white-space: nowrap;
 }
 
 .deck-tree-counter-line {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
+    gap: 0.22rem;
 }
 
 .deck-tree-counter-line strong {
-    font-weight: 700;
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     color: #2c5fd9;
 }
 
@@ -531,18 +494,35 @@
 
 /* Modal layout for the deck opt-in tree. */
 .deck-tree-modal .modal-content {
-    width: min(1100px, calc(100vw - 24px));
-    max-width: min(1100px, calc(100vw - 24px));
-    height: min(820px, calc(100vh - 26px));
-    max-height: calc(100vh - 26px);
-    padding: 1rem 1rem 0.95rem;
     display: flex;
     flex-direction: column;
     overflow: hidden;
 }
 
+@media (min-width: 761px) {
+    .deck-tree-modal .modal-content {
+        width: min(1100px, calc(100vw - 24px));
+        max-width: min(1100px, calc(100vw - 24px));
+        height: min(820px, calc(100vh - 26px));
+        max-height: calc(100vh - 26px);
+        padding: 1rem 1rem 0.95rem;
+    }
+}
+
 .deck-tree-modal .deck-tree-header {
     flex: 0 0 auto;
+    row-gap: 0.14rem;
+}
+
+.deck-tree-modal .deck-tree-title-row {
+    flex: 1 1 100%;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+.deck-tree-modal .deck-tree-header-left {
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .deck-tree-modal .manage-popup-modal-body {
@@ -564,19 +544,24 @@
     flex: 0 0 auto;
 }
 
+.deck-tree-modal .deck-tree-action-row-primary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.45rem;
+}
+
+.deck-tree-modal .deck-tree-action-row-primary .deck-tree-counter {
+    align-self: center;
+    min-width: 0;
+}
+
+@media (max-width: 760px) {
+    .deck-tree-modal.modal .paradigm-sheet-dialog {
+        height: 90dvh;
+        max-height: 90dvh;
+    }
+}
+
 @media (max-width: 520px) {
-    .deck-tree-modal {
-        align-items: flex-start;
-    }
-
-    .deck-tree-modal .modal-content {
-        width: calc(100vw - 12px);
-        max-width: calc(100vw - 12px);
-        height: calc(90dvh - 8px);
-        max-height: calc(90dvh - 8px);
-        margin-top: 8px;
-    }
-
     .deck-tree-search-wrap {
         flex: 1 1 auto;
         min-width: 0;
