@@ -598,6 +598,8 @@ function closePointLogComposer() {
     renderWorkbench();
 }
 
+window.Paradigm?.enableSheetSwipeToClose(pointLogComposerModal, closePointLogComposer);
+
 function updateSubmitState() {
     const name = String(pointDraft.name || '').trim();
     const emoji = String(pointDraft.emoji || '').trim();

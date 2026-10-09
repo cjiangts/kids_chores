@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cancelDeckTreeModalBtn) {
         cancelDeckTreeModalBtn.addEventListener('click', closeDeckTreeModal);
     }
+    window.Paradigm?.enableSheetSwipeToClose(deckTreeModal, closeDeckTreeModal);
     if (applyDeckTreeChangesBtn) {
         applyDeckTreeChangesBtn.addEventListener('click', async () => {
             await applyDeckTreeChanges();
@@ -135,6 +136,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             closePersonalDeckModal();
         });
     }
+    window.Paradigm?.enableSheetSwipeToClose(personalDeckModal, closePersonalDeckModal);
     if (personalDeckBackBtn) {
         personalDeckBackBtn.addEventListener('click', () => {
             setPersonalDeckMode('edit');
