@@ -608,7 +608,7 @@
     --point-summary-value-font-weight: 780;
     display: grid;
     gap: 0.52rem;
-    margin-bottom: 0.72rem;
+    margin-bottom: 0.36rem;
     padding-top: 0.52rem;
 }
 
@@ -692,11 +692,15 @@
     transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
-.point-week-metric:hover,
-.point-week-metric:focus-visible {
+.point-week-metric:not(.is-readonly):hover,
+.point-week-metric:not(.is-readonly):focus-visible {
     transform: translateY(-1px);
     box-shadow: 0 3px 10px rgba(31, 45, 98, 0.12);
     outline: none;
+}
+
+.point-week-metric.is-readonly {
+    cursor: default;
 }
 
 .point-week-metric.earned {
@@ -733,15 +737,15 @@
 }
 
 .point-week-metric-label {
-    font-size: var(--cards-view-toggle-font-size);
-    font-weight: var(--cards-view-toggle-font-weight);
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1;
     white-space: nowrap;
 }
 
 .point-week-metric-value {
-    font-size: var(--point-summary-value-font-size);
-    font-weight: var(--point-summary-value-font-weight);
+    font-size: var(--point-week-heading-font-size);
+    font-weight: var(--point-week-heading-font-weight);
     line-height: 1;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -799,15 +803,27 @@
 }
 
 .point-week-day-name {
-    font-size: 0.74rem;
-    font-weight: 520;
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1;
 }
 
+.point-week-day.is-today .point-week-day-name {
+    display: inline-grid;
+    place-items: center;
+    min-width: 2.15rem;
+    height: 1.12rem;
+    padding: 0 0.14rem;
+    border: 1px solid #6b5cf6;
+    border-radius: 999px;
+    background: #6b5cf6;
+    color: #fff;
+}
+
 .point-week-day-total {
-    color: #5e6886;
-    font-size: 0.86rem;
-    font-weight: 640;
+    color: #354164;
+    font-size: calc(var(--paradigm-list-item-sub-font-size) + 0.08rem);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1;
 }
 
@@ -819,7 +835,7 @@
     display: flex;
     align-items: stretch;
     width: min(86%, 4.8rem);
-    height: 6px;
+    height: 4px;
     border-radius: 999px;
     background: #edf1f8;
     overflow: hidden;
@@ -894,6 +910,10 @@
     font: inherit;
 }
 
+.point-day-summary-today {
+    color: #5f54f0;
+}
+
 .point-day-summary-line .positive {
     color: #1d7d52;
 }
@@ -913,53 +933,28 @@
 
 .point-history-group-list {
     --point-history-time-width: 3.25rem;
-    --point-history-column-gap: 0.36rem;
-    --point-history-line-center: calc(var(--point-history-time-width) + var(--point-history-column-gap) + 5px);
     --activity-time-width: var(--point-history-time-width);
-    --activity-column-gap: var(--point-history-column-gap);
-    --activity-line-center: var(--point-history-line-center);
-}
-
-.point-history-day-boundary {
-    position: relative;
-    min-height: 1.56rem;
-}
-
-.point-history-day-boundary-label {
-    position: absolute;
-    top: 0.18rem;
-    left: var(--point-history-line-center);
-    z-index: 2;
-    transform: translateX(-50%);
-    border-radius: 999px;
-    background: #eef2ff;
-    border: 1px solid #d9dfef;
-    color: #6b7288;
-    font-size: 0.62rem;
-    font-weight: 720;
-    line-height: 1;
-    padding: 0.18rem 0.38rem;
-    white-space: nowrap;
+    --activity-column-gap: 0.36rem;
 }
 
 .point-history-row {
-    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto) 5.25rem;
+    grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) minmax(4.8rem, auto) 5.25rem;
 }
 
 .point-history-row.no-delete {
-    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto);
+    grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) minmax(4.8rem, auto);
 }
 
 .point-history-row.has-balance.no-delete {
-    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto);
+    grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) minmax(4.8rem, auto);
 }
 
 .point-history-row.no-actions {
-    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) minmax(4.8rem, auto);
+    grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) minmax(4.8rem, auto);
 }
 
 .point-history-row.is-editing-note {
-    grid-template-columns: var(--point-history-time-width) 10px 30px minmax(0, 1fr) max-content;
+    grid-template-columns: var(--point-history-time-width) 30px minmax(0, 1fr) max-content;
 }
 
 .point-log-page .point-history-group {
@@ -983,12 +978,6 @@
 
 @keyframes point-history-highlight-pulse {
     50% { box-shadow: 0 0 0 4px rgba(240, 189, 49, 0.35), 0 5px 14px rgba(173, 117, 0, 0.18); }
-}
-
-.point-history-node.activity-timeline-node {
-    width: 6px;
-    height: 6px;
-    margin-left: 2px;
 }
 
 .point-history-icon-link {
@@ -1036,7 +1025,7 @@
 }
 
 .point-history-metrics {
-    grid-column: 5 / 6;
+    grid-column: 4 / 5;
     grid-row: 1 / 3;
     display: inline-flex;
     align-items: center;
@@ -1052,7 +1041,7 @@
 }
 
 .point-history-actions {
-    grid-column: 6 / 7;
+    grid-column: 5 / 6;
     grid-row: 1 / 3;
     display: inline-flex;
     align-items: center;
@@ -1088,7 +1077,7 @@
     gap: 0.4rem;
     width: 100%;
     margin-top: 0.3rem;
-    padding-left: calc(var(--point-history-line-center) + 16px);
+    padding-left: calc(var(--point-history-time-width) + 2.7rem);
 }
 
 .point-history-note-editor {
@@ -1170,7 +1159,7 @@
         --point-summary-label-font-size: 0.62rem;
         --point-summary-value-font-size: 0.78rem;
         gap: 0.42rem;
-        margin-bottom: 0.58rem;
+        margin-bottom: 0.29rem;
     }
 
     .point-week-hero-top {
@@ -1213,7 +1202,6 @@
     }
 
     .point-week-metric-label {
-        font-size: var(--point-summary-label-font-size);
         justify-self: end;
         align-self: end;
     }
@@ -1229,17 +1217,9 @@
         padding: 0.32rem 0.06rem;
     }
 
-    .point-week-day-name {
-        font-size: 0.64rem;
-    }
-
-    .point-week-day-total {
-        font-size: 0.76rem;
-    }
-
     .point-week-day-bar {
         width: 84%;
-        height: 5px;
+        height: 3px;
     }
 }
 
@@ -1337,25 +1317,25 @@
     }
 
     .point-history-row {
-        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto) 4.8rem;
+        grid-template-columns: var(--point-history-time-width) 28px minmax(0, 1fr) minmax(3.8rem, auto) 4.8rem;
         gap: 0.28rem var(--activity-column-gap);
         padding: 0.38rem 0;
     }
 
     .point-history-row.no-delete {
-        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto);
+        grid-template-columns: var(--point-history-time-width) 28px minmax(0, 1fr) minmax(3.8rem, auto);
     }
 
     .point-history-row.has-balance.no-delete {
-        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto);
+        grid-template-columns: var(--point-history-time-width) 28px minmax(0, 1fr) minmax(3.8rem, auto);
     }
 
     .point-history-row.no-actions {
-        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) minmax(3.8rem, auto);
+        grid-template-columns: var(--point-history-time-width) 28px minmax(0, 1fr) minmax(3.8rem, auto);
     }
 
     .point-history-row.is-editing-note {
-        grid-template-columns: var(--point-history-time-width) 10px 28px minmax(0, 1fr) max-content;
+        grid-template-columns: var(--point-history-time-width) 28px minmax(0, 1fr) max-content;
     }
 
     .point-history-metrics {
@@ -1371,7 +1351,7 @@
 
     .point-history-group-list {
         --point-history-time-width: 2.98rem;
-        --point-history-column-gap: 0.30rem;
+        --activity-column-gap: 0.30rem;
     }
 
     .point-history-time.activity-timeline-time {
@@ -1397,7 +1377,7 @@
     }
 
     :is(.point-history-note-editor, .point-history-time-editor) {
-        padding-left: calc(var(--point-history-line-center) + 10px);
+        padding-left: calc(var(--point-history-time-width) + 2.5rem);
     }
 }
 

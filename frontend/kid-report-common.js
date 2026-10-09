@@ -487,7 +487,6 @@
             return `
                 <a href="${escapeHtml(sessionUrl)}" class="session-card activity-timeline-row${isHighlighted ? ' session-card-highlighted' : ''}" data-session-id="${escapeHtml(session?.id || '')}">
                     <span class="session-time activity-timeline-time">${escapeHtml(time)}</span>
-                    <span class="session-node activity-timeline-node" aria-hidden="true"></span>
                     <div class="session-icon activity-timeline-icon">${iconHtml}</div>
                     <div class="session-info activity-timeline-main">
                         <div class="session-title activity-timeline-title">${escapeHtml(displayName)}</div>

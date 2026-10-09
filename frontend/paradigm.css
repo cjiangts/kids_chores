@@ -1982,26 +1982,13 @@ tr.paradigm-editing-row > :last-child {
 .activity-timeline-list {
     --activity-time-width: 3.25rem;
     --activity-column-gap: 0.28rem;
-    --activity-line-center: calc(var(--activity-time-width) + var(--activity-column-gap) + 5px);
-    position: relative;
     display: grid;
-}
-
-.activity-timeline-list::before {
-    content: '';
-    position: absolute;
-    top: 0.4rem;
-    bottom: 0.45rem;
-    left: calc(var(--activity-line-center) - 0.5px);
-    width: 1px;
-    background: #d8deee;
 }
 
 .activity-timeline-row {
     display: grid;
     align-items: center;
-    position: relative;
-    grid-template-columns: var(--activity-time-width) 10px 30px minmax(0, 1fr) auto;
+    grid-template-columns: var(--activity-time-width) var(--activity-timeline-icon-size) minmax(0, 1fr) auto;
     gap: 0.42rem var(--activity-column-gap);
     padding: 0.42rem 0;
 }
@@ -2019,21 +2006,8 @@ tr.paradigm-editing-row > :last-child {
     white-space: nowrap;
 }
 
-.activity-timeline-node {
-    grid-column: 2 / 3;
-    grid-row: 1 / 3;
-    align-self: center;
-    justify-self: start;
-    z-index: 1;
-    width: 8px;
-    height: 8px;
-    margin-left: 1px;
-    border-radius: 999px;
-    background: #b8c0d8;
-}
-
 .activity-timeline-icon {
-    grid-column: 3 / 4;
+    grid-column: 2 / 3;
     grid-row: 1 / 3;
     align-self: center;
     display: inline-flex;
@@ -2056,7 +2030,7 @@ tr.paradigm-editing-row > :last-child {
 }
 
 .activity-timeline-main {
-    grid-column: 4 / 5;
+    grid-column: 3 / 4;
     grid-row: 1 / 3;
     min-width: 0;
     align-self: center;
@@ -2698,7 +2672,7 @@ tr.paradigm-editing-row > :last-child {
 }
 .cards-report-view .session-card {
     display: grid;
-    grid-template-columns: var(--activity-time-width) 10px 30px minmax(0, 1fr) auto 12px;
+    grid-template-columns: var(--activity-time-width) 30px minmax(0, 1fr) auto 12px;
     align-items: center;
     gap: 0.36rem var(--activity-column-gap);
     padding: 0.4rem 0;
@@ -2728,7 +2702,7 @@ tr.paradigm-editing-row > :last-child {
     background: transparent;
 }
 .cards-report-view .session-info {
-    grid-column: 4 / 5;
+    grid-column: 3 / 4;
     grid-row: 1 / 3;
     min-width: 0;
 }
@@ -2746,7 +2720,7 @@ tr.paradigm-editing-row > :last-child {
     margin-top: 0.08rem;
 }
 .cards-report-view .session-stats {
-    grid-column: 5 / 6;
+    grid-column: 4 / 5;
     grid-row: 1 / 3;
     align-self: center;
     text-align: right;
@@ -2774,7 +2748,7 @@ tr.paradigm-editing-row > :last-child {
     margin-top: 0.04rem;
 }
 .cards-report-view .session-chevron {
-    grid-column: 6 / 7;
+    grid-column: 5 / 6;
     grid-row: 1 / 3;
     align-self: center;
     color: #c4c9d7;
@@ -2836,7 +2810,7 @@ tr.paradigm-editing-row > :last-child {
         padding: 0.08rem 0.35rem;
     }
     .cards-report-view .session-card {
-        grid-template-columns: var(--activity-time-width) 10px 28px minmax(0, 1fr) auto 12px;
+        grid-template-columns: var(--activity-time-width) 28px minmax(0, 1fr) auto 12px;
         gap: 0.28rem var(--activity-column-gap);
         padding: 0.38rem 0;
     }
