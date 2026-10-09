@@ -1,24 +1,25 @@
 (function initReportGradingCommon(global) {
     'use strict';
 
-    function render({ resultId, sessionId, gradeStatus } = {}) {
+    function render({ resultId, sessionId, gradeStatus, readOnly = false } = {}) {
         const resolvedResultId = Number(resultId);
         const resolvedSessionId = Number(sessionId);
         if (!Number.isFinite(resolvedResultId) || !Number.isFinite(resolvedSessionId)) return '';
         const grade = String(gradeStatus || '').toLowerCase();
         return `
-            <div class="grade-row grade-segmented">
-                <button class="grade-btn${grade === 'pass' ? ' is-selected' : ''}" data-result-id="${resolvedResultId}" data-session-id="${resolvedSessionId}" data-grade="pass" aria-pressed="${grade === 'pass'}">Pass</button>
-                <button class="grade-btn${grade === 'fail' ? ' is-selected' : ''}" data-result-id="${resolvedResultId}" data-session-id="${resolvedSessionId}" data-grade="fail" aria-pressed="${grade === 'fail'}">Fail</button>
+            <div class="grade-row grade-segmented${readOnly ? ' is-readonly' : ''}">
+                <button class="grade-btn${grade === 'pass' ? ' is-selected' : ''}" data-result-id="${resolvedResultId}" data-session-id="${resolvedSessionId}" data-grade="pass" aria-pressed="${grade === 'pass'}" ${readOnly ? 'disabled aria-disabled="true"' : ''}>Pass</button>
+                <button class="grade-btn${grade === 'fail' ? ' is-selected' : ''}" data-result-id="${resolvedResultId}" data-session-id="${resolvedSessionId}" data-grade="fail" aria-pressed="${grade === 'fail'}" ${readOnly ? 'disabled aria-disabled="true"' : ''}>Fail</button>
             </div>
         `;
     }
 
-    function attach(root, { apiBase, kidId, onBeforeSave, onSaved, onError } = {}) {
+    function attach(root, { apiBase, kidId, isReadOnly, onBeforeSave, onSaved, onError } = {}) {
         if (!root || !apiBase || !kidId) return;
         root.addEventListener('click', async (event) => {
             const btn = event.target?.closest?.('.grade-btn');
             if (!btn || !root.contains(btn)) return;
+            if (typeof isReadOnly === 'function' ? isReadOnly() : Boolean(isReadOnly)) return;
 
             const resultId = Number(btn.dataset.resultId);
             const sessionId = Number(btn.dataset.sessionId);

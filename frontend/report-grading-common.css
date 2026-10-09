@@ -50,3 +50,8 @@
     cursor: wait;
     opacity: 0.6;
 }
+
+.grade-row.is-readonly .grade-btn:disabled {
+    cursor: default;
+    opacity: 1;
+}

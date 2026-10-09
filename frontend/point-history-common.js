@@ -233,6 +233,8 @@
     }
 
     function pointActivityReportHref(event) {
+        if (window.KidAppNavigation?.getMode?.() === 'kid'
+            || window.FamilyUserSwitcher?.currentUser?.().mode === 'kid') return '';
         const rule = event?.rule || {};
         const ruleId = String(event?.ruleId || rule?.ruleId || '').trim();
         if (!ruleId) return '';
@@ -341,29 +343,18 @@
         `;
     }
 
-    function moodEmojiForSummary(summary) {
-        const earned = Math.max(0, Number.parseInt(summary?.earned, 10) || 0);
-        const lost = Math.abs(Math.min(0, Number.parseInt(summary?.lost, 10) || 0));
-        if (earned > lost) return '😊';
-        if (earned < lost) return '😢';
-        return '😐';
-    }
-
     function renderDaySummary(summary, dayKey, timezone) {
         const label = compactDayLabel(dayKey, timezone);
-        const moodEmoji = moodEmojiForSummary(summary);
+        const parts = [
+            { className: 'positive', value: Number(summary?.earned) || 0, text: `${signedZero(summary?.earned, 'positive')} earned` },
+            { className: 'negative', value: Number(summary?.lost) || 0, text: `${signedZero(summary?.lost, 'negative')} lost` },
+            { className: 'redeemed', value: Number(summary?.spent) || 0, text: `${signedZero(summary?.spent, 'negative')} spent` },
+        ].filter((part) => part.value !== 0);
         return `
             <div class="point-day-summary" aria-live="polite">
-                <span class="point-day-summary-icon point-day-summary-emoji" aria-label="Daily mood">${escapeHtml(moodEmoji)}</span>
-                <div class="point-day-summary-copy">
-                    <div class="point-day-summary-line">
-                        <span>${escapeHtml(label)}:</span>
-                        <span class="positive">${escapeHtml(`${signedZero(summary.earned, 'positive')} earned`)}</span>
-                        <span aria-hidden="true">•</span>
-                        <span class="negative">${escapeHtml(`${signedZero(summary.lost, 'negative')} lost`)}</span>
-                        <span aria-hidden="true">•</span>
-                        <span class="redeemed">${escapeHtml(`${signedZero(summary.spent, 'negative')} spent`)}</span>
-                    </div>
+                <div class="point-day-summary-line">
+                    <span>${escapeHtml(parts.length ? `${label}:` : label)}</span>
+                    ${parts.map((part, index) => `${index ? '<span aria-hidden="true">•</span>' : ''}<span class="${part.className}">${escapeHtml(part.text)}</span>`).join('')}
                 </div>
             </div>
         `;

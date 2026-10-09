@@ -180,7 +180,11 @@ def download_type3_audio_as_mp3(kid_id, file_name):
             requested_name or os.path.splitext(file_name)[0],
             fallback='recording'
         )
-        output_name = f'{base_stem}.mp3'
+        kid_name_stem = sanitize_download_filename_stem(
+            str(ctx['kid'].get('name') or '').strip() or 'kid',
+            fallback='kid',
+        )
+        output_name = f'{kid_name_stem}-{base_stem}.mp3'
         source_ext = os.path.splitext(file_name)[1].lower()
         source_is_mp3 = (
             source_ext == '.mp3'
@@ -287,6 +291,10 @@ def download_type3_fastest_correct_recordings_zip(kid_id):
         if not best_by_card:
             return jsonify({'error': 'No correct recordings found for the selected cards.'}), 404
 
+        kid_name_stem = sanitize_download_filename_stem(
+            str(kid.get('name') or '').strip() or 'kid',
+            fallback='kid',
+        )
         used_names = set()
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_STORED) as zip_file:
@@ -315,19 +323,15 @@ def download_type3_fastest_correct_recordings_zip(kid_id):
                     entry['card_front'] or f'card-{card_id_int}',
                     fallback=f'card-{card_id_int}',
                 )
-                candidate = f'{stem}{arc_ext}'
+                candidate = f'{kid_name_stem}-{stem}{arc_ext}'
                 suffix = 2
                 while candidate in used_names:
-                    candidate = f'{stem} ({suffix}){arc_ext}'
+                    candidate = f'{kid_name_stem}-{stem} ({suffix}){arc_ext}'
                     suffix += 1
                 used_names.add(candidate)
                 zip_file.write(arc_path, arcname=candidate)
 
         zip_buffer.seek(0)
-        kid_name_stem = sanitize_download_filename_stem(
-            str(kid.get('name') or '').strip() or 'kid',
-            fallback='kid',
-        )
         zip_filename = f'{kid_name_stem}-recordings.zip'
         return send_file(
             zip_buffer,
@@ -337,5 +341,4 @@ def download_type3_fastest_correct_recordings_zip(kid_id):
         )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
 

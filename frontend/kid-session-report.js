@@ -1184,12 +1184,18 @@ function renderGradingControls(item) {
         resultId: item?.result_id,
         sessionId,
         gradeStatus: item?.grade_status,
+        readOnly: isKidMode(),
     });
+}
+
+function isKidMode() {
+    return window.KidAppNavigation?.getMode?.() === 'kid';
 }
 
 window.ReportGradingCommon?.attach(document, {
     apiBase: API_BASE,
     kidId,
+    isReadOnly: isKidMode,
     onBeforeSave: () => showError(''),
     onSaved: ({ btn, resultId, saved }) => {
         const item = btn.closest('.answer-item');

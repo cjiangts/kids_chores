@@ -848,9 +848,7 @@
 }
 
 .point-day-summary {
-    display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
-    gap: 0.42rem;
+    display: flex;
     align-items: center;
     border: 0;
     padding: 0.34rem 0.6rem;
@@ -887,8 +885,8 @@
     flex-wrap: wrap;
     align-items: baseline;
     gap: 0.26rem 0.42rem;
-    font-size: var(--point-week-heading-font-size);
-    font-weight: var(--point-week-heading-font-weight);
+    font-size: var(--paradigm-list-item-sub-font-size);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1.22;
 }
 

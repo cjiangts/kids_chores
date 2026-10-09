@@ -134,7 +134,7 @@ function renderHero(card, attempts, queuePreview) {
         || `#${card?.id || cardId}`;
     const labelText = String(cardLabel || '');
     const chineseBankMode = getChineseBankMode(card?.chinese_back_content);
-    const heroIconHtml = chineseBankMode && labelText
+    const heroIconHtml = !isKidMode() && chineseBankMode && labelText
         ? `<a class="card-report-hero-icon card-report-hero-icon-link" href="${escapeHtml(buildChineseBankUrl(chineseBankMode, labelText))}" aria-label="Search Chinese Bank for ${escapeHtml(labelText)}">
                 <span class="${getCardReportHeroLabelClasses(labelText)}">${escapeHtml(labelText)}</span>
             </a>`
@@ -633,12 +633,18 @@ function renderGradingControls(item) {
         resultId: item?.result_id,
         sessionId: item?.session_id,
         gradeStatus: item?.grade_status,
+        readOnly: isKidMode(),
     });
+}
+
+function isKidMode() {
+    return window.KidAppNavigation?.getMode?.() === 'kid';
 }
 
 window.ReportGradingCommon?.attach(document, {
     apiBase: API_BASE,
     kidId,
+    isReadOnly: isKidMode,
     onBeforeSave: () => showError(''),
     onSaved: ({ btn, resultId, sessionId, saved }) => {
         const item = btn.closest('.history-item');
