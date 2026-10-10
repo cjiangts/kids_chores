@@ -27,9 +27,10 @@ CREATE TABLE IF NOT EXISTS cards (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Legacy EMA fields are no longer used; speed is calculated from average correct time.
-ALTER TABLE cards DROP COLUMN IF EXISTS correct_time_ema;
-ALTER TABLE cards DROP COLUMN IF EXISTS correct_time_ema_count;
+-- Legacy EMA fields are no longer read. They deliberately remain in existing
+-- databases: dropping a DuckDB table column can fail when a view depends on
+-- that table. Physical removal is handled only by the one-time backup ZIP
+-- rebuild migration (backend/scripts/migrate_drop_legacy_card_ema_backup_zip.py).
 
 -- Quiz sessions
 CREATE TABLE IF NOT EXISTS sessions (
