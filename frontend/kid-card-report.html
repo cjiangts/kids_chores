@@ -229,6 +229,30 @@
             width: 100%;
         }
 
+        .trend-zoom-cell {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            z-index: 3;
+            border: 0;
+            background: transparent;
+            cursor: zoom-in;
+            touch-action: manipulation;
+        }
+
+        .trend-zoom-cell:hover {
+            background: rgba(101, 93, 240, 0.055);
+        }
+
+        .trend-zoom-cell:focus-visible {
+            outline: 2px solid #655df0;
+            outline-offset: -2px;
+        }
+
+        #trendZoomResetBtn[hidden] {
+            display: none;
+        }
+
         .trend-grid {
             position: absolute;
             inset: 0;
@@ -254,12 +278,12 @@
 
         .trend-marker {
             position: absolute;
-            width: 11px;
-            height: 11px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background: currentColor;
             transform: translate(-50%, 50%);
-            box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.9);
+            box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.85);
         }
 
         .trend-marker.right { color: #4cb780; }
@@ -292,7 +316,7 @@
             white-space: nowrap;
         }
 
-        .trend-numberline-tick-label:last-child { color: #2f9e44; }
+        .trend-numberline-tick-label.is-today { color: #2f9e44; }
 
         .trend-legend {
             display: flex;
@@ -330,42 +354,6 @@
         .trend-legend-sep {
             color: #ccc;
             margin: 0 0.1rem;
-        }
-
-        .trend-period-btns {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-            gap: 0.3rem;
-            margin: 0 0 0.5rem;
-        }
-
-        .trend-period-btn {
-            background: #fff;
-            border: 1px solid #d2d9eb;
-            border-radius: 999px;
-            padding: 0.2rem 0.65rem;
-            font-size: 0.75rem;
-            font-weight: 500;
-            color: #5b6acf;
-            cursor: pointer;
-            line-height: 1.2;
-            font-variant-numeric: tabular-nums;
-        }
-
-        .trend-period-btn:hover {
-            background: #f4f6fc;
-        }
-
-        .trend-period-btn.active {
-            background: #5b6acf;
-            border-color: #5b6acf;
-            color: #fff;
-        }
-
-        .trend-period-btn:disabled {
-            opacity: 0.45;
-            cursor: not-allowed;
         }
 
         .chart-legend {
@@ -825,7 +813,7 @@
         <section class="paradigm-settings-panel section-stack" style="display: flex; flex-direction: column;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0; min-width: 0;">
                 <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Speed Over Time</span></h2>
-                <div id="trendPeriodBtns" class="trend-period-btns" style="flex-wrap: nowrap; margin: 0;"></div>
+                <button id="trendZoomResetBtn" type="button" class="paradigm-chip-toggle" hidden>Zoom out</button>
             </div>
             <div id="trendLegend" class="trend-legend"></div>
             <div id="trendChart" class="chart-wrap"></div>

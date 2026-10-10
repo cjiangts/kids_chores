@@ -40,13 +40,13 @@ const errorMessage = document.getElementById('errorMessage');
 const cardReportHero = document.getElementById('cardReportHero');
 const trendChart = document.getElementById('trendChart');
 const trendLegend = document.getElementById('trendLegend');
-const trendPeriodBtns = document.getElementById('trendPeriodBtns');
+const trendZoomResetBtn = document.getElementById('trendZoomResetBtn');
 const trendFootnote = document.getElementById('trendFootnote');
 const historyList = document.getElementById('historyList');
 const historyFilterBtns = document.getElementById('historyFilterBtns');
 let currentTrendAttempts = [];
 let currentHistoryAttempts = [];
-let currentTrendPeriodDays = 0;
+let currentTrendZoomRange = null;
 let historyErrorsOnly = true;
 let reportTimezone = '';
 let currentKidName = '';
@@ -73,6 +73,11 @@ historyFilterBtns?.addEventListener('click', (event) => {
         item.setAttribute('aria-pressed', String(active));
     });
     renderHistory(currentHistoryAttempts);
+});
+
+trendZoomResetBtn?.addEventListener('click', () => {
+    currentTrendZoomRange = null;
+    renderTrend(currentTrendAttempts);
 });
 
 // =====================================================================
@@ -299,7 +304,6 @@ function renderTrend(attempts) {
     if (trendLegend) trendLegend.innerHTML = '';
     if (trendFootnote) trendFootnote.textContent = '';
     if (!currentTrendAttempts.length) {
-        renderTrendPeriodBtns(0);
         trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
         return;
     }
@@ -321,12 +325,12 @@ function renderTrend(attempts) {
         };
     });
 
-    const fullSpanDays = Math.max(0, ...allItems.map((it) => it.daysAgo));
-    renderTrendPeriodBtns(fullSpanDays);
-
-    const periodDays = currentTrendPeriodDays > 0 ? currentTrendPeriodDays : 0;
-    const items = periodDays > 0
-        ? allItems.filter((it) => it.daysAgo <= periodDays)
+    const fullSpanDays = Math.max(7, ...allItems.map((it) => it.daysAgo));
+    const zoomRange = normalizeTrendZoomRange(currentTrendZoomRange, fullSpanDays);
+    currentTrendZoomRange = zoomRange;
+    if (trendZoomResetBtn) trendZoomResetBtn.hidden = !zoomRange;
+    const items = zoomRange
+        ? allItems.filter((it) => it.daysAgo >= zoomRange.newerDays && it.daysAgo <= zoomRange.olderDays)
         : allItems;
 
     if (!items.length) {
@@ -340,9 +344,9 @@ function renderTrend(attempts) {
         it.title = `#${it.index + 1} · ${formatResponseTime(it.ms)} · ${formatDateTime(it.ts)}`;
     });
 
-    const maxDays = periodDays > 0
-        ? Math.max(1, periodDays)
-        : Math.max(7, ...items.map((it) => it.daysAgo));
+    const newerDays = zoomRange ? zoomRange.newerDays : 0;
+    const olderDays = zoomRange ? zoomRange.olderDays : fullSpanDays;
+    const visibleSpanDays = Math.max(1, olderDays - newerDays);
     const stepMs = pickTrendTimeStepMs(maxMs);
     const yMax = Math.max(stepMs, Math.ceil(maxMs / stepMs) * stepMs);
     const yTicks = [];
@@ -351,7 +355,7 @@ function renderTrend(attempts) {
     const MAX_OFFSET_PX = 180;
     const TOP_PADDING_PX = 14;
     items.forEach((it) => {
-        it.xPct = (1 - it.daysAgo / maxDays) * 100;
+        it.xPct = ((olderDays - it.daysAgo) / visibleSpanDays) * 100;
         it.bottomPx = (it.ms / yMax) * MAX_OFFSET_PX;
     });
 
@@ -396,6 +400,13 @@ function renderTrend(attempts) {
     const finalAvgLabel = avgCount ? formatTrendResponseTime(finalAvgMs, useMinutesUnit) : '';
 
     const tickSegments = 6;
+    const zoomCellsHtml = Array.from({ length: tickSegments }, (_, index) => {
+        const olderBound = olderDays - (visibleSpanDays * index / tickSegments);
+        const newerBound = olderDays - (visibleSpanDays * (index + 1) / tickSegments);
+        const hasItems = items.some((item) => item.daysAgo >= newerBound && item.daysAgo <= olderBound);
+        const label = `Zoom to ${formatTrendDayRange(olderBound, newerBound)}`;
+        return `<button type="button" class="trend-zoom-cell" style="left:${(index / tickSegments * 100).toFixed(3)}%; width:${(100 / tickSegments).toFixed(3)}%;" data-trend-zoom-older-days="${olderBound.toFixed(3)}" data-trend-zoom-newer-days="${newerBound.toFixed(3)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"${hasItems ? '' : ' disabled'}></button>`;
+    }).join('');
     const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
         const pct = (i / tickSegments) * 100;
         return `<div class="trend-grid-line-v" style="left:${pct}%"></div>`;
@@ -410,16 +421,17 @@ function renderTrend(attempts) {
     }).join('');
     const tickLabelHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
         const pct = (i / tickSegments) * 100;
-        const dayValue = Math.round((1 - i / tickSegments) * maxDays);
+        const dayValue = Math.round(olderDays - (visibleSpanDays * i / tickSegments));
+        const isToday = i === tickSegments && newerDays <= 0.5;
         let label;
-        if (i === tickSegments) {
+        if (isToday) {
             label = 'today';
         } else if (i === 0) {
             label = `${dayValue}d ago`;
         } else {
             label = `${dayValue}d`;
         }
-        return `<div class="trend-numberline-tick-label" style="left:${pct}%">${escapeHtml(label)}</div>`;
+        return `<div class="trend-numberline-tick-label${isToday ? ' is-today' : ''}" style="left:${pct}%">${escapeHtml(label)}</div>`;
     }).join('');
 
     const presentCorrectness = new Set(items.map((it) => it.correctness));
@@ -454,42 +466,37 @@ function renderTrend(attempts) {
                         <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
                         ${avgLineHtml}
                         ${markerHtml}
+                        ${zoomCellsHtml}
                     </div>
                     <div class="trend-numberline-axis"></div>
                     <div class="trend-numberline-tick-labels">${tickLabelHtml}</div>
                 </div>
             </div>
-        </div>`;
-}
-
-function renderTrendPeriodBtns(fullSpanDays) {
-    if (!trendPeriodBtns) return;
-    const presets = [7, 14, 30, 90].filter((d) => fullSpanDays > d);
-    if (!presets.length) {
-        trendPeriodBtns.hidden = true;
-        trendPeriodBtns.innerHTML = '';
-        if (currentTrendPeriodDays !== 0) currentTrendPeriodDays = 0;
-        return;
-    }
-    if (currentTrendPeriodDays !== 0 && !presets.includes(currentTrendPeriodDays)) {
-        currentTrendPeriodDays = 0;
-    }
-    const opts = [...presets.map((d) => ({ days: d, label: `${d}d` })), { days: 0, label: 'All' }];
-    trendPeriodBtns.hidden = false;
-    trendPeriodBtns.innerHTML = opts
-        .map((o) => {
-            const active = o.days === currentTrendPeriodDays ? ' active' : '';
-            return `<button type="button" class="trend-period-btn${active}" data-period-days="${o.days}">${o.label}</button>`;
-        })
-        .join('');
-    trendPeriodBtns.querySelectorAll('button[data-period-days]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const days = Number(btn.dataset.periodDays) || 0;
-            if (days === currentTrendPeriodDays) return;
-            currentTrendPeriodDays = days;
+    </div>`;
+    trendChart.querySelectorAll('[data-trend-zoom-older-days]').forEach((button) => {
+        button.addEventListener('click', () => {
+            currentTrendZoomRange = {
+                olderDays: Number(button.dataset.trendZoomOlderDays),
+                newerDays: Number(button.dataset.trendZoomNewerDays),
+            };
             renderTrend(currentTrendAttempts);
         });
     });
+}
+
+function normalizeTrendZoomRange(range, fullSpanDays) {
+    const olderDays = Number(range?.olderDays);
+    const newerDays = Number(range?.newerDays);
+    if (!Number.isFinite(olderDays) || !Number.isFinite(newerDays)) return null;
+    const older = Math.min(fullSpanDays, Math.max(0, olderDays));
+    const newer = Math.min(older, Math.max(0, newerDays));
+    return older - newer > 0.25 ? { olderDays: older, newerDays: newer } : null;
+}
+
+function formatTrendDayRange(olderDays, newerDays) {
+    const older = Math.max(0, Math.round(olderDays));
+    const newer = Math.max(0, Math.round(newerDays));
+    return newer === 0 ? `today to ${older} days ago` : `${newer} to ${older} days ago`;
 }
 
 function pickTrendTimeStepMs(maxMs) {
