@@ -1,4 +1,30 @@
 (function () {
+    // Offline mode was removed. A previous release registered a service worker,
+    // which can otherwise keep intercepting production pages after deployment.
+    // Remove its registration and same-origin Cache Storage on the next page
+    // load; both calls are best-effort and do not block the app.
+    function removeLegacyOfflineWorker() {
+        if (!('serviceWorker' in navigator)) return;
+        navigator.serviceWorker.getRegistrations()
+            .then(function (registrations) {
+                return Promise.all(registrations.map(function (registration) {
+                    return registration.unregister();
+                }));
+            })
+            .catch(function () { /* Best-effort cleanup only. */ });
+        if ('caches' in window) {
+            caches.keys()
+                .then(function (cacheNames) {
+                    return Promise.all(cacheNames.map(function (cacheName) {
+                        return caches.delete(cacheName);
+                    }));
+                })
+                .catch(function () { /* Best-effort cleanup only. */ });
+        }
+    }
+
+    removeLegacyOfflineWorker();
+
     var HOME_PATH = '/family-home.html';
     var DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;
     var timeoutMs = Number(window.APP_IDLE_HOME_TIMEOUT_MS) || DEFAULT_TIMEOUT_MS;
