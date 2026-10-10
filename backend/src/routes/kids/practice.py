@@ -74,6 +74,7 @@ from src.services.practice_session import (
     build_type_i_multiple_choice_pool_cards,
     get_retry_source_wrong_card_ids,
     plan_deck_practice_selection_for_decks,
+    preview_deck_practice_order_for_decks,
 )
 from src.services.session_grading import (
     append_type1_result_submitted_answer,
@@ -981,24 +982,34 @@ def start_type_i_practice_session_internal(
             return payload, 200
 
         multiple_choice_pool_cards = []
-        if include_multiple_choice_pool_cards and (is_continue_session or is_retry_session):
-            source_session_card_ids = []
-            if is_continue_session and continue_source_session is not None:
-                selected_card_ids = [int(card.get('id') or 0) for card in selected_cards]
-                source_session_card_ids = [
-                    card_id
-                    for card_id in [*continue_practiced_card_ids, *selected_card_ids]
-                    if int(card_id or 0) > 0
-                ]
-            elif is_retry_session and retry_source_session is not None:
-                source_session_card_ids = get_session_practiced_card_ids(
-                    conn,
-                    retry_source_session['session_id'],
-                )
+        if include_multiple_choice_pool_cards:
+            # A small session used to make its own cards the entire multiple-choice
+            # pool. That lets a child solve options by elimination after recognising
+            # just a few of today's cards. Include roughly today + the next two
+            # sessions from the same priority queue instead.
+            pool_basis_count = max(
+                len(selected_cards),
+                get_category_session_card_count_for_kid(kid, category_key),
+            )
+            pool_target_count = max(1, pool_basis_count * 3)
+            excluded_for_pool = continue_practiced_card_ids if is_continue_session else None
+            queued_card_ids = preview_deck_practice_order_for_decks(
+                conn,
+                kid,
+                source_deck_ids,
+                category_key,
+                excluded_card_ids=excluded_for_pool,
+            )
+            selected_card_ids = [
+                int(card.get('id') or 0)
+                for card in selected_cards
+                if int(card.get('id') or 0) > 0
+            ]
+            pool_card_ids = list(dict.fromkeys([*selected_card_ids, *queued_card_ids]))
             multiple_choice_pool_cards = build_type_i_multiple_choice_pool_cards(
                 conn,
                 source_by_deck_id,
-                source_session_card_ids,
+                pool_card_ids[:pool_target_count],
             )
 
         pending_session_payload = {
