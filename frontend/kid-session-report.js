@@ -526,13 +526,8 @@ function renderAnswerSections(answers) {
     rightSectionTitle.textContent = 'Cards Practiced';
     if (rightSectionIconHost) rightSectionIconHost.innerHTML = window.icon('layers', { size: 22 });
     if (rightSectionHint) {
-        if (isTypeIIIReviewSession()) {
-            rightSectionHint.textContent = '';
-            rightSectionHint.style.display = 'none';
-        } else {
-            rightSectionHint.textContent = buildCardsPracticedSpeedHint(answers);
-            rightSectionHint.style.display = '';
-        }
+        rightSectionHint.textContent = '';
+        rightSectionHint.style.display = 'none';
     }
     if (drillProgressSection) drillProgressSection.style.display = 'none';
     const compact = !isTypeIIIReviewSession();
@@ -1023,18 +1018,6 @@ function renderAnswerList(container, cards, options = {}) {
     }
     window.AudioHistoryCommon.attachPlayers(container, { rewindSeconds: 5 });
     syncRenderedResponseTimeBars();
-}
-
-function buildCardsPracticedSpeedHint(answers) {
-    const times = (Array.isArray(answers) ? answers : [])
-        .map((item) => Math.max(0, Number(item?.response_time_ms) || 0))
-        .filter((value) => value > 0);
-    if (times.length === 0) {
-        return 'Tap a card to view details. The small number on top shows how many times it was retried.';
-    }
-    const slowest = Math.max(...times);
-    const fastest = Math.min(...times);
-    return `Slowest ${formatResponseTime(slowest)} · Fastest ${formatResponseTime(fastest)}`;
 }
 
 function renderCompactResponseTimeBadge(ms) {

@@ -441,18 +441,11 @@ function iconHtml(rule) {
 }
 
 function allInAppIconHtml() {
-    const phoneIcon = typeof window.icon === 'function'
-        ? window.icon('smartphone', { size: 14, strokeWidth: 2.5 })
-        : '<span class="icon" data-icon="smartphone" data-icon-size="14" data-icon-stroke="2.5"></span>';
-    return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${phoneIcon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
+    return '<span class="point-activity-all-in-app-icon" aria-hidden="true">ALL</span>';
 }
 
 function aggregateActivityIconHtml() {
-    const config = aggregateActivityConfig();
-    const icon = typeof window.icon === 'function'
-        ? window.icon(config.icon, { size: 14, strokeWidth: 2.5 })
-        : `<span class="icon" data-icon="${escapeHtml(config.icon)}" data-icon-size="14" data-icon-stroke="2.5"></span>`;
-    return `<span class="point-activity-all-in-app-icon" aria-hidden="true"><span class="point-activity-all-in-app-phone">${icon}</span><span class="point-activity-all-in-app-label">ALL</span></span>`;
+    return '<span class="point-activity-all-in-app-icon" aria-hidden="true">ALL</span>';
 }
 
 function allInAppSubjectFilterHtml() {

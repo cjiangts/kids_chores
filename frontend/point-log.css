@@ -1,4 +1,4 @@
-.point-log-workbench .settings-card-body {
+.point-log-composer-body {
     display: grid;
     gap: 0;
 }
@@ -24,7 +24,7 @@
 }
 
 /* The sheet itself is the surface; do not nest a second card inside it. */
-.point-log-composer-dialog .point-log-workbench.settings-section {
+.point-log-composer-dialog .point-log-workbench {
     margin: 0;
     padding: 0;
     border: 0;
@@ -34,7 +34,7 @@
 }
 
 .point-log-composer-dialog .point-log-mode-row {
-    margin: 0 0 0.52rem;
+    margin: 0.423rem 0;
 }
 
 /* Reserve room for the points stepper, just like the phone layout. */
@@ -558,10 +558,6 @@
 }
 
 @media (max-width: 520px) {
-    .point-log-workbench .settings-card-body {
-        gap: 0.49rem;
-    }
-
     .point-log-form {
         gap: 0.36rem;
     }
@@ -788,8 +784,8 @@
 }
 
 .point-week-metric-value {
-    font-size: calc(var(--point-week-heading-font-size) - 0.16rem);
-    font-weight: var(--point-week-heading-font-weight);
+    font-size: calc(var(--paradigm-list-item-sub-font-size) + 1px);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1;
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
@@ -853,15 +849,24 @@
 }
 
 .point-week-day.is-today .point-week-day-name {
-    display: inline-grid;
-    place-items: center;
-    min-width: 2.15rem;
-    height: 1.12rem;
-    padding: 0 0.14rem;
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
+    color: #fff;
+}
+
+.point-week-day.is-today .point-week-day-name::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: 50%;
+    left: 50%;
+    width: 1.9rem;
+    height: 0.84rem;
+    transform: translate(-50%, -50%);
     border: 1px solid #6b5cf6;
     border-radius: 999px;
     background: #6b5cf6;
-    color: #fff;
 }
 
 .point-week-day-total {

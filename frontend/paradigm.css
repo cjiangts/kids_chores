@@ -1468,8 +1468,8 @@ input.paradigm-compact-stepper-value {
     text-overflow: ellipsis;
     white-space: nowrap;
     color: inherit;
-    font-size: 0.61rem;
-    font-weight: 700;
+    font-size: calc(var(--paradigm-list-item-sub-font-size) + 1px);
+    font-weight: var(--paradigm-list-item-sub-font-weight);
     line-height: 1;
     opacity: 0.94;
     font-variant-numeric: tabular-nums;
@@ -1532,9 +1532,6 @@ input.paradigm-compact-stepper-value {
         max-width: 50px;
     }
 
-    .kid-avatar-switcher-points {
-        font-size: 0.57rem;
-    }
 }
 
 /* View switcher: underline tab bar instead of a filled pill / gray well. */
@@ -1789,6 +1786,10 @@ svg.cards-view-toggle-btn-icon,
     margin-bottom: 0;
 }
 
+.paradigm-sheet-dialog {
+    position: relative;
+}
+
 .paradigm-sheet-header .paradigm-sheet-title {
     margin: 0;
     color: var(--p-ink-title);
@@ -1799,6 +1800,10 @@ svg.cards-view-toggle-btn-icon,
 }
 
 .paradigm-icon-btn.paradigm-sheet-close {
+    position: absolute;
+    top: 0.1rem;
+    right: 0.15rem;
+    z-index: 1;
     flex: 0 0 auto;
     border-color: transparent;
     background: transparent;
@@ -1814,6 +1819,10 @@ svg.cards-view-toggle-btn-icon,
 }
 
 @media (max-width: 760px) {
+    .paradigm-icon-btn.paradigm-sheet-close {
+        right: -0.25rem;
+    }
+
     .paradigm-sheet-modal {
         align-items: flex-end;
         padding: 0;
@@ -1833,7 +1842,8 @@ svg.cards-view-toggle-btn-icon,
 
     .paradigm-sheet-header {
         position: relative;
-        padding-top: 0.42rem;
+        padding-top: 0.95rem;
+        padding-right: 2.2rem;
     }
 
     .paradigm-sheet-header::before {

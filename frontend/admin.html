@@ -227,78 +227,6 @@
             text-align: right;
             vertical-align: middle !important;
         }
-        .parent-admin-page .admin-matrix-column-head-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.22rem;
-            justify-content: center;
-            color: inherit;
-            text-decoration: none;
-            border-radius: 8px;
-            padding: 0.12rem 0.18rem;
-            transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
-        }
-        .parent-admin-page .admin-matrix-column-head-link:hover,
-        .parent-admin-page .admin-matrix-column-head-link:focus-visible {
-            background: #f6f8ff;
-            color: #2f4cb5;
-            outline: none;
-        }
-        .parent-admin-page :is(.admin-matrix-all-report-link, .admin-off-app-add-btn) {
-            box-sizing: border-box;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            padding: 2.5px;
-            border: 0.75px solid #e6eaf8;
-            border-radius: 8px;
-            background: #fff;
-            box-shadow: 0 1px 2px rgba(47, 61, 118, 0.08);
-            margin-left: auto;
-            color: #3267d6;
-            text-decoration: none;
-        }
-        .parent-admin-page .admin-off-app-add-btn {
-            cursor: pointer;
-        }
-        .parent-admin-page .admin-matrix-all-report-link:hover,
-        .parent-admin-page .admin-matrix-all-report-link:focus-visible,
-        .parent-admin-page .admin-off-app-add-btn:hover,
-        .parent-admin-page .admin-off-app-add-btn:focus-visible {
-            border-color: #8175f7;
-            color: #3267d6;
-            box-shadow: 0 3px 8px rgba(107, 92, 246, 0.16);
-            outline: none;
-        }
-        .parent-admin-page :is(.admin-matrix-all-report-icon, .admin-off-app-add-icon) {
-            display: grid;
-            grid-template-rows: 1fr auto;
-            place-items: center;
-            width: 29px;
-            height: 29px;
-            border-radius: 7px;
-            background: #eaf0ff;
-            color: #3267d6;
-            line-height: 1;
-        }
-        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol) {
-            display: inline-flex;
-            align-items: end;
-            height: 13px;
-        }
-        .parent-admin-page :is(.admin-matrix-all-report-phone, .admin-off-app-add-symbol) :is(.icon, svg) {
-            width: 11px;
-            height: 11px;
-            stroke: currentColor;
-        }
-        .parent-admin-page :is(.admin-matrix-all-report-label, .admin-off-app-add-label) {
-            margin-bottom: 2px;
-            font-size: 0.42rem;
-            font-weight: 850;
-            letter-spacing: 0.04em;
-        }
         .parent-admin-page .admin-matrix-kid-avatar {
             width: 32px;
             height: 32px;
@@ -572,6 +500,9 @@
         }
         .parent-admin-page .admin-point-report-icon.paradigm-subject-icon .subject-icon.subject-icon--multi {
             font-size: calc(var(--subj-size) * 0.32);
+        }
+        .parent-admin-page .admin-off-app-add-btn .subject-icon {
+            background: transparent;
         }
         .parent-admin-page .admin-point-report-icon:hover,
         .parent-admin-page .admin-point-report-icon:focus-visible {
@@ -965,12 +896,6 @@
         }
 
         @media (max-width: 600px) {
-            .parent-admin-page .admin-matrix-all-report-link {
-                position: relative;
-                transform: none;
-                z-index: 1;
-            }
-
             /* iPhone-12 fit: tighten cell padding so the subject 3-dot menu sits closer to the opt-in checkbox */
             .parent-admin-page .admin-matrix th,
             .parent-admin-page .admin-matrix td {
@@ -1211,6 +1136,6 @@
             });
         }
     </script>
-    <script src="admin.js"></script>
+    <script src="admin.js?v=off-app-add-plus-only-20261009"></script>
 </body>
 </html>

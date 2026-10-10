@@ -1096,7 +1096,7 @@ function buildAdminOffAppRow(chore, state) {
 
 function buildAdminOffAppTable(bodyHtml) {
     const iconHtml = (typeof window.icon === 'function') ? window.icon('clipboard-check', { strokeWidth: 2 }) : '';
-    const addIconHtml = (typeof window.icon === 'function') ? window.icon('scan-plus', { size: 15, strokeWidth: 2.5 }) : '';
+    const addIconHtml = (typeof window.icon === 'function') ? window.icon('plus', { size: 20, strokeWidth: 2.6 }) : '';
     return `
         <table class="admin-matrix admin-off-app-matrix">
             <colgroup>
@@ -1108,7 +1108,7 @@ function buildAdminOffAppTable(bodyHtml) {
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
                     <th class="admin-off-app-opt-head"></th>
-                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><button type="button" class="admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="admin-off-app-add-icon" aria-hidden="true"><span class="admin-off-app-add-symbol">${addIconHtml}</span><span class="admin-off-app-add-label">ADD</span></span></button></th>
+                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><button type="button" class="paradigm-subject-icon admin-point-report-icon admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="subject-icon subject-blue" aria-hidden="true">${addIconHtml}</span></button></th>
                 </tr>
             </thead>
             <tbody>${bodyHtml}</tbody>
@@ -1498,10 +1498,9 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
 
 function buildTodayColumnHeader(kid) {
     const href = '/point-activity-report.html?ruleId=0';
-    const phoneIcon = (typeof window.icon === 'function') ? window.icon('smartphone', { size: 14, strokeWidth: 2.5 }) : '';
     return `
         <th class="admin-matrix-status-head admin-matrix-all-report-head paradigm-status-column">
-            <a href="${escapeHtml(href)}" class="admin-matrix-column-head-link admin-matrix-all-report-link" aria-label="All in-app activity" title="All in-app activity"><span class="admin-matrix-all-report-icon" aria-hidden="true"><span class="admin-matrix-all-report-phone">${phoneIcon}</span><span class="admin-matrix-all-report-label">ALL</span></span></a>
+            <a href="${escapeHtml(href)}" class="paradigm-subject-icon admin-point-report-icon" aria-label="All in-app activity" title="All in-app activity"><span class="subject-icon subject-icon--multi subject-blue" aria-hidden="true">ALL</span></a>
         </th>
     `;
 }

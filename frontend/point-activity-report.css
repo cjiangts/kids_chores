@@ -88,15 +88,18 @@
 }
 
 .point-activity-all-in-app-icon {
-    display: grid;
-    grid-template-rows: 1fr auto;
-    place-items: center;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     width: 36px;
     height: 36px;
     border-radius: 10px;
     background: #eaf0ff;
     color: #3267d6;
     line-height: 1;
+    font-size: 0.58rem;
+    font-weight: 850;
+    letter-spacing: 0.04em;
 }
 
 .point-activity-icon--loss .point-activity-all-in-app-icon {
@@ -109,26 +112,6 @@
 
 .point-activity-icon--redeem .point-activity-all-in-app-icon {
     color: #9a6500;
-}
-
-.point-activity-all-in-app-phone {
-    display: inline-flex;
-    align-items: end;
-    height: 19px;
-}
-
-.point-activity-all-in-app-phone .icon,
-.point-activity-all-in-app-phone svg {
-    width: 14px;
-    height: 14px;
-    stroke: currentColor;
-}
-
-.point-activity-all-in-app-label {
-    margin-bottom: 4px;
-    font-size: 0.46rem;
-    font-weight: 850;
-    letter-spacing: 0.04em;
 }
 
 .point-activity-icon.point-activity-icon--in-app:hover,
@@ -406,8 +389,8 @@
 
 .point-activity-kid-count--sessions {
     display: flex;
-    flex-direction: row;
-    gap: 0.28rem;
+    flex-direction: column;
+    gap: 0.03rem;
 }
 
 .point-activity-kid-count--sessions > span {
@@ -415,8 +398,7 @@
 }
 
 .point-activity-kid-count--sessions > span + span::before {
-    content: '·';
-    margin-right: 0.28rem;
+    content: none;
 }
 
 .point-activity-calendar-head {

@@ -142,6 +142,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             setPersonalDeckMode('edit');
         });
     }
+    if (personalDeckClearBtn) {
+        personalDeckClearBtn.addEventListener('click', () => {
+            if (chineseCharInput) chineseCharInput.value = '';
+            showStatusMessage('');
+            updateAddReadingButtonCount();
+            chineseCharInput?.focus();
+        });
+    }
     const addCardStatusDismissBtn = document.getElementById('addCardStatusDismissBtn');
     if (addCardStatusDismissBtn) {
         addCardStatusDismissBtn.addEventListener('click', () => {

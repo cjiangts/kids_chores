@@ -1295,6 +1295,32 @@
             --paradigm-compact-stepper-button-size: 1.25rem;
             --paradigm-compact-stepper-value-width: 2.5rem;
             justify-content: space-between;
+            border-color: #ddd8f4;
+            background: #f6f4ff;
+            box-shadow: none;
+            color: #334276;
+        }
+
+        .kid-card-manage-page .queue-stepper .paradigm-compact-stepper-button {
+            border-color: #e5e1f3;
+            background: #fff;
+            color: #53629a;
+            box-shadow: none;
+        }
+
+        .kid-card-manage-page .queue-stepper .paradigm-compact-stepper-button:hover:not(:disabled),
+        .kid-card-manage-page .queue-stepper .paradigm-compact-stepper-button:focus-visible:not(:disabled) {
+            border-color: #cfc8ed;
+            background: #fdfcff;
+        }
+
+        .kid-card-manage-page .queue-stepper .paradigm-compact-stepper-value {
+            color: #334276;
+        }
+
+        .kid-card-manage-page .queue-save-pill:disabled {
+            background: #eef0f7;
+            color: #94a0ba;
         }
 
         .kid-card-manage-page .queue-save-pill {
@@ -2929,6 +2955,10 @@
         }
 
         @media (min-width: 760px) {
+            #personalDeckModal #personalDeckActionRow {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 4fr);
+            }
+
             .kid-card-manage-page .queue-actions-layout {
                 flex-wrap: nowrap;
                 margin: 0.62rem 0 0.73rem;
@@ -3077,9 +3107,5 @@
         }
 
         #personalDeckModal #personalDeckActionRow {
-            grid-template-columns: minmax(0, 1fr);
-        }
-
-        #personalDeckModal #personalDeckActionRow.is-preview {
-            grid-template-columns: auto minmax(0, 1fr);
+            grid-template-columns: minmax(0, 1fr) minmax(0, 4fr);
         }

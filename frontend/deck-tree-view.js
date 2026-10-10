@@ -505,7 +505,11 @@
             let html = '';
             html += `<div class="deck-tree-node deck-tree-leaf" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
             html += `<div class="${rowClasses.join(' ')}">`;
-            html += `<button type="button" class="deck-tree-leaf-toggle${isExpanded ? ' expanded' : ''}" aria-label="Show cards in deck">&#9654;</button>`;
+            const leafToggleLabel = isExpanded ? 'Hide cards in deck' : 'Show cards in deck';
+            const leafToggleIcon = typeof window.icon === 'function'
+                ? window.icon(isExpanded ? 'book-open' : 'book', { size: 15, strokeWidth: 2.1 })
+                : '';
+            html += `<button type="button" class="deck-tree-leaf-toggle${isExpanded ? ' expanded' : ''}" aria-label="${leafToggleLabel}" title="${leafToggleLabel}">${leafToggleIcon}</button>`;
             html += `<div class="deck-tree-row-body" data-tree-action="${escapeHtml(action)}" data-tree-deck-id="${escapeHtml(deckIdStr)}">`;
             html += `<span class="deck-tree-checkbox paradigm-selection-check" aria-hidden="true"></span>`;
             html += `<span class="deck-tree-label-wrap"><span class="deck-tree-label">${labelHtml}</span>${leafActionBtn}</span>`;
@@ -767,6 +771,12 @@
                         }
                         cardsEl.classList.toggle('collapsed', isExpanded);
                         leafToggle.classList.toggle('expanded', !isExpanded);
+                        const leafToggleLabel = !isExpanded ? 'Hide cards in deck' : 'Show cards in deck';
+                        leafToggle.setAttribute('aria-label', leafToggleLabel);
+                        leafToggle.title = leafToggleLabel;
+                        if (typeof window.icon === 'function') {
+                            leafToggle.innerHTML = window.icon(!isExpanded ? 'book-open' : 'book', { size: 15, strokeWidth: 2.1 });
+                        }
                     }
                 }
                 return;

@@ -139,7 +139,6 @@
     scrollbar-gutter: stable;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
-    border-top: 1px solid #e9ecef;
     margin-top: 0.5rem;
 }
 
@@ -211,7 +210,7 @@
     flex: 0 0 28px;
     font-size: 0.62rem;
     color: #aab1c0;
-    transition: transform 0.15s ease, color 0.12s ease;
+    transition: color 0.12s ease;
     border: none;
     background: none;
     padding: 0;
@@ -223,8 +222,11 @@
 }
 
 .deck-tree-leaf-toggle.expanded {
-    transform: rotate(90deg);
     color: #555;
+}
+
+.deck-tree-leaf-toggle svg {
+    display: block;
 }
 
 .deck-tree-leaf-cards {
@@ -511,7 +513,7 @@
 
 .deck-tree-modal .deck-tree-header {
     flex: 0 0 auto;
-    row-gap: 0.14rem;
+    row-gap: 0.64rem;
 }
 
 .deck-tree-modal .deck-tree-title-row {
@@ -569,7 +571,11 @@
 
     .deck-tree-row-body {
         min-height: 46px;
-        padding: 0.35rem 0.65rem 0.35rem 0.4rem;
+        padding: 0 0 0 0.4rem;
+    }
+
+    .deck-tree-progress {
+        right: 0;
     }
 
     .deck-tree-toggle {

@@ -124,6 +124,7 @@ const personalDeckEditWrap = document.getElementById('personalDeckEditWrap');
 const personalDeckPreviewWrap = document.getElementById('personalDeckPreviewWrap');
 const personalDeckPreviewTableBody = document.getElementById('personalDeckPreviewTableBody');
 const personalDeckPreviewSummary = document.getElementById('personalDeckPreviewSummary');
+const personalDeckClearBtn = document.getElementById('personalDeckClearBtn');
 const personalDeckBackBtn = document.getElementById('personalDeckBackBtn');
 let personalDeckMode = 'edit';
 
@@ -532,6 +533,7 @@ function setPersonalDeckMode(mode) {
     if (personalDeckActionRow) personalDeckActionRow.classList.toggle('is-preview', isPreview);
     if (personalDeckEditWrap) personalDeckEditWrap.classList.toggle('hidden', isPreview);
     if (personalDeckPreviewWrap) personalDeckPreviewWrap.classList.toggle('hidden', !isPreview);
+    if (personalDeckClearBtn) personalDeckClearBtn.classList.toggle('hidden', isPreview);
     if (personalDeckBackBtn) personalDeckBackBtn.classList.toggle('hidden', !isPreview);
     if (chineseCharInput) chineseCharInput.required = !isPreview;
     if (addReadingBtn) {
