@@ -203,11 +203,13 @@ function resolveBackHref() {
 }
 
 async function loadReportTimezone() {
-    const response = await fetch(`${API_BASE}/parent-settings/timezone`);
-    if (!response.ok) {
-        throw new Error(`Timezone request failed (${response.status})`);
-    }
-    const data = await response.json().catch(() => ({}));
+    const url = `${API_BASE}/parent-settings/timezone`;
+    const data = window.KidsChoresRequestCache
+        ? await window.KidsChoresRequestCache.getJson(url, { persist: true })
+        : await fetch(url).then(async (response) => {
+            if (!response.ok) throw new Error(`Timezone request failed (${response.status})`);
+            return response.json().catch(() => ({}));
+        });
     const tz = String(data.familyTimezone || '').trim();
     if (!tz) {
         throw new Error('familyTimezone missing from timezone response');

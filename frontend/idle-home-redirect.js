@@ -1,29 +1,128 @@
 (function () {
-    // Offline mode was removed. A previous release registered a service worker,
-    // which can otherwise keep intercepting production pages after deployment.
-    // Remove its registration and same-origin Cache Storage on the next page
-    // load; both calls are best-effort and do not block the app.
-    function removeLegacyOfflineWorker() {
-        if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.getRegistrations()
-            .then(function (registrations) {
-                return Promise.all(registrations.map(function (registration) {
-                    return registration.unregister();
+    // iOS Safari may discard an otherwise fresh HTTP image cache between page
+    // navigations. The worker retains versioned immutable assets locally.
+    // Keep this in sync with STATIC_CACHE in service-worker.js. localStorage
+    // survives the standalone-app session reset below, unlike sessionStorage.
+    var SERVICE_WORKER_RELEASE = 'v3';
+    var SERVICE_WORKER_STORAGE_KEY = 'kids_chores_service_worker_release';
+
+    // Shared request helper: identical requests made by two page components
+    // reuse one in-flight response. The family timezone is the only current
+    // caller allowed to persist its value across browser sessions.
+    var requestPromises = new Map();
+    var REQUEST_CACHE_PREFIX = 'kids_chores_request_cache_v1:';
+    var ACTIVE_FAMILY_STORAGE_KEY = 'kids_chores_active_family_id_v1';
+
+    function requestCacheKey(url) {
+        return REQUEST_CACHE_PREFIX + encodeURIComponent(String(url));
+    }
+
+    function persistentCacheKey(url) {
+        try {
+            var familyId = String(localStorage.getItem(ACTIVE_FAMILY_STORAGE_KEY) || '').trim();
+            return familyId ? requestCacheKey('family:' + familyId + ':' + url) : null;
+        } catch (_) { return null; }
+    }
+
+    function rememberFamilyId(data) {
+        var familyId = String(data && data.familyId || '').trim();
+        if (!familyId) return;
+        try { localStorage.setItem(ACTIVE_FAMILY_STORAGE_KEY, familyId); } catch (_) { /* ignore */ }
+    }
+
+    function getCachedJson(url, ttlMs, persist) {
+        try {
+            if (persist) {
+                var persistentKey = persistentCacheKey(url);
+                var persistent = persistentKey && JSON.parse(localStorage.getItem(persistentKey) || 'null');
+                if (persistent && persistent.data) return persistent.data;
+            } else {
+                var saved = JSON.parse(sessionStorage.getItem(requestCacheKey(url)) || 'null');
+                if (saved && saved.expiresAt > Date.now()) return saved.data;
+            }
+        } catch (_) { /* Storage is an optional optimization. */ }
+        return null;
+    }
+
+    function saveCachedJson(url, data, ttlMs, persist) {
+        if (!ttlMs && !persist) return;
+        try {
+            if (persist) {
+                rememberFamilyId(data);
+                var persistentKey = persistentCacheKey(url);
+                if (persistentKey) localStorage.setItem(persistentKey, JSON.stringify({ data: data }));
+            } else {
+                sessionStorage.setItem(requestCacheKey(url), JSON.stringify({
+                    expiresAt: Date.now() + ttlMs,
+                    data: data
                 }));
-            })
-            .catch(function () { /* Best-effort cleanup only. */ });
+            }
+        } catch (_) { /* Storage is an optional optimization. */ }
+    }
+
+    window.KidsChoresRequestCache = {
+        getJson: function (url, options) {
+            var ttlMs = Number(options && options.ttlMs) || 0;
+            var persist = Boolean(options && options.persist);
+            var cached = (ttlMs || persist) ? getCachedJson(url, ttlMs, persist) : null;
+            if (cached) return Promise.resolve(cached);
+            var key = String(url);
+            if (requestPromises.has(key)) return requestPromises.get(key);
+            var request = fetch(url, { headers: { Accept: 'application/json' } })
+                .then(function (response) {
+                    return response.json().catch(function () { return {}; })
+                        .then(function (data) {
+                            if (!response.ok) {
+                                throw new Error(data.error || 'Request failed (' + response.status + ')');
+                            }
+                            saveCachedJson(url, data, ttlMs, persist);
+                            return data;
+                        });
+                })
+                .finally(function () { requestPromises.delete(key); });
+            requestPromises.set(key, request);
+            return request;
+        },
+        invalidate: function (url) {
+            try { sessionStorage.removeItem(requestCacheKey(url)); } catch (_) { /* ignore */ }
+            try {
+                var persistentKey = persistentCacheKey(url);
+                if (persistentKey) localStorage.removeItem(persistentKey);
+            } catch (_) { /* ignore */ }
+        },
+        storeJson: function (url, data, options) {
+            saveCachedJson(url, data, Number(options && options.ttlMs) || 0, Boolean(options && options.persist));
+        }
+    };
+
+    function enableAvatarCache() {
+        if (!('serviceWorker' in navigator)) return;
+        // Calling register on every navigation makes Safari revalidate the
+        // worker every time. Check once per release instead.
+        try {
+            if (localStorage.getItem(SERVICE_WORKER_STORAGE_KEY) === SERVICE_WORKER_RELEASE) return;
+            localStorage.setItem(SERVICE_WORKER_STORAGE_KEY, SERVICE_WORKER_RELEASE);
+        } catch (_) { /* If storage is blocked, retain the normal behavior. */ }
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .catch(function () {
+                try { localStorage.removeItem(SERVICE_WORKER_STORAGE_KEY); } catch (_) { /* ignore */ }
+                // Regular HTTP cache remains the fallback.
+            });
         if ('caches' in window) {
             caches.keys()
                 .then(function (cacheNames) {
-                    return Promise.all(cacheNames.map(function (cacheName) {
-                        return caches.delete(cacheName);
-                    }));
+                    return Promise.all(cacheNames
+                        .filter(function (name) {
+                            return name !== 'kids-chores-avatar-v1'
+                                && name !== 'kids-chores-static-v3';
+                        })
+                        .map(function (name) { return caches.delete(name); }));
                 })
                 .catch(function () { /* Best-effort cleanup only. */ });
         }
     }
 
-    removeLegacyOfflineWorker();
+    enableAvatarCache();
 
     var HOME_PATH = '/family-home.html';
     var DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;

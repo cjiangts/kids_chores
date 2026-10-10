@@ -411,6 +411,7 @@ def create_app():
             return auth_err
         family_id = str(session.get('family_id') or '')
         return {
+            'familyId': family_id,
             'familyTimezone': metadata.get_family_timezone(family_id)
         }, 200
 
@@ -434,6 +435,7 @@ def create_app():
             return {'error': 'Failed to update family timezone'}, 400
 
         return {
+            'familyId': family_id,
             'familyTimezone': metadata.get_family_timezone(family_id),
             'updated': True
         }, 200

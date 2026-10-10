@@ -5,6 +5,7 @@ const errorMessage = document.getElementById('errorMessage');
 const params = new URLSearchParams(window.location.search);
 const next = params.get('next') || '/';
 const CURRENT_FAMILY_ID_STORAGE_KEY = 'current_family_id_v1';
+const ACTIVE_FAMILY_STORAGE_KEY = 'kids_chores_active_family_id_v1';
 
 document.addEventListener('DOMContentLoaded', async () => {
     await maybeRedirect();
@@ -50,10 +51,20 @@ async function submitRegister(payload) {
             showError(data.error || 'Register failed');
             return;
         }
+        rememberActiveFamily(data.familyId);
         clearCurrentFamilyNavigationPointer();
         window.location.href = next;
     } catch (error) {
         showError('Register failed');
+    }
+}
+
+function rememberActiveFamily(familyId) {
+    try {
+        const id = String(familyId || '').trim();
+        if (id) window.localStorage.setItem(ACTIVE_FAMILY_STORAGE_KEY, id);
+    } catch (error) {
+        // Persistent timezone caching is optional.
     }
 }
 

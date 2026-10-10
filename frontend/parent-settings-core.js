@@ -423,11 +423,13 @@ async function loadTimezoneSettings() {
     try {
         showTimezoneError('');
         showTimezoneSuccess('');
-        const response = await fetch(`${API_BASE}/parent-settings/timezone`);
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
-        }
-        const data = await response.json();
+        const url = `${API_BASE}/parent-settings/timezone`;
+        const data = window.KidsChoresRequestCache
+            ? await window.KidsChoresRequestCache.getJson(url, { persist: true })
+            : await fetch(url).then(async (response) => {
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
+            });
         const value = String(data.familyTimezone || '').trim();
         if (!value) {
             throw new Error('familyTimezone missing from response');
@@ -466,6 +468,10 @@ async function saveTimezoneSettings(timezoneName) {
             return;
         }
         setSelectedTimezonePill(saved);
+        if (window.KidsChoresRequestCache) {
+            window.KidsChoresRequestCache.invalidate(`${API_BASE}/parent-settings/timezone`);
+            window.KidsChoresRequestCache.storeJson(`${API_BASE}/parent-settings/timezone`, result, { persist: true });
+        }
         showTimezoneSuccess('Family timezone saved.');
     } catch (error) {
         console.error('Error saving timezone settings:', error);

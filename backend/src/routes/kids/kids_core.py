@@ -119,7 +119,7 @@ def get_kids():
                 {
                     'id': kid.get('id'),
                     'name': kid.get('name'),
-                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
                 }
                 for kid in kids
             ]), 200
@@ -130,7 +130,7 @@ def get_kids():
                     'id': kid.get('id'),
                     'name': kid.get('name'),
                     'familyTimezone': family_timezone,
-                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
                 }
                 for kid in kids
             ]), 200
@@ -141,7 +141,7 @@ def get_kids():
                 {
                     'id': kid.get('id'),
                     'name': kid.get('name'),
-                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
                 }
                 for kid in kids
             ]), 200
@@ -220,7 +220,7 @@ def get_kids():
                             'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
                             **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
                             'familyTimezone': family_timezone,
-                            'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                            'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
                         })
                     finally:
                         if conn is not None:
@@ -311,7 +311,7 @@ def get_kids():
                     'dailyRightByDeckCategory': daily_right_by_deck_category,
                     'practiceTargetByDeckCategory': practice_target_by_deck_category,
                     'deckCategoryMetaByKey': category_meta_by_key,
-                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
                 }
                 kids_with_progress.append(kid_with_progress)
             finally:
@@ -543,7 +543,7 @@ def get_kid(kid_id):
             'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
             'practiceTargetByDeckCategory': practice_target_by_deck_category,
             'deckCategoryMetaByKey': category_meta_by_key,
-            'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+            'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
         }
 
         return jsonify(kid_with_progress), 200
@@ -792,7 +792,7 @@ def get_kid_report(kid_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
-                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
             },
             'family_timezone': family_timezone,
             'sessions': sessions
@@ -996,7 +996,7 @@ def get_kid_report_session_detail(kid_id, session_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
-                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
             },
             'session': {
                 'id': int(session_row[0]),
@@ -1293,6 +1293,9 @@ def get_kid_type_iii_next_to_grade(kid_id):
 def get_kid_report_card_detail(kid_id, card_id):
     """Get full practice history for one card in parent report view."""
     try:
+        family_id = current_family_id()
+        if not family_id:
+            return jsonify({'error': 'Family login required'}), 401
         kid = get_kid_for_family(kid_id)
         if not kid:
             return jsonify({'error': 'Kid not found'}), 404
@@ -1491,7 +1494,7 @@ def get_kid_report_card_detail(kid_id, card_id):
             'kid': {
                 'id': kid.get('id'),
                 'name': kid.get('name'),
-                'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                'avatarUrl': kid_avatar.avatar_url_for_kid(kid, family_id=family_id),
             },
             'card': {
                 'id': int(card_row[0]),
@@ -1886,7 +1889,9 @@ def put_kid_avatar(kid_id):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     return jsonify({
-        'avatarUrl': f"/api/kids/{kid.get('id')}/avatar?v={version}",
+        'avatarUrl': kid_avatar.avatar_url_for_kid(
+            {**kid, 'avatarUpdatedAt': version}, family_id=family_id,
+        ),
         'avatarUpdatedAt': version,
     }), 200
 
