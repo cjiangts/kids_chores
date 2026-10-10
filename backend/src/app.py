@@ -238,9 +238,17 @@ def create_app():
                 })
             except (TypeError, ValueError):
                 continue
+        timings = payload.get('timings') if isinstance(payload.get('timings'), dict) else {}
+        sanitized_timings = {}
+        for key in ('fetch_and_process_ms', 'render_to_paint_ms', 'total_page_ready_ms'):
+            try:
+                sanitized_timings[key] = round(max(0.0, float(timings.get(key) or 0)), 1)
+            except (TypeError, ValueError):
+                continue
         app.logger.warning(
-            'client_network_profile page=%s resources=%s',
+            'client_network_profile page=%s timings=%s resources=%s',
             str(payload.get('page') or '')[:200],
+            json.dumps(sanitized_timings, separators=(',', ':')),
             json.dumps(sanitized, separators=(',', ':')),
         )
         return {'ok': True}, 204

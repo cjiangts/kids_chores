@@ -1541,9 +1541,12 @@ function resolveCurrentRule(rules) {
         } : null);
 }
 
-function reportNetworkProfileIfRequested() {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('profileNetwork') !== '1' || !window.performance?.getEntriesByType) return;
+function networkProfileRequested() {
+    return new URLSearchParams(window.location.search).get('profileNetwork') === '1';
+}
+
+function reportNetworkProfileIfRequested(timings = {}) {
+    if (!networkProfileRequested() || !window.performance?.getEntriesByType) return;
     window.setTimeout(() => {
         const resources = window.performance.getEntriesByType('resource')
             .filter((entry) => {
@@ -1567,7 +1570,7 @@ function reportNetworkProfileIfRequested() {
         fetch(`${API_BASE}/diagnostics/client-network`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ page: window.location.pathname, resources }),
+            body: JSON.stringify({ page: window.location.pathname, timings, resources }),
             keepalive: true,
         }).catch(() => {});
     }, 0);
@@ -1579,6 +1582,7 @@ async function loadInitialData() {
         return;
     }
     showError('');
+    const loadStartedAt = window.performance?.now?.() || 0;
     const [loadedKids, ruleData, countData] = await Promise.all([
         fetchJson(`${API_BASE}/kids?view=reward_nav`),
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
@@ -1602,8 +1606,16 @@ async function loadInitialData() {
     }
     const selectedToday = selectTodayWhenItHasActivity();
     if (selectedToday && isInAppChore()) await loadSelectedSessionDetails();
+    const beforeRenderAt = window.performance?.now?.() || 0;
     render();
-    reportNetworkProfileIfRequested();
+    if (!networkProfileRequested()) return;
+    await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    const paintedAt = window.performance?.now?.() || 0;
+    reportNetworkProfileIfRequested({
+        fetch_and_process_ms: Math.max(0, beforeRenderAt - loadStartedAt),
+        render_to_paint_ms: Math.max(0, paintedAt - beforeRenderAt),
+        total_page_ready_ms: Math.max(0, paintedAt - loadStartedAt),
+    });
 }
 
 pointActivityHero?.addEventListener('click', async (event) => {
