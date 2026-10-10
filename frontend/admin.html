@@ -8,7 +8,6 @@
     <link rel="shortcut icon" href="favicon.ico?v=mommy-icon2-20260607">
     <link rel="manifest" href="site.webmanifest?v=mommy-icon2-20260607">
     <script src="idle-home-redirect.js"></script>
-    <script src="offline-redirect-guard.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Mommy App</title>
     <link rel="stylesheet" href="fonts-local.css">
@@ -1129,13 +1128,6 @@
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-tree-view.js"></script>
-    <script>
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/service-worker.js').catch(() => {});
-            });
-        }
-    </script>
     <script src="admin.js?v=off-app-add-plus-only-20261009"></script>
 </body>
 </html>

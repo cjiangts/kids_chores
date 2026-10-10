@@ -100,21 +100,8 @@
         return readCurrentUserMode() === 'kid' ? 'kid' : 'parent';
     }
 
-    function isOfflinePracticePage() {
-        const path = window.location.pathname || '';
-        if (!path.endsWith('/kid-practice-home.html') && !path.endsWith('/kid-practice.html')) {
-            return false;
-        }
-        try {
-            const params = new URLSearchParams(window.location.search || '');
-            return String(params.get('offline') || '').trim() === '1';
-        } catch (error) {
-            return false;
-        }
-    }
-
     function shouldSuppressNavigation() {
-        return state.suppressed || isOfflinePracticePage();
+        return state.suppressed;
     }
 
     function itemsForMode() {

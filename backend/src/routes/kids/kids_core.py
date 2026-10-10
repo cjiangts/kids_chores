@@ -79,7 +79,6 @@ from src.services.kid_daily_progress import (
     get_kid_ungraded_type_iii_count,
     get_type_iii_category_keys,
 )
-from src.services.offline_locks import get_locks_for_family
 from src.services.practice_mode import (
     is_drill_session_practice_mode,
     normalize_session_practice_mode,
@@ -136,18 +135,12 @@ def get_kids():
                 for kid in kids
             ]), 200
         if view == 'family_home':
-            # The family-home user picker only needs id/name + offline-lock badge.
+            # The family-home user picker only needs id/name.
             # Skip the per-kid DB opens + dashboard stats the admin matrix needs.
-            offline_lock_by_kid = {
-                str(entry.get('kid_id') or ''): entry
-                for entry in get_locks_for_family(family_id)
-                if entry.get('kid_id') is not None
-            }
             return jsonify([
                 {
                     'id': kid.get('id'),
                     'name': kid.get('name'),
-                    'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                     'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 for kid in kids
@@ -161,12 +154,6 @@ def get_kids():
             if can_family_access_deck_category(meta, family_id=family_id, is_super=is_super)
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
-        offline_lock_by_kid = {
-            str(entry.get('kid_id') or ''): entry
-            for entry in get_locks_for_family(family_id)
-            if entry.get('kid_id') is not None
-        }
-
         if is_admin_view:
             family_timezone = metadata.get_family_timezone(family_id)
             kids_with_admin_summary = []
@@ -232,7 +219,6 @@ def get_kids():
                             'dailyStarTiersByDeckCategory': daily_star_tiers_by_deck_category,
                             'todaySessionStatusByDeckCategory': today_session_status_by_deck_category,
                             **({'deckCategoryMetaByKey': category_meta_by_key} if include_admin_category_meta else {}),
-                            'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                             'familyTimezone': family_timezone,
                             'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                         })
@@ -325,7 +311,6 @@ def get_kids():
                     'dailyRightByDeckCategory': daily_right_by_deck_category,
                     'practiceTargetByDeckCategory': practice_target_by_deck_category,
                     'deckCategoryMetaByKey': category_meta_by_key,
-                    'offlineLock': offline_lock_by_kid.get(str(kid.get('id') or '')) or None,
                     'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
                 }
                 kids_with_progress.append(kid_with_progress)

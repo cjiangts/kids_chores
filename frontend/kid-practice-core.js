@@ -28,8 +28,6 @@ const API_BASE = `${window.location.origin}/api`;
 const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
 const requestedCategoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
-const requestedOfflineMode = String(params.get('offline') || '').trim() === '1';
-let activeOfflinePracticeMode = false;
 
 const kidNameEl = document.getElementById('kidName');
 const startTitle = document.getElementById('startTitle');
@@ -252,10 +250,10 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
         if (!isSessionInProgress()) {
             return false;
         }
-        if (state.activeIsRetrySession && !activeOfflinePracticeMode) {
+        if (state.activeIsRetrySession) {
             return false;
         }
-        if (state.drillActive && !activeOfflinePracticeMode) {
+        if (state.drillActive) {
             return false;
         }
         if (isType(BEHAVIOR_TYPE_III)) {
@@ -279,9 +277,6 @@ const earlyFinishController = window.PracticeUiCommon.createEarlyFinishControlle
 function getPracticeHomeUrl() {
     const homeParams = new URLSearchParams();
     homeParams.set('id', kidId);
-    if (requestedOfflineMode) {
-        homeParams.set('offline', '1');
-    }
     return `/kid-practice-home.html?${homeParams.toString()}`;
 }
 
@@ -1340,18 +1335,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.AudioHistoryCommon.attachPlayers(reviewAudioRow);
     }
 
-    let offlinePack = null;
-    if (window.OfflineCommon) {
-        try {
-            offlinePack = await window.OfflineCommon.findActivePack(kidId);
-        } catch (_) { offlinePack = null; }
-        if (offlinePack && offlinePack.packEnvelope && !offlinePack.expired) {
-            activeOfflinePracticeMode = true;
-            window.OfflineCommon.installFetchInterceptor(kidId);
-            applyOfflinePracticeHeader();
-        }
-    }
-
     setResultActionMode('back');
     setHeaderBackToPracticeVisible(true);
     bindEventHandlers();
@@ -1370,14 +1353,3 @@ document.addEventListener('DOMContentLoaded', async () => {
         updatePageTitle();
     }
 });
-
-function applyOfflinePracticeHeader() {
-    if (backToPractice) {
-        backToPractice.href = getPracticeHomeUrl();
-        backToPractice.setAttribute('title', 'Back to practice home');
-    }
-    const headerActions = document.querySelector('.page-header-actions');
-    if (!headerActions) return;
-    // Offline practice keeps the in-session actions here; global navigation
-    // is suppressed by kid-app-navigation.js.
-}

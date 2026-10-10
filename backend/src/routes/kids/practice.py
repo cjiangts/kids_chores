@@ -103,7 +103,6 @@ from src.services.pending_sessions import (
     pop_pending_session,
 )
 from src.services.practice_mode import (
-    TYPE_IV_PRACTICE_MODE_MULTI,
     compose_session_practice_mode,
     get_session_practice_mode,
     get_session_practice_mode_base,
@@ -116,10 +115,7 @@ from src.services.shared_deck_category import (
     get_shared_deck_category_meta_by_key,
     is_type_iii_session_type,
 )
-from src.routes.kids.type4 import (
-    build_type_iv_offline_pending_payload,
-    complete_type_iv_session_internal,
-)
+from src.routes.kids.type4 import complete_type_iv_session_internal
 
 # ============================================================================
 # 1. Session start routes — per-behavior-type entry points
@@ -284,7 +280,6 @@ def start_writing_practice_session(kid_id):
 
         resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
-        pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
         pending_session_id = create_pending_session(
             kid_id,
             category_key,
@@ -407,15 +402,7 @@ def start_type4_practice_session(kid_id):
             kid,
             payload.get('categoryKey') or request.args.get('categoryKey'),
         )
-        # Offline packs always bake choices (multi mode) so the kid can switch
-        # modes mid-pack without re-fetching. The actual mode they pick is
-        # supplied at completion time and overrides the baked value.
-        is_offline_acquire = bool(request.headers.get('X-Offline-Pack-Id'))
-        practice_mode = (
-            TYPE_IV_PRACTICE_MODE_MULTI
-            if is_offline_acquire
-            else normalize_type_iv_practice_mode(payload.get('practiceMode'))
-        )
+        practice_mode = normalize_type_iv_practice_mode(payload.get('practiceMode'))
 
         conn = get_kid_connection_for(kid)
         try:
@@ -537,9 +524,6 @@ def start_type4_practice_session(kid_id):
                 pending_session_payload['practice_mode'] = get_session_practice_mode(conn, source_session_id)
 
             resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
-            include_pending_payload = bool(request.headers.get('X-Offline-Pack-Id'))
-
-            pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
             pending_session_id = create_pending_session(
                 kid_id,
                 category_key,
@@ -567,10 +551,6 @@ def start_type4_practice_session(kid_id):
                 else None
             ),
         }
-        if include_pending_payload:
-            response_payload['pending_payload'] = build_type_iv_offline_pending_payload(
-                pending_session_payload
-            )
         return jsonify(response_payload), 200
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
@@ -1047,7 +1027,6 @@ def start_type_i_practice_session_internal(
 
         resolved_practice_mode = normalize_session_practice_mode(pending_session_payload.get('practice_mode'))
 
-        pending_session_payload['offline_pack_id'] = request.headers.get('X-Offline-Pack-Id') or None
         pending_session_id = create_pending_session(
             kid_id,
             category_key,
@@ -1104,8 +1083,7 @@ def start_type_i_practice_session_internal(
 def complete_session_internal(kid, kid_id, session_type, data):
     """Complete a session, then auto-award any newly-earned in-app-chore points.
 
-    All four practice/complete routes and offline sync replay funnel through
-    here, so this is the one place to credit points the moment a session
+    All practice completion routes funnel through here, so this is the one place to credit points the moment a session
     becomes done — no waiting on the parent's manual refresh. The pull is
     idempotent (skips sessions already credited), so the manual refresh stays a
     safe fallback and can never double-credit.
@@ -1126,9 +1104,7 @@ def _auto_award_in_app_chore_points(kid, session_type, completed_at_utc=None):
     # the parent's manual refresh will reconcile if this ever doesn't run.
     # Scoped to the completed subject — finishing one category can only change
     # that category's done-state, so there's no need to re-scan the others.
-    # Scoped to the session's own day (= today for live play, the original
-    # practice day for replayed offline sessions) so backdated offline syncs
-    # still credit the day the kid actually finished, not the sync day.
+    # Scoped to the session's own practice day.
     try:
         kid_conn = get_kid_connection_for(kid)
         shared_conn = get_shared_decks_connection(read_only=True)

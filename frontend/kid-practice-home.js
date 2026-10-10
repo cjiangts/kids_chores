@@ -89,39 +89,6 @@ let offAppChoreState = {
 const errorState = { lastMessage: '' };
 const VALID_BEHAVIOR_TYPES = new Set(['type_i', 'type_ii', 'type_iii', 'type_iv']);
 
-let isOfflineMode = false;
-let offlinePackCategorySet = null;
-let offlinePackExpired = false;
-
-function appendOfflineFlagIfNeeded(params) {
-    if (isOfflineMode) params.set('offline', '1');
-}
-
-function markOfflineHomeUrl() {
-    try {
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('offline') === '1') {
-            return;
-        }
-        url.searchParams.set('offline', '1');
-        window.history.replaceState(window.history.state, '', url.toString());
-    } catch (_) {
-        // best-effort URL marker only
-    }
-}
-
-function offlineGuardOrError(categoryKey) {
-    if (!isOfflineMode) return true;
-    if (offlinePackExpired) {
-        showError('Offline pack expired — tap Sync to return online.');
-        return false;
-    }
-    if (offlinePackCategorySet && !offlinePackCategorySet.has(categoryKey)) {
-        showError('This subject was not downloaded for offline practice. Tap Sync to return online.');
-        return false;
-    }
-    return true;
-}
 
 function escapeHtmlLocal(text) {
     return String(text || '')
@@ -180,26 +147,11 @@ function cacheKidForPracticeNavigation() {
 // =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
     if (!kidId) {
-        // If this device owns an offline pack, recover by routing to the offline
-        // hub (family-home) instead of bouncing to '/', which (when the SW shell
-        // falls back to this very page) would loop forever.
-        let ownedIds = [];
-        if (window.OfflineStorage) {
-            try { ownedIds = await window.OfflineStorage.listOwnedKidIds(); } catch (_) { /* ignore */ }
-        }
-        window.location.replace(ownedIds.length > 0 ? '/family-home.html' : '/index.html');
+        window.location.replace('/index.html');
         return;
     }
 
     persistLastViewedKidId(kidId);
-
-    if (window.OfflineCommon) {
-        const pack = await window.OfflineCommon.findActivePack(kidId);
-        if (pack && pack.packEnvelope) {
-            await bootstrapOfflinePracticeHome(pack);
-            return;
-        }
-    }
 
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
@@ -554,7 +506,7 @@ function normalizeOffAppChorePayload(payload) {
 }
 
 async function loadOffAppChores() {
-    if (!kidId || isOfflineMode || offAppChoreState.loading) {
+    if (!kidId || offAppChoreState.loading) {
         return;
     }
     offAppChoreState = {
@@ -659,11 +611,6 @@ function renderOffAppTaskRow(chore) {
 
 function renderOffAppTasks() {
     if (!offAppPracticeSection || !offAppChooser) {
-        return 0;
-    }
-    if (isOfflineMode) {
-        offAppPracticeSection.classList.add('hidden');
-        offAppChooser.innerHTML = '';
         return 0;
     }
     if (offAppChoreState.loading && !offAppChoreState.loaded) {
@@ -923,11 +870,9 @@ function goType1Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -945,11 +890,9 @@ function goWritingPractice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -967,11 +910,9 @@ function goType3Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -989,11 +930,9 @@ function goType4Practice(category) {
         showError(`${label} practice is not opted in for this kid.`);
         return;
     }
-    if (!offlineGuardOrError(categoryKey)) return;
     const params = new URLSearchParams();
     params.set('id', kidId);
     params.set('categoryKey', categoryKey);
-    appendOfflineFlagIfNeeded(params);
     cacheKidForPracticeNavigation();
     window.location.href = `/kid-practice.html?${params.toString()}`;
 }
@@ -1006,216 +945,3 @@ function showError(message) {
 }
 
 // =====================================================================
-// === 7. Offline practice home (replaces sections 4–5 when offline)
-// =====================================================================
-
-async function bootstrapOfflinePracticeHome(pack) {
-    const env = pack.packEnvelope || {};
-    const baseKidInfo = env.kidInfo || { id: kidId, name: env.kid_name || '' };
-
-    // Engage offline mode so navigation appends &offline=1 and gates subjects
-    // not present in the downloaded pack.
-    isOfflineMode = true;
-    offlinePackExpired = isPackExpired(env);
-    markOfflineHomeUrl();
-    if (window.KidAppNavigation && typeof window.KidAppNavigation.setSuppressed === 'function') {
-        window.KidAppNavigation.setSuppressed(true);
-    }
-
-    // Fold locally-saved practice answers into the (acquire-time-frozen)
-    // daily counts so progress bars actually move as the kid practices.
-    let pendingResults = [];
-    if (window.OfflineStorage) {
-        try {
-            pendingResults = await window.OfflineStorage.listPendingResults(kidId);
-        } catch (_) { /* best-effort */ }
-    }
-    const kidInfo = mergeOfflineLocalProgress(baseKidInfo, pendingResults);
-
-    // Build the available-category set. A subject stays clickable while any
-    // cached card has no latest answer (unattempted) OR its latest answer is
-    // still wrong (retry available). Latest = most recent across the source
-    // row + every `__retry_N` round, so a card the kid retried to success
-    // correctly drops out of the "to fix" set and the subject can grey out.
-    const rowsBySourcePid = _groupOfflineRowsBySourcePid(pendingResults);
-    offlinePackCategorySet = new Set(
-        (Array.isArray(pack.sessions) ? pack.sessions : [])
-            .filter((s) => {
-                const sourcePid = String(s?.pendingSessionId || '');
-                const cards = Array.isArray(s?.payload?.cards) ? s.payload.cards : [];
-                if (cards.length === 0) return false;
-                const latestByCardId = _latestAnswersByCardId(rowsBySourcePid.get(sourcePid) || []);
-                const expectedCards = Array.isArray(s?.payload?.pending_payload?.cards)
-                    ? s.payload.pending_payload.cards : cards;
-                for (const card of cards) {
-                    if (!card || card.id == null) continue;
-                    const latest = latestByCardId.get(String(card.id));
-                    if (!latest) return true;
-                    if (isOfflineAnswerWrong(latest, expectedCards)) return true;
-                }
-                return false;
-            })
-            .map((s) => normalizeCategoryKey(s.categoryKey))
-            .filter(Boolean)
-    );
-
-    applyKidPayload(kidInfo);
-
-    renderPracticeOptions();
-
-    // Dim subjects whose pack wasn't downloaded (offlineGuardOrError handles
-    // the click rejection).
-    if (practiceChooser) {
-        practiceChooser.querySelectorAll('.practice-option[data-category-key]').forEach((btn) => {
-            const key = normalizeCategoryKey(btn.getAttribute('data-category-key'));
-            if (offlinePackExpired || !offlinePackCategorySet.has(key)) {
-                btn.classList.add('is-offline-unavailable');
-            }
-        });
-    }
-
-    if (practiceSection) practiceSection.classList.remove('hidden');
-}
-
-// Type-I/II/III answers carry `known` (kid self-grades). Type-IV has no
-// `known` field — the server grades by string equality (or a custom
-// validate fn). Offline we mirror the simple equality path against the
-// cached pending payload's expected answers; custom validators can't run
-// client-side, so partial credit waits for sync.
-function _buildExpectedAnswerMap(cards) {
-    const map = new Map();
-    for (const card of (cards || [])) {
-        if (!card || card.id == null) continue;
-        map.set(String(card.id), String(card.answer || '').trim());
-    }
-    return map;
-}
-
-function isOfflineAnswerWrong(answer, expectedCards) {
-    if (!answer) return false;
-    if (typeof answer.known === 'boolean') return answer.known === false;
-    const expectedById = _buildExpectedAnswerMap(expectedCards);
-    const expected = expectedById.get(String(answer.cardId));
-    // Defensive: missing expected counts as wrong so the subject stays
-    // reviewable (sync will reconcile).
-    if (expected === undefined) return true;
-    return String(answer.submittedAnswer ?? '').trim() !== expected;
-}
-
-function countLocallyRightAnswers(row, answers) {
-    const expectedById = _buildExpectedAnswerMap(row?.pendingPayload?.cards);
-    let right = 0;
-    for (const a of answers) {
-        if (!a) continue;
-        if (typeof a.known === 'boolean') {
-            if (a.known === true) right += 1;
-            continue;
-        }
-        const expected = expectedById.get(String(a.cardId));
-        if (expected === undefined) continue;
-        const submitted = String(a.submittedAnswer ?? '').trim();
-        if (submitted === expected) right += 1;
-    }
-    return right;
-}
-
-// Group rows by their source pid so each retry round folds back into the
-// session it belongs to (online retries UPDATE the source session row instead
-// of inserting new ones — offline mirrors that aggregation here).
-function _retryPidSourceOf(pid) {
-    const m = String(pid || '').match(/^(.+)__retry_(\d+)$/);
-    return m ? m[1] : String(pid || '');
-}
-
-function _groupOfflineRowsBySourcePid(rows) {
-    const out = new Map();
-    for (const row of (rows || [])) {
-        const pid = String(row?.pendingSessionId || '');
-        if (!pid) continue;
-        const src = _retryPidSourceOf(pid);
-        if (!out.has(src)) out.set(src, []);
-        out.get(src).push(row);
-    }
-    for (const list of out.values()) {
-        list.sort((a, b) => (Number(a?.createdAtTs) || 0) - (Number(b?.createdAtTs) || 0));
-    }
-    return out;
-}
-
-function _latestAnswersByCardId(rows) {
-    const map = new Map();
-    for (const row of (rows || [])) {
-        for (const a of (Array.isArray(row.answers) ? row.answers : [])) {
-            if (!a || a.cardId == null) continue;
-            map.set(String(a.cardId), a);
-        }
-    }
-    return map;
-}
-
-function mergeOfflineLocalProgress(baseKidInfo, pendingResults) {
-    const completedDelta = {};
-    const triedDelta = {};
-    const rightDelta = {};
-    const tierDelta = {};
-    const latestPercentByCategory = {};
-    const groups = [..._groupOfflineRowsBySourcePid(pendingResults).values()]
-        .filter((rows) => rows.length > 0)
-        .sort((a, b) => (Number(a[0]?.createdAtTs) || 0) - (Number(b[0]?.createdAtTs) || 0));
-    for (const rows of groups) {
-        const cat = String(rows[0]?.sessionType || '').trim();
-        if (!cat) continue;
-        const latest = [..._latestAnswersByCardId(rows).values()];
-        const sourceCards = Array.isArray(rows[0]?.pendingPayload?.cards)
-            ? rows[0].pendingPayload.cards : [];
-        const tried = latest.length;
-        const right = countLocallyRightAnswers(rows[0], latest);
-        const target = Math.max(sourceCards.length, tried);
-        const isIncomplete = sourceCards.length > 0 && tried < sourceCards.length;
-        // Match server semantics: 1 session row per source pid; base_tier is
-        // half_silver while the source isn't finished and gold once it is.
-        completedDelta[cat] = (completedDelta[cat] || 0) + 1;
-        triedDelta[cat] = (triedDelta[cat] || 0) + tried;
-        rightDelta[cat] = (rightDelta[cat] || 0) + right;
-        tierDelta[cat] = tierDelta[cat] || [];
-        tierDelta[cat].push(isIncomplete ? 'half_silver' : 'gold');
-        const percentNumer = isIncomplete ? tried : right;
-        latestPercentByCategory[cat] = target > 0
-            ? Math.max(0, Math.min(100, Math.round((percentNumer / target) * 100)))
-            : 0;
-    }
-    const bumpNumber = (base, delta) => {
-        const out = { ...(base || {}) };
-        for (const k of Object.keys(delta)) {
-            out[k] = (Number.parseInt(out[k], 10) || 0) + delta[k];
-        }
-        return out;
-    };
-    const bumpArray = (base, delta) => {
-        const out = { ...(base || {}) };
-        for (const k of Object.keys(delta)) {
-            const existing = Array.isArray(out[k]) ? out[k] : [];
-            out[k] = [...existing, ...delta[k]];
-        }
-        return out;
-    };
-    const overwrite = (base, delta) => {
-        const out = { ...(base || {}) };
-        for (const k of Object.keys(delta)) out[k] = delta[k];
-        return out;
-    };
-    return {
-        ...baseKidInfo,
-        dailyCompletedByDeckCategory: bumpNumber(baseKidInfo.dailyCompletedByDeckCategory, completedDelta),
-        dailyTriedByDeckCategory: bumpNumber(baseKidInfo.dailyTriedByDeckCategory, triedDelta),
-        dailyRightByDeckCategory: bumpNumber(baseKidInfo.dailyRightByDeckCategory, rightDelta),
-        dailyStarTiersByDeckCategory: bumpArray(baseKidInfo.dailyStarTiersByDeckCategory, tierDelta),
-        dailyPercentByDeckCategory: overwrite(baseKidInfo.dailyPercentByDeckCategory, latestPercentByCategory),
-    };
-}
-
-function isPackExpired(envelope) {
-    if (!envelope || !envelope.expires_at_utc) return false;
-    const d = window.OfflineCommon && window.OfflineCommon.parseIsoUtc(envelope.expires_at_utc);
-    return !!(d && d.getTime() <= Date.now());
-}
