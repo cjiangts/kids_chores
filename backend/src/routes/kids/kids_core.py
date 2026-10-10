@@ -759,29 +759,12 @@ def get_kid_report(kid_id):
                 ORDER BY COALESCE(s.completed_at, s.started_at) DESC, s.id DESC
                 """
             ).fetchall()
-            practiced_card_rows = conn.execute(
-                """
-                SELECT DISTINCT session_id, card_id
-                FROM session_results
-                WHERE card_id IS NOT NULL
-                ORDER BY session_id ASC, card_id ASC
-                """
-            ).fetchall()
         finally:
             conn.close()
 
         category_meta_by_key = get_shared_deck_category_meta_by_key()
         family_id = str(kid.get('familyId') or '').strip()
         family_timezone = metadata.get_family_timezone(family_id)
-        practiced_card_ids_by_session_id = defaultdict(list)
-        for row in practiced_card_rows:
-            try:
-                session_id_int = int(row[0] or 0)
-                card_id_int = int(row[1] or 0)
-            except (TypeError, ValueError):
-                continue
-            if session_id_int > 0 and card_id_int > 0:
-                practiced_card_ids_by_session_id[session_id_int].append(card_id_int)
         sessions = []
         for row in rows:
             session_id = int(row[0])
@@ -803,7 +786,6 @@ def get_kid_report(kid_id):
                 'wrong_count': int(row[10] or 0),
                 'total_response_ms': int(row[11] or 0),
                 'practice_mode': normalize_session_practice_mode(row[12]),
-                'practiced_card_ids': practiced_card_ids_by_session_id.get(session_id, []),
             })
 
         return jsonify({

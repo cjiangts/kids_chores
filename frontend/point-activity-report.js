@@ -360,8 +360,7 @@ function sessionCardCount(session) {
     if (Number.isFinite(answerCount) && answerCount > 0) return answerCount;
     const plannedCount = Number.parseInt(session?.planned_count, 10);
     if (Number.isFinite(plannedCount) && plannedCount > 0) return plannedCount;
-    const practicedCardIds = Array.isArray(session?.practiced_card_ids) ? session.practiced_card_ids : [];
-    return practicedCardIds.length;
+    return 0;
 }
 
 function sessionWrongCount(session) {
@@ -709,12 +708,11 @@ function calendarSessionsByDay() {
         const answerCount = Number.parseInt(session?.answer_count, 10);
         const plannedCount = Number.parseInt(session?.planned_count, 10);
         const wrongCount = Number.parseInt(session?.wrong_count, 10);
-        const practicedCardIds = Array.isArray(session?.practiced_card_ids) ? session.practiced_card_ids : [];
         current.minutes += sessionActiveMinutes(session);
         current.count += 1;
         current.cards += Number.isFinite(answerCount) && answerCount > 0
             ? answerCount
-            : (Number.isFinite(plannedCount) && plannedCount > 0 ? plannedCount : practicedCardIds.length);
+            : (Number.isFinite(plannedCount) && plannedCount > 0 ? plannedCount : 0);
         current.wrong += Number.isFinite(wrongCount) && wrongCount > 0 ? wrongCount : 0;
         totals.set(key, current);
     });
