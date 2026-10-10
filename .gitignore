@@ -30,7 +30,6 @@ backend/build/
 .env
 .env.local
 .env.*.local
-.local-certs/
 
 # IDEs
 .vscode/

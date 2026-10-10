@@ -59,11 +59,7 @@ async function refreshFamilyHomeSnapshot() {
 }
 
 async function logoutFamily() {
-    try { await fetch(`${API_BASE}/family-auth/logout`, { method: 'POST' }); } finally {
-        window.sessionStorage.clear();
-        try { window.localStorage.removeItem('kids_chores_active_family_id_v1'); } catch (error) { /* ignore */ }
-        window.location.href = '/family-login.html';
-    }
+    try { await fetch(`${API_BASE}/family-auth/logout`, { method: 'POST' }); } finally { window.sessionStorage.clear(); window.location.href = '/family-login.html'; }
 }
 
 async function enterParentMode(targetHref) {

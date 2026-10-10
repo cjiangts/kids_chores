@@ -224,14 +224,11 @@
     async function fetchKidPointBalance(kidId) {
         const normalizedKidId = String(kidId || '').trim();
         if (!normalizedKidId) return null;
-        const url = `${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`;
-        const data = window.KidsChoresRequestCache
-            ? await window.KidsChoresRequestCache.getJson(url)
-            : await fetch(url, { headers: { Accept: 'application/json' } }).then(async (response) => {
-                const body = await response.json().catch(() => ({}));
-                if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
-                return body;
-            });
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`, {
+            headers: { Accept: 'application/json' },
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
         return currentBalanceFromPointData(data);
     }
 

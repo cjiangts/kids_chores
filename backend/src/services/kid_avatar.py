@@ -11,7 +11,6 @@ import base64
 import os
 import re
 import time
-from urllib.parse import quote
 
 from src.db.metadata import update_kid
 
@@ -29,16 +28,12 @@ def avatar_path(family_id, kid_id):
     return os.path.join(_family_dir(family_id), f'kid_{kid_id}_avatar.png')
 
 
-def avatar_url_for_kid(kid, *, family_id=None):
-    """Return a versioned, optionally family-scoped avatar URL, or ``None``."""
+def avatar_url_for_kid(kid):
+    """Versioned avatar URL for a kid metadata dict, or None when unset."""
     version = kid.get('avatarUpdatedAt')
     if not version:
         return None
-    query = f"v={version}"
-    if family_id is not None:
-        # Cache Storage is origin-scoped, so avoid collisions on shared devices.
-        query += f"&f={quote(str(family_id), safe='')}"
-    return f"/api/kids/{kid.get('id')}/avatar?{query}"
+    return f"/api/kids/{kid.get('id')}/avatar?v={version}"
 
 
 def decode_png_data_url(image_base64):

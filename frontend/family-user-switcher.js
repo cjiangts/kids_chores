@@ -128,14 +128,11 @@
         if (!target || !normalizedKidId) return;
         container.dataset.familyUserPointsKidId = normalizedKidId;
         try {
-            const url = `${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`;
-            const data = window.KidsChoresRequestCache
-                ? await window.KidsChoresRequestCache.getJson(url)
-                : await fetch(url, { headers: { Accept: 'application/json' } }).then(async (response) => {
-                    const body = await response.json().catch(() => ({}));
-                    if (!response.ok) throw new Error(body.error || `Request failed (${response.status})`);
-                    return body;
-                });
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`, {
+                headers: { Accept: 'application/json' },
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
             if (container.dataset.familyUserPointsKidId !== normalizedKidId) return;
             const balance = currentBalanceFromPointData(data);
             if (balance === null) return;
