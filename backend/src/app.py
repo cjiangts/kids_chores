@@ -680,6 +680,11 @@ def create_app():
             # it under a new filename.
             if path.startswith('fonts/') or normalized_path.endswith(('.ttf', '.woff', '.woff2', '.otf')):
                 response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+            # A legacy service worker checks this URL itself. It must never be
+            # cached, otherwise an old worker cannot receive its retirement
+            # update promptly.
+            elif normalized_path == 'service-worker.js':
+                response.headers['Cache-Control'] = 'no-cache'
             # Railway adds ~80ms of latency to each revalidation. The app has
             # many small JS/CSS modules, so retain deployable static assets for
             # a short window. HTML deliberately keeps Flask's no-cache policy
