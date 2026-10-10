@@ -1590,24 +1590,38 @@ async function loadInitialData() {
     ]);
     kids = loadedKids;
     ruleActivityCounts = countData?.counts && typeof countData.counts === 'object' ? countData.counts : {};
-    const entries = await Promise.all(kids.map(async (kid) => [
+    const pointEntriesPromise = Promise.all(kids.map(async (kid) => [
         String(kid.id),
         await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kid.id)}/points?limit=${POINT_ACTIVITY_HISTORY_LIMIT}`),
     ]));
-    pointDataByKid = new Map(entries);
     resolveCurrentRule(ruleData?.rules);
+    let reportEntriesPromise = Promise.resolve(null);
+    let progressDataPromise = Promise.resolve();
     if (isInAppChore()) {
-        const reportEntries = await Promise.all(kids.map(async (kid) => [
+        reportEntriesPromise = Promise.all(kids.map(async (kid) => [
             String(kid.id),
             await fetchJson(`${API_BASE}/kids/${encodeURIComponent(kid.id)}/report`),
         ]));
+        if (!isAllInAppMode()) progressDataPromise = loadProgressData();
+    }
+    const [pointEntries, reportEntries] = await Promise.all([
+        pointEntriesPromise,
+        reportEntriesPromise,
+        progressDataPromise,
+    ]);
+    pointDataByKid = new Map(pointEntries);
+    if (reportEntries) {
         reportDataByKid = new Map(reportEntries);
-        if (!isAllInAppMode()) await loadProgressData();
     }
     const selectedToday = selectTodayWhenItHasActivity();
-    if (selectedToday && isInAppChore()) await loadSelectedSessionDetails();
     const beforeRenderAt = window.performance?.now?.() || 0;
     render();
+    if (selectedToday && isInAppChore()) {
+        window.setTimeout(async () => {
+            await loadSelectedSessionDetails();
+            renderCalendar();
+        }, 0);
+    }
     if (!networkProfileRequested()) return;
     await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
     const paintedAt = window.performance?.now?.() || 0;
