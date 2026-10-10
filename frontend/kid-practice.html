@@ -20,6 +20,36 @@
             margin-bottom: 0.5rem;
         }
 
+        /* Practice-only header actions: a softer, kid-friendly card treatment. */
+        .practice-page .page-header-actions .practice-header-action {
+            --paradigm-btn-icon-size: 14px;
+            min-width: 92px;
+            height: 28px;
+            padding: 0 0.7rem;
+            border: 1px solid rgba(209, 220, 255, 0.95);
+            border-radius: 999px;
+            background: #fbfcff;
+            box-shadow: 0 2px 5px rgba(44, 55, 130, 0.16);
+            color: #405498;
+            font-size: 0.78rem;
+            font-weight: 750;
+            letter-spacing: 0.01em;
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+        }
+
+        .practice-page .page-header-actions .practice-header-action:hover:not(:disabled),
+        .practice-page .page-header-actions .practice-header-action:focus-visible:not(:disabled) {
+            border-color: #b7c5ff;
+            background: #f1f5ff;
+            color: #30478f;
+            outline: none;
+        }
+
+        .practice-page .page-header-actions .practice-header-action:disabled {
+            opacity: 0.5;
+            box-shadow: none;
+        }
+
         .practice-container {
             max-width: 700px;
         }
@@ -176,11 +206,10 @@
             min-width: 88px;
             height: 88px;
             padding: 0;
-            border-radius: 999px;
-            border: 1px solid #c8d1e1;
-            background: rgba(255, 255, 255, 0.96);
+            border: 0;
+            background: transparent;
             color: #2d7ef7;
-            box-shadow: 0 3px 10px rgba(17, 24, 39, 0.08);
+            box-shadow: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -188,7 +217,6 @@
         }
 
         .prompt-replay-btn:hover:not(:disabled) {
-            background: #f4f8ff;
             color: #1f6ce0;
         }
 
@@ -205,11 +233,10 @@
             min-width: 64px;
             height: 64px;
             padding: 0;
-            border-radius: 999px;
-            border: 1px solid #f3c4c4;
-            background: rgba(255, 255, 255, 0.96);
+            border: 0;
+            background: transparent;
             color: #c0392b;
-            box-shadow: 0 3px 10px rgba(17, 24, 39, 0.08);
+            box-shadow: none;
             display: inline-flex;
             align-items: center;
             justify-content: center;
@@ -217,7 +244,7 @@
         }
 
         .thumb-down-btn:hover:not(:disabled) {
-            background: #fdecea;
+            color: #9f3026;
         }
 
         .thumb-down-btn.is-thumbed,
@@ -227,9 +254,8 @@
         }
 
         .thumb-down-btn.is-thumbed {
-            background: #c0392b;
-            color: #fff;
-            border-color: #c0392b;
+            background: transparent;
+            color: #c0392b;
         }
 
         .pause-mask {
@@ -510,9 +536,13 @@
             max-width: 460px;
         }
 
-        .multi-choice-btn {
-            background: #2d7ef7;
-            color: #fff;
+        /* Beat .practice-page .control-btn in styles.css: these choices need
+           calm, high-contrast text instead of the shared white control text. */
+        .practice-page .control-btn.multi-choice-btn {
+            border: 1px solid #c7d6ee;
+            background: #f4f8ff;
+            box-shadow: 0 2px 5px rgba(47, 73, 133, 0.1);
+            color: #253b73;
             font-weight: 700;
             white-space: normal;
             line-height: 1.25;
@@ -521,36 +551,68 @@
             padding: 0.7rem 0.8rem;
             text-align: center;
             -webkit-tap-highlight-color: transparent;
+            transition: background-color 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
         }
 
-        .multi-choice-next-btn {
+        .practice-page .control-btn.multi-choice-next-btn {
             grid-column: 1 / -1;
+            border-color: #aebdf6;
+            background: #e8edff;
+            color: #344b98;
         }
 
-        .multi-choice-idk-btn {
+        .practice-page .control-btn.multi-choice-idk-btn {
             grid-column: 1 / -1;
-            background: #94a3b8;
+            border-color: #edc56d;
+            background: #fff2d6;
+            color: #805417;
+            box-shadow: 0 2px 5px rgba(127, 83, 20, 0.13);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.46rem;
         }
 
-        .multi-choice-btn:focus,
-        .multi-choice-btn:active {
-            background: #2d7ef7;
+        .practice-page .control-btn.multi-choice-idk-btn::before {
+            content: '?';
+            display: inline-grid;
+            place-items: center;
+            width: 1.2rem;
+            height: 1.2rem;
+            border: 1px solid #dda740;
+            border-radius: 50%;
+            color: #94621b;
+            font-size: 0.86em;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .practice-page .control-btn.multi-choice-btn:focus,
+        .practice-page .control-btn.multi-choice-btn:active {
+            border-color: #8da7ed;
+            background: #e8f0ff;
+            box-shadow: 0 0 0 3px rgba(101, 130, 224, 0.18);
             outline: none;
-            box-shadow: none;
         }
 
-        .multi-choice-idk-btn:focus,
-        .multi-choice-idk-btn:active {
-            background: #94a3b8;
+        .practice-page .control-btn.multi-choice-idk-btn:focus,
+        .practice-page .control-btn.multi-choice-idk-btn:active {
+            border-color: #d9a13c;
+            background: #ffe7b2;
+            box-shadow: 0 0 0 3px rgba(220, 161, 60, 0.2);
         }
 
         @media (hover: hover) {
-            .multi-choice-btn:hover {
-                background: #1f6ce0;
+            .practice-page .control-btn.multi-choice-btn:hover {
+                border-color: #879fdb;
+                background: #e3edff;
+                box-shadow: 0 2px 7px rgba(38, 61, 116, 0.14);
             }
 
-            .multi-choice-idk-btn:hover {
-                background: #64748b;
+            .practice-page .control-btn.multi-choice-idk-btn:hover {
+                border-color: #d9a13c;
+                background: #ffe7b2;
+                box-shadow: 0 2px 7px rgba(127, 83, 20, 0.16);
             }
         }
 
@@ -795,8 +857,8 @@
             <div class="page-header-row">
                 <h1><span id="kidTitleIcon" class="page-title-icon" aria-hidden="true"></span> <span id="kidName">Practice</span></h1>
                 <div class="page-header-actions">
-                    <button class="back-btn paradigm-btn page-header-back-btn hidden" id="finishEarlyBtn" disabled><span class="icon" data-icon="flag" data-icon-size="18"></span> Finish Early</button>
-                    <a id="backToPractice" href="#" class="back-btn paradigm-btn page-header-back-btn"><span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Back</a>
+                    <button class="back-btn paradigm-btn page-header-back-btn practice-header-action hidden" id="finishEarlyBtn" disabled><span class="icon" data-icon="flag" data-icon-size="14"></span> Finish Early</button>
+                    <a id="backToPractice" href="#" class="back-btn paradigm-btn page-header-back-btn practice-header-action"><span class="icon" data-icon="arrow-left" data-icon-size="14"></span> Back</a>
                 </div>
             </div>
         </header>
