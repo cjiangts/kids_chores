@@ -2,6 +2,7 @@
     const API_BASE = `${window.location.origin}/api`;
     const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
     const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
+    const REFRESH_AFTER_HISTORY_RETURN_STORAGE_KEY = 'parent_admin_refresh_after_history_return_v1';
     const NAV_ID = 'kidAppNavigation';
     const MOBILE_NAV_QUERY = '(max-width: 899px)';
     const PAGE_PATHS = {
@@ -61,6 +62,29 @@
             // best-effort identity mode memory
         }
     }
+
+    function requestRefreshAfterHistoryReturn() {
+        try {
+            window.sessionStorage?.setItem(REFRESH_AFTER_HISTORY_RETURN_STORAGE_KEY, '1');
+        } catch (error) {
+            // A normal history navigation still reloads when BFCache is unavailable.
+        }
+    }
+
+    window.addEventListener('pageshow', (event) => {
+        if (!event.persisted) return;
+        try {
+            if (window.sessionStorage?.getItem(REFRESH_AFTER_HISTORY_RETURN_STORAGE_KEY) !== '1') return;
+            window.sessionStorage.removeItem(REFRESH_AFTER_HISTORY_RETURN_STORAGE_KEY);
+            const refreshEvent = new CustomEvent('paradigm:history-return-refresh', { cancelable: true });
+            window.dispatchEvent(refreshEvent);
+            if (!refreshEvent.defaultPrevented) {
+                window.location.reload();
+            }
+        } catch (error) {
+            // Best effort only: cached pages without session storage keep their current view.
+        }
+    });
 
     function isParentOnlyPage() {
         const path = window.location.pathname || '';
@@ -456,6 +480,7 @@
         remove: removeNav,
         render,
         renderKidAvatarSwitcher,
+        requestRefreshAfterHistoryReturn,
         cacheKidAvatarPointData,
         setKidId,
         setKids,

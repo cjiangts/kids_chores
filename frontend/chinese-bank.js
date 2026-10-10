@@ -324,7 +324,10 @@ function returnToPreviousPageAfterSave() {
         saveChangesBtn.disabled = true;
         saveChangesBtn.textContent = 'Saved';
         if (seconds <= 1) {
-            saveReturnCountdownTimer = window.setTimeout(() => window.history.back(), 1000);
+            saveReturnCountdownTimer = window.setTimeout(() => {
+                window.KidAppNavigation?.requestRefreshAfterHistoryReturn?.();
+                window.history.back();
+            }, 1000);
             return;
         }
         seconds -= 1;

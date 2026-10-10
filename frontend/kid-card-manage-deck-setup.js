@@ -450,12 +450,18 @@ async function refreshDeckDataAfterHistoryReturn() {
     const stagedIds = tree ? tree.getSelectedDeckIds() : null;
     const stagedOrphan = tree ? tree.isOrphanIncluded() : null;
     try {
+        // Card counts come from the deck list, while expanded card rows come
+        // from this separate index. Invalidate both before re-rendering so an
+        // expanded leaf cannot briefly retain cards deleted on the child page.
+        sharedDeckCardSearchIndex = null;
+        sharedDeckCardSearchIndexScope = null;
+        sharedDeckCardSearchIndexPromise = null;
+        tree?.setCardIndex(null);
         await loadSharedType1Decks();
         if (!tree) return;
         tree.setDecks(allDecks, { orphanDeck });
         tree.setBaseline(baselineOptedDeckIdSet, baselineIncludeOrphanInQueue);
         tree.setSelection(stagedIds || stagedOptedDeckIdSet, stagedOrphan ?? stagedIncludeOrphanInQueue);
-        tree.setCardIndex(null);
         tree.render();
         void ensureSharedDeckCardSearchIndex().then((cards) => tree.setCardIndex(cards));
     } catch (error) {
@@ -463,10 +469,11 @@ async function refreshDeckDataAfterHistoryReturn() {
     }
 }
 
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-        void refreshDeckDataAfterHistoryReturn();
-    }
+window.addEventListener('paradigm:history-return-refresh', (event) => {
+    // Refresh in place so an open deck picker keeps its visible modal,
+    // staged selection, and expanded branches after a child page saves.
+    event.preventDefault();
+    void refreshDeckDataAfterHistoryReturn();
 });
 
 

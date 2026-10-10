@@ -567,7 +567,10 @@ function returnToPreviousPageAfterApply(resultText) {
     const tick = () => {
         setBtnLabel(applyCsvBtn, `${resultText} · Return to previous page in ${seconds}s`);
         if (seconds <= 1) {
-            applyReturnCountdownTimer = window.setTimeout(() => window.history.back(), 1000);
+            applyReturnCountdownTimer = window.setTimeout(() => {
+                window.KidAppNavigation?.requestRefreshAfterHistoryReturn?.();
+                window.history.back();
+            }, 1000);
             return;
         }
         seconds -= 1;

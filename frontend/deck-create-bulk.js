@@ -1057,7 +1057,10 @@ function returnToPreviousPageAfterBulkCreate(createdCount) {
             labelEl.textContent = `${resultText} · Return to previous page in ${seconds}s`;
         }
         if (seconds <= 1) {
-            bulkCreateReturnTimer = window.setTimeout(() => window.history.back(), 1000);
+            bulkCreateReturnTimer = window.setTimeout(() => {
+                window.KidAppNavigation?.requestRefreshAfterHistoryReturn?.();
+                window.history.back();
+            }, 1000);
             return;
         }
         seconds -= 1;
