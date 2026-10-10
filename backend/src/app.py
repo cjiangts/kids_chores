@@ -16,11 +16,13 @@ Layout inside `create_app()` (search for `# === N. ` banner markers):
     7. Health + static frontend serving
 """
 from datetime import timedelta
-from urllib.parse import quote
+from urllib.parse import quote, parse_qsl, urlencode, urlsplit, urlunsplit
 from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
+import hashlib
 import json
 import os
+import re
 import shutil
 import time
 
@@ -706,16 +708,68 @@ def create_app():
         return app.response_class('User-agent: *\nDisallow: /\n', mimetype='text/plain')
 
     frontend_dir = os.path.join(PROJECT_ROOT, 'frontend')
+    asset_version_cache = {}
+    asset_reference_pattern = re.compile(
+        r'(?P<prefix>\b(?:src|href)\s*=\s*["\'])(?P<url>[^"\']+\.(?:js|css)(?:\?[^"\']*)?)(?P<suffix>["\'])',
+        re.IGNORECASE,
+    )
+
+    def asset_version(asset_path):
+        """Return a content hash for a frontend asset, cached until it changes."""
+        stat = os.stat(asset_path)
+        cache_key = (stat.st_mtime_ns, stat.st_size)
+        cached = asset_version_cache.get(asset_path)
+        if cached and cached[0] == cache_key:
+            return cached[1]
+        digest = hashlib.sha256()
+        with open(asset_path, 'rb') as asset_file:
+            for chunk in iter(lambda: asset_file.read(1024 * 1024), b''):
+                digest.update(chunk)
+        version = digest.hexdigest()[:16]
+        asset_version_cache[asset_path] = (cache_key, version)
+        return version
+
+    def version_frontend_asset_url(url):
+        """Attach a content version to local JS/CSS URLs in frontend HTML."""
+        parsed = urlsplit(url)
+        if parsed.scheme or parsed.netloc or parsed.path.startswith('/'):
+            return url
+        candidate = os.path.abspath(os.path.join(frontend_dir, parsed.path))
+        if not candidate.startswith(f'{frontend_dir}{os.sep}') or not os.path.isfile(candidate):
+            return url
+        query = [(key, value) for key, value in parse_qsl(parsed.query, keep_blank_values=True) if key != 'v']
+        query.append(('v', asset_version(candidate)))
+        return urlunsplit(('', '', parsed.path, urlencode(query), parsed.fragment))
+
+    def frontend_html_response(filename):
+        """Serve fresh HTML that points at immutable, content-versioned assets."""
+        html_path = os.path.join(frontend_dir, filename)
+        with open(html_path, 'r', encoding='utf-8') as html_file:
+            html = html_file.read()
+
+        def replace_asset_reference(match):
+            return f"{match.group('prefix')}{version_frontend_asset_url(match.group('url'))}{match.group('suffix')}"
+
+        response = app.response_class(
+            asset_reference_pattern.sub(replace_asset_reference, html),
+            mimetype='text/html',
+        )
+        # HTML is the release manifest. It must be checked on each navigation
+        # so it can point at new content-versioned JS/CSS after a deployment.
+        response.headers['Cache-Control'] = 'private, no-cache'
+        return response
 
     @app.route('/')
     def index():
         if is_family_authenticated():
-            return send_from_directory(frontend_dir, 'family-home.html')
-        return send_from_directory(frontend_dir, 'index.html')
+            return frontend_html_response('family-home.html')
+        return frontend_html_response('index.html')
 
     @app.route('/<path:path>')
     def serve_frontend(path):
         if os.path.exists(os.path.join(frontend_dir, path)):
+            if path.lower().endswith('.html'):
+                return frontend_html_response(path)
             response = send_from_directory(frontend_dir, path)
             normalized_path = path.lower()
             # Fonts never change — cache them immutably so the browser stops
@@ -732,13 +786,18 @@ def create_app():
             # many small JS/CSS modules, so retain deployable static assets for
             # a short window. HTML deliberately keeps Flask's no-cache policy
             # so every navigation can discover a new release promptly.
+            elif request.args.get('v') == asset_version(os.path.join(frontend_dir, path)):
+                # The HTML shell emits this hash from the asset's contents. A
+                # changed file gets a new URL, so this exact response is safe
+                # to retain forever without delaying future releases.
+                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
             elif normalized_path.endswith((
                 '.js', '.css', '.png', '.jpg', '.jpeg', '.gif', '.webp',
                 '.svg', '.ico',
             )):
                 response.headers['Cache-Control'] = 'public, max-age=300, must-revalidate'
             return response
-        return send_from_directory(frontend_dir, 'index.html')
+        return frontend_html_response('index.html')
 
     return app
 
