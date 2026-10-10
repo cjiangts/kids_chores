@@ -1541,6 +1541,38 @@ function resolveCurrentRule(rules) {
         } : null);
 }
 
+function reportNetworkProfileIfRequested() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('profileNetwork') !== '1' || !window.performance?.getEntriesByType) return;
+    window.setTimeout(() => {
+        const resources = window.performance.getEntriesByType('resource')
+            .filter((entry) => {
+                try {
+                    return new URL(entry.name).origin === window.location.origin
+                        && new URL(entry.name).pathname.startsWith('/api/');
+                } catch (_err) {
+                    return false;
+                }
+            })
+            .map((entry) => {
+                const url = new URL(entry.name);
+                return {
+                    path: `${url.pathname}${url.search}`,
+                    durationMs: entry.duration,
+                    ttfbMs: Math.max(0, entry.responseStart - entry.startTime),
+                    transferBytes: entry.transferSize,
+                    decodedBodyBytes: entry.decodedBodySize,
+                };
+            });
+        fetch(`${API_BASE}/diagnostics/client-network`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: window.location.pathname, resources }),
+            keepalive: true,
+        }).catch(() => {});
+    }, 0);
+}
+
 async function loadInitialData() {
     if (!requestedRuleId && !requestedCategoryKey) {
         showError('Missing point activity.');
@@ -1571,6 +1603,7 @@ async function loadInitialData() {
     const selectedToday = selectTodayWhenItHasActivity();
     if (selectedToday && isInAppChore()) await loadSelectedSessionDetails();
     render();
+    reportNetworkProfileIfRequested();
 }
 
 pointActivityHero?.addEventListener('click', async (event) => {

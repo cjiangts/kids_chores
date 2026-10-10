@@ -19,6 +19,7 @@ from datetime import timedelta
 from urllib.parse import quote
 from flask import Flask, send_from_directory, request, redirect, session, jsonify, g
 from flask_cors import CORS
+import json
 import os
 import shutil
 import time
@@ -209,6 +210,40 @@ def create_app():
                 request.headers.get('X-Forwarded-For', request.remote_addr),
             )
         return response
+
+    @app.route('/api/diagnostics/client-network', methods=['POST'])
+    def log_client_network_profile():
+        """Log opt-in browser resource timings for a one-off performance check."""
+        payload = request.get_json(silent=True)
+        if not isinstance(payload, dict):
+            return {'error': 'JSON payload required'}, 400
+        resources = payload.get('resources')
+        if not isinstance(resources, list):
+            return {'error': 'resources must be a list'}, 400
+
+        sanitized = []
+        for item in resources[:80]:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get('path') or '')
+            if not path.startswith('/api/') or len(path) > 300:
+                continue
+            try:
+                sanitized.append({
+                    'path': path,
+                    'duration_ms': round(max(0.0, float(item.get('durationMs') or 0)), 1),
+                    'ttfb_ms': round(max(0.0, float(item.get('ttfbMs') or 0)), 1),
+                    'transfer_bytes': max(0, int(item.get('transferBytes') or 0)),
+                    'decoded_body_bytes': max(0, int(item.get('decodedBodyBytes') or 0)),
+                })
+            except (TypeError, ValueError):
+                continue
+        app.logger.warning(
+            'client_network_profile page=%s resources=%s',
+            str(payload.get('page') or '')[:200],
+            json.dumps(sanitized, separators=(',', ':')),
+        )
+        return {'ok': True}, 204
 
     # =================================================================
     # === 3. Blueprint registration
