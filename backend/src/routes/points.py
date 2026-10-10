@@ -160,13 +160,12 @@ def get_kid_points(kid_id):
         limit = int(request.args.get('limit') or 100)
     except (TypeError, ValueError):
         limit = 100
-    summary_only = str(request.args.get('summary') or '').strip().lower() in {'1', 'true', 'yes'}
     kid_conn = get_kid_connection_for(kid, read_only=True)
     shared_conn = get_shared_decks_connection(read_only=True)
     try:
         total = get_point_total(kid_conn)
         reward_bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
-        events = [] if summary_only else list_point_events(kid_conn, shared_conn, family_id, limit=limit)
+        events = list_point_events(kid_conn, shared_conn, family_id, limit=limit)
     finally:
         shared_conn.close()
         kid_conn.close()

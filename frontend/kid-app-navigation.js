@@ -213,7 +213,7 @@
     async function fetchKidPointBalance(kidId) {
         const normalizedKidId = String(kidId || '').trim();
         if (!normalizedKidId) return null;
-        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?summary=1`, {
+        const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(normalizedKidId)}/points?limit=1`, {
             headers: { Accept: 'application/json' },
         });
         const data = await response.json().catch(() => ({}));

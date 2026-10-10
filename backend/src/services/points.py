@@ -636,55 +636,50 @@ def get_point_total(kid_conn):
 
 
 def get_reward_bucket_totals(kid_conn, shared_conn, family_id):
+    rows = kid_conn.execute(
+        """
+        SELECT rule_id, points_delta
+        FROM point_event
+        """
+    ).fetchall()
+    rule_ids = [int(row[0] or 0) for row in rows]
+    lookup = _load_rule_lookup(shared_conn, family_id, rule_ids)
+    base_points = 0
+    buckets = set()
     default_reward_type = get_default_reward_type(shared_conn, family_id)
     reward_rules = list_family_rules(
         shared_conn,
         family_id,
         rule_kind=RULE_KIND_REDEEMED_REWARD,
         include_inactive=True,
-        default_reward_type_only=False,
     )
-    default_rule_ids = []
-    reward_rule_ids = []
     for rule in reward_rules:
         bucket = reward_type_for_rule(rule)
-        if not bucket:
+        if bucket and bucket == default_reward_type:
+            buckets.add(bucket)
+    redeemed_by_bucket = {bucket: 0 for bucket in buckets}
+    for row in rows:
+        if not row:
             continue
-        rule_id = int(rule.get('ruleId') or 0)
-        if rule_id <= 0:
+        rule_id = int(row[0] or 0)
+        delta = int(row[1] or 0)
+        bucket = reward_type_for_rule(lookup.get(rule_id, {}))
+        if bucket and bucket == default_reward_type:
+            buckets.add(bucket)
+            redeemed_by_bucket.setdefault(bucket, 0)
+            redeemed_by_bucket[bucket] += delta
+        elif bucket:
             continue
-        reward_rule_ids.append(rule_id)
-        if bucket == default_reward_type:
-            default_rule_ids.append(rule_id)
-
-    if not default_reward_type or not default_rule_ids:
-        return {}
-
-    reward_rule_ids = sorted(set(reward_rule_ids))
-    default_rule_ids = sorted(set(default_rule_ids))
-    reward_rule_placeholders = ', '.join('?' for _ in reward_rule_ids)
-    default_rule_placeholders = ', '.join('?' for _ in default_rule_ids)
-    row = kid_conn.execute(
-        f"""
-        SELECT
-            COALESCE(SUM(points_delta), 0),
-            COALESCE(SUM(CASE WHEN rule_id IN ({reward_rule_placeholders}) THEN points_delta ELSE 0 END), 0),
-            COALESCE(SUM(CASE WHEN rule_id IN ({default_rule_placeholders}) THEN points_delta ELSE 0 END), 0)
-        FROM point_event
-        """,
-        [*reward_rule_ids, *default_rule_ids],
-    ).fetchone()
-    all_points = int(row[0] or 0) if row else 0
-    all_reward_points = int(row[1] or 0) if row else 0
-    redeemed_points = int(row[2] or 0) if row else 0
-    base_points = all_points - all_reward_points
+        else:
+            base_points += delta
     return {
-        default_reward_type: {
-            'bucket': default_reward_type,
+        bucket: {
+            'bucket': bucket,
             'basePoints': base_points,
-            'redeemedPoints': redeemed_points,
-            'totalPoints': base_points + redeemed_points,
+            'redeemedPoints': redeemed_by_bucket[bucket],
+            'totalPoints': base_points + redeemed_by_bucket[bucket],
         }
+        for bucket in sorted(buckets)
     }
 
 
