@@ -1434,43 +1434,6 @@ button.point-activity-day.active:focus-visible {
     margin: 0;
 }
 
-.point-activity-report-page .daily-progress-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.72rem;
-}
-
-.point-activity-report-page .daily-progress-metric-btns {
-    flex: 0 0 auto;
-    gap: 0;
-    box-sizing: border-box;
-    height: var(--paradigm-button-height);
-    padding: 1px;
-    border: 1px solid #d8d3ff;
-    border-radius: 999px;
-    background: #f4f1ff;
-}
-
-.point-activity-report-page .daily-progress-metric-btn {
-    box-sizing: border-box;
-    min-height: 22px;
-    height: 22px;
-    padding-right: 0.58rem;
-    padding-left: 0.58rem;
-    border-color: transparent;
-    background: transparent;
-    box-shadow: none;
-    color: #4a5688;
-}
-
-.point-activity-report-page .daily-progress-metric-btn.active {
-    background: #655df0;
-    border-color: transparent;
-    color: #fff;
-    box-shadow: 0 1px 2px rgba(82, 71, 198, 0.28);
-}
-
 .point-activity-report-page .daily-progress-legend {
     display: flex;
     flex-wrap: wrap;

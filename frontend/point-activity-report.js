@@ -1246,7 +1246,7 @@ function buildProgressXTicks(totalDays) {
 function renderProgressMetricBtns({ rtHasData, crHasData, activeMetric }) {
     if (!rtHasData || !crHasData) return '';
     return `
-        <div class="daily-progress-metric-btns paradigm-chip-toggle-group">
+        <div class="daily-progress-metric-btns paradigm-chip-toggle-group paradigm-segmented-toggle">
             <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${activeMetric === 'speed' ? ' active' : ''}" data-progress-metric="speed">Speed</button>
             <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${activeMetric === 'correctness' ? ' active' : ''}" data-progress-metric="correctness">Correct</button>
         </div>
@@ -1326,7 +1326,7 @@ function renderProgressPanel() {
     const metricButtonsHtml = renderProgressMetricBtns({ rtHasData, crHasData, activeMetric });
     pointActivityProgress.innerHTML = `
         <div class="daily-progress-card${hasRtData ? ' has-response-time' : ''}${hasCrData ? ' has-correctness-rate' : ''}">
-            <div class="daily-progress-head">
+            <div class="daily-progress-head paradigm-metric-header">
                 <h2 class="paradigm-panel-title">
                     <span class="paradigm-panel-title-icon"><span class="icon" data-icon="award" data-icon-size="22" data-icon-stroke="2.4" aria-hidden="true"></span></span>
                     <span class="paradigm-panel-heading">Progress over time</span>
@@ -1424,7 +1424,7 @@ function renderCalendar() {
                     <span class="icon" data-icon="chevron-right" data-icon-size="13" data-icon-stroke="2.4" aria-hidden="true"></span>
                 </button>
             </div>
-            <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group" role="group" aria-label="Calendar metric">
+            <div class="point-activity-calendar-metric-toggle daily-progress-metric-btns paradigm-chip-toggle-group paradigm-segmented-toggle" role="group" aria-label="Calendar metric">
                 ${isInAppChore() ? `
                     <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'minutes' ? ' active' : ''}" data-calendar-metric="minutes">Time</button>
                     <button type="button" class="daily-progress-metric-btn paradigm-chip-toggle${currentCalendarMetric === 'cards' ? ' active' : ''}" data-calendar-metric="cards">Cards</button>

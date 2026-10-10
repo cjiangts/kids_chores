@@ -833,7 +833,13 @@
         </section>
 
         <section class="paradigm-settings-panel">
-            <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Attempt History</span></h2>
+            <div class="paradigm-metric-header">
+                <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Attempt History</span></h2>
+                <div id="historyFilterBtns" class="paradigm-chip-toggle-group paradigm-segmented-toggle" role="group" aria-label="Attempt history filter">
+                    <button type="button" class="paradigm-chip-toggle active" data-history-filter="errors" aria-pressed="true">Only errors</button>
+                    <button type="button" class="paradigm-chip-toggle" data-history-filter="all" aria-pressed="false">All</button>
+                </div>
+            </div>
             <div id="historyList" class="history-list"></div>
         </section>
     </div>

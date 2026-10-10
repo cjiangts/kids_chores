@@ -43,8 +43,11 @@ const trendLegend = document.getElementById('trendLegend');
 const trendPeriodBtns = document.getElementById('trendPeriodBtns');
 const trendFootnote = document.getElementById('trendFootnote');
 const historyList = document.getElementById('historyList');
+const historyFilterBtns = document.getElementById('historyFilterBtns');
 let currentTrendAttempts = [];
+let currentHistoryAttempts = [];
 let currentTrendPeriodDays = 0;
+let historyErrorsOnly = true;
 let reportTimezone = '';
 let currentKidName = '';
 let currentCardFront = '';
@@ -58,6 +61,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     await loadCardReport();
+});
+
+historyFilterBtns?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-history-filter]');
+    if (!button || !historyFilterBtns.contains(button)) return;
+    historyErrorsOnly = button.dataset.historyFilter === 'errors';
+    historyFilterBtns.querySelectorAll('[data-history-filter]').forEach((item) => {
+        const active = item === button;
+        item.classList.toggle('active', active);
+        item.setAttribute('aria-pressed', String(active));
+    });
+    renderHistory(currentHistoryAttempts);
 });
 
 // =====================================================================
@@ -198,7 +213,6 @@ function renderHero(card, attempts, queuePreview) {
     const metaHtml = metaBits.length
         ? `<div class="report-hero-meta">${metaBits.join('')}</div>`
         : '';
-
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
             ${heroIconHtml}
@@ -528,20 +542,28 @@ function renderCompactHistoryAttempt({ itemOpen, itemClose, correctness, daysAgo
 }
 
 function renderHistory(attempts) {
-    if (!attempts.length) {
+    currentHistoryAttempts = Array.isArray(attempts) ? attempts : [];
+    if (!currentHistoryAttempts.length) {
         historyList.innerHTML = `<div class="chart-empty">No practice history yet.</div>`;
         return;
     }
 
-    const sorted = [...attempts].sort((a, b) => {
+    const sorted = [...currentHistoryAttempts].sort((a, b) => {
         const aTime = parseUtcTimestamp(a?.session_completed_at || a?.session_started_at || a?.timestamp).getTime();
         const bTime = parseUtcTimestamp(b?.session_completed_at || b?.session_started_at || b?.timestamp).getTime();
         return bTime - aTime;
     });
+    const visibleAttempts = historyErrorsOnly
+        ? sorted.filter((item) => resolveCorrectness(item) !== 'right')
+        : sorted;
+    if (!visibleAttempts.length) {
+        historyList.innerHTML = `<div class="chart-empty">No incorrect attempts yet.</div>`;
+        return;
+    }
 
     const currentSessionId = sorted.length ? Number(sorted[0]?.session_id) : null;
 
-    historyList.innerHTML = sorted.map((item) => {
+    historyList.innerHTML = visibleAttempts.map((item) => {
         const rawMs = getAttemptDisplayResponseMs(item);
         const responseTimeLabel = formatResponseTime(rawMs);
         const correctness = resolveCorrectness(item);
@@ -647,6 +669,14 @@ window.ReportGradingCommon?.attach(document, {
     isReadOnly: isKidMode,
     onBeforeSave: () => showError(''),
     onSaved: ({ btn, resultId, sessionId, saved }) => {
+        const savedScore = Number(saved?.correct_score);
+        const historyItem = currentHistoryAttempts.find((item) => Number(item?.result_id) === Number(resultId));
+        if (historyItem && Number.isFinite(savedScore)) {
+            historyItem.correct_score = savedScore;
+            historyItem.grade_status = saved?.grade_status;
+            renderHistory(currentHistoryAttempts);
+            return;
+        }
         const item = btn.closest('.history-item');
         if (item) {
             const score = Number.isFinite(Number(saved?.correct_score)) ? Number(saved.correct_score) : 0;
