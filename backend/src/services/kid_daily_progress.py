@@ -24,7 +24,7 @@ Layout (search for `# === N. ` banner markers to jump between sections):
     6. Composite progress section builder for the kid report
 """
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from src.db import metadata
@@ -833,7 +833,14 @@ def get_kid_practice_target_by_deck_category(
 # === 6. Composite progress section builder
 # =====================================================================
 def build_kid_daily_progress_section(kid, category_key, *, conn=None):
-    """Compute per-card-per-day attempt aggregates + family timezone for one kid+category."""
+    """Build compact cumulative daily chart points for one kid/category.
+
+    The report chart previously received every card's every-day aggregate and
+    recreated these values in the browser. Families with long practice
+    histories could therefore download megabytes just to render one chart.
+    Keep the per-card state on the server and return only the points the chart
+    draws, plus additive cumulative totals for the all-kids view.
+    """
     family_id = str(kid.get('familyId') or '').strip()
     family_timezone = metadata.get_family_timezone(family_id)
     try:
@@ -890,19 +897,63 @@ def build_kid_daily_progress_section(kid, category_key, *, conn=None):
                 entry['correct_response_time_ms_sum'] += rt_ms
                 entry['correct_response_time_count'] += 1
 
-    rows = [
-        {
-            'card_id': key[0],
-            'date': key[1],
-            'attempts': val['attempts'],
-            'correct': val['correct'],
-            'correct_response_time_ms_sum': val['correct_response_time_ms_sum'],
-            'correct_response_time_count': val['correct_response_time_count'],
+    if not agg:
+        return {
+            'family_timezone': family_timezone,
+            'daily_progress_points': [],
         }
-        for key, val in agg.items()
-    ]
+
+    rows_by_date = defaultdict(list)
+    for (card_id, date_str), value in agg.items():
+        rows_by_date[date_str].append((card_id, value))
+
+    first_date = min(rows_by_date)
+    try:
+        current_date = date.fromisoformat(first_date)
+    except ValueError:
+        return {
+            'family_timezone': family_timezone,
+            'daily_progress_points': [],
+        }
+    final_date = datetime.now(tzinfo).date()
+    last_data_date = date.fromisoformat(max(rows_by_date))
+    if final_date < last_data_date:
+        final_date = last_data_date
+
+    card_cumulative = defaultdict(lambda: {'attempts': 0, 'correct': 0})
+    practiced_cards = set()
+    learned_cards = set()
+    cumulative_rt_sum = cumulative_rt_count = 0
+    cumulative_attempts = cumulative_correct = 0
+    points = []
+    while current_date <= final_date:
+        date_str = current_date.isoformat()
+        for card_id, value in rows_by_date.get(date_str, []):
+            card_totals = card_cumulative[card_id]
+            card_totals['attempts'] += value['attempts']
+            card_totals['correct'] += value['correct']
+            practiced_cards.add(card_id)
+            if (
+                card_totals['attempts'] >= 5
+                and (card_totals['correct'] / card_totals['attempts']) >= 0.8
+            ):
+                learned_cards.add(card_id)
+            cumulative_rt_sum += value['correct_response_time_ms_sum']
+            cumulative_rt_count += value['correct_response_time_count']
+            cumulative_attempts += value['attempts']
+            cumulative_correct += value['correct']
+        points.append({
+            'date': date_str,
+            'practiced': len(practiced_cards),
+            'learned': len(learned_cards),
+            'cumulative_correct_response_time_ms_sum': cumulative_rt_sum,
+            'cumulative_correct_response_time_count': cumulative_rt_count,
+            'cumulative_attempts': cumulative_attempts,
+            'cumulative_correct': cumulative_correct,
+        })
+        current_date += timedelta(days=1)
 
     return {
         'family_timezone': family_timezone,
-        'daily_progress_rows': rows,
+        'daily_progress_points': points,
     }

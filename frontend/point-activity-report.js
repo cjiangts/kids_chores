@@ -391,24 +391,42 @@ async function loadProgressData() {
             return [String(kid.id), await fetchJson(progressDataUrl(kid.id))];
         } catch (error) {
             console.warn('Failed to load point activity progress data:', kid?.id, error);
-            return [String(kid.id), { daily_progress_rows: [], family_timezone: familyTimezone() }];
+            return [String(kid.id), { daily_progress_points: [], family_timezone: familyTimezone() }];
         }
     }));
     progressDataByKid = new Map(progressEntries);
 }
 
-function visibleProgressRows() {
+function visibleProgressPoints() {
     const selectedIds = selectedKidId
         ? [selectedKidId]
         : kids.map((kid) => String(kid.id));
-    return selectedIds.flatMap((kidId) => {
+    const byDate = new Map();
+    selectedIds.forEach((kidId) => {
         const data = progressDataByKid.get(String(kidId)) || {};
-        const rows = Array.isArray(data.daily_progress_rows) ? data.daily_progress_rows : [];
-        return rows.map((row) => ({
-            ...row,
-            card_id: `${kidId}:${row?.card_id}`,
-        }));
+        const points = Array.isArray(data.daily_progress_points) ? data.daily_progress_points : [];
+        points.forEach((point) => {
+            const date = String(point?.date || '').trim();
+            if (!date) return;
+            const combined = byDate.get(date) || {
+                date,
+                practiced: 0,
+                learned: 0,
+                cumulative_correct_response_time_ms_sum: 0,
+                cumulative_correct_response_time_count: 0,
+                cumulative_attempts: 0,
+                cumulative_correct: 0,
+            };
+            combined.practiced += Math.max(0, Number.parseInt(point?.practiced, 10) || 0);
+            combined.learned += Math.max(0, Number.parseInt(point?.learned, 10) || 0);
+            combined.cumulative_correct_response_time_ms_sum += Math.max(0, Number.parseInt(point?.cumulative_correct_response_time_ms_sum, 10) || 0);
+            combined.cumulative_correct_response_time_count += Math.max(0, Number.parseInt(point?.cumulative_correct_response_time_count, 10) || 0);
+            combined.cumulative_attempts += Math.max(0, Number.parseInt(point?.cumulative_attempts, 10) || 0);
+            combined.cumulative_correct += Math.max(0, Number.parseInt(point?.cumulative_correct, 10) || 0);
+            byDate.set(date, combined);
+        });
     });
+    return Array.from(byDate.values()).sort((left, right) => left.date.localeCompare(right.date));
 }
 
 function progressFamilyTimezone() {
@@ -1072,71 +1090,31 @@ function renderSessionDayDetails() {
     `;
 }
 
-function buildProgressChart(dailyProgressRows, timezone) {
-    const rows = Array.isArray(dailyProgressRows) ? dailyProgressRows : [];
-    const validRows = [];
-    rows.forEach((row) => {
-        const cardId = String(row?.card_id || '').trim();
-        const date = String(row?.date || '').trim();
-        const attempts = Math.max(0, Number.parseInt(row?.attempts, 10) || 0);
-        const correct = Math.max(0, Number.parseInt(row?.correct, 10) || 0);
-        const rtSum = Math.max(0, Number.parseInt(row?.correct_response_time_ms_sum, 10) || 0);
-        const rtCount = Math.max(0, Number.parseInt(row?.correct_response_time_count, 10) || 0);
-        if (!cardId || !date || attempts <= 0) return;
-        validRows.push({ cardId, date, attempts, correct, rtSum, rtCount });
-    });
-    if (!validRows.length) return null;
-    const rowsByDate = new Map();
-    validRows.forEach((row) => {
-        if (!rowsByDate.has(row.date)) rowsByDate.set(row.date, []);
-        rowsByDate.get(row.date).push(row);
-    });
-    const sortedDates = Array.from(rowsByDate.keys()).sort();
+function buildProgressChart(dailyProgressPoints) {
+    const rawPoints = Array.isArray(dailyProgressPoints) ? dailyProgressPoints : [];
+    const validPoints = rawPoints.map((point) => {
+        const date = String(point?.date || '').trim();
+        if (!date) return null;
+        const practiced = Math.max(0, Number.parseInt(point?.practiced, 10) || 0);
+        const learned = Math.max(0, Number.parseInt(point?.learned, 10) || 0);
+        const rtSum = Math.max(0, Number.parseInt(point?.cumulative_correct_response_time_ms_sum, 10) || 0);
+        const rtCount = Math.max(0, Number.parseInt(point?.cumulative_correct_response_time_count, 10) || 0);
+        const attempts = Math.max(0, Number.parseInt(point?.cumulative_attempts, 10) || 0);
+        const correct = Math.max(0, Number.parseInt(point?.cumulative_correct, 10) || 0);
+        return { date, practiced, learned, rtSum, rtCount, attempts, correct };
+    }).filter(Boolean).sort((left, right) => left.date.localeCompare(right.date));
+    if (!validPoints.length) return null;
+    const sortedDates = validPoints.map((point) => point.date);
     const firstDate = sortedDates[0];
     const lastDate = sortedDates[sortedDates.length - 1];
-    const startEpoch = parseDateKeyToEpochUtc(firstDate);
-    const lastDataEpoch = parseDateKeyToEpochUtc(lastDate);
-    if (!Number.isFinite(startEpoch) || !Number.isFinite(lastDataEpoch) || lastDataEpoch < startEpoch) return null;
-    const todayEpoch = parseDateKeyToEpochUtc(getTodayDateKeyInTimezone(timezone));
-    const endEpoch = Number.isFinite(todayEpoch) && todayEpoch > lastDataEpoch ? todayEpoch : lastDataEpoch;
-    const dayMs = 86400000;
-    const cardCum = new Map();
-    const practicedSet = new Set();
-    const learnedSet = new Set();
-    const points = [];
-    let dayIndex = 0;
-    let cumRtSumMs = 0;
-    let cumRtCount = 0;
-    let cumAttempts = 0;
-    let cumCorrect = 0;
-    for (let epoch = startEpoch; epoch <= endEpoch; epoch += dayMs) {
-        dayIndex += 1;
-        const dateStr = formatEpochUtcToDateKey(epoch);
-        const dayRows = rowsByDate.get(dateStr) || [];
-        dayRows.forEach((row) => {
-            let cum = cardCum.get(row.cardId);
-            if (!cum) {
-                cum = { attempts: 0, correct: 0 };
-                cardCum.set(row.cardId, cum);
-            }
-            cum.attempts += row.attempts;
-            cum.correct += row.correct;
-            practicedSet.add(row.cardId);
-            if (cum.attempts >= 5 && (cum.correct / cum.attempts) >= 0.8) learnedSet.add(row.cardId);
-            cumRtSumMs += row.rtSum;
-            cumRtCount += row.rtCount;
-            cumAttempts += row.attempts;
-            cumCorrect += row.correct;
-        });
-        points.push({
-            dayIndex,
-            date: dateStr,
-            practiced: practicedSet.size,
-            learned: learnedSet.size,
-            avgCorrectRtSec: cumRtCount > 0 ? (cumRtSumMs / cumRtCount) / 1000 : null,
-            cumCorrectPct: cumAttempts > 0 ? (cumCorrect / cumAttempts) * 100 : null,
-        });
-    }
+    const points = validPoints.map((point, index) => ({
+        dayIndex: index + 1,
+        date: point.date,
+        practiced: point.practiced,
+        learned: point.learned,
+        avgCorrectRtSec: point.rtCount > 0 ? (point.rtSum / point.rtCount) / 1000 : null,
+        cumCorrectPct: point.attempts > 0 ? (point.correct / point.attempts) * 100 : null,
+    }));
     const yMax = Math.max(1, points.reduce((max, p) => Math.max(max, p.practiced, p.learned), 0));
     const rtRange = computeFiniteRange(points, 'avgCorrectRtSec');
     const crRange = computeFiniteRange(points, 'cumCorrectPct');
@@ -1260,7 +1238,7 @@ function renderProgressPanel() {
         pointActivityProgress.innerHTML = '';
         return;
     }
-    const chart = buildProgressChart(visibleProgressRows(), progressFamilyTimezone());
+    const chart = buildProgressChart(visibleProgressPoints());
     if (!chart || !Array.isArray(chart.points) || !chart.points.length) {
         pointActivityProgressPanel.classList.add('hidden');
         pointActivityProgress.innerHTML = '';
