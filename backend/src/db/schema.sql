@@ -138,3 +138,4 @@ CREATE INDEX IF NOT EXISTS idx_session_results_session_id ON session_results(ses
 CREATE INDEX IF NOT EXISTS idx_session_results_card_id ON session_results(card_id);
 CREATE INDEX IF NOT EXISTS idx_pending_off_app_chore_rule ON pending_off_app_chore(rule_id);
 CREATE INDEX IF NOT EXISTS idx_point_event_rule_created ON point_event(rule_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_point_event_created ON point_event(created_at DESC, event_id DESC);
