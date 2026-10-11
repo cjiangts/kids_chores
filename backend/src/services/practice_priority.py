@@ -21,7 +21,7 @@ The single SQL statement is one 6-stage CTE — read top-to-bottom:
   4. speed_baseline  — subject-wide p50/p95 of per-card avg_correct_response_time
                        (per-card averages, not per-attempt — avoids single-attempt
                        outliers blowing out the band).
-  5. score_terms     — derive missed/slow/learning/due NEED values.
+  5. score_terms     — derive missed/slow/learning/due priority values.
                        slow_need = clamp((avg − p50) / (p95 − p50), 0, 1)
                        compares the card's average correct time against the subject's
                        per-card avg p50/p95 band.
@@ -32,7 +32,9 @@ The weights live in `kids_constants`:
   - PRACTICE_PRIORITY_MISSED_WEIGHT / SLOW_WEIGHT / LEARNING_WEIGHT / DUE_WEIGHT
   - PRACTICE_PRIORITY_LAST_FAILED_BOOST — pumps "missed" if last attempt failed
   - PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS — learning need = 1 - attempts/target
-  - PRACTICE_PRIORITY_VERY_DUE_DAYS — due_need saturates at this many days
+  - PRACTICE_PRIORITY_DUE_RAMP_DAYS — normal due score reaches its ceiling
+  - PRACTICE_PRIORITY_DUE_GRACE_DAYS — age after which anti-starvation starts
+  - PRACTICE_PRIORITY_DUE_ACCELERATION_DENOMINATOR — controls the late-age curve
   - PRACTICE_PRIORITY_MIN_CORRECT_RECORDS_FOR_SPEED_BASELINE — min number
     of cards with a non-null avg_correct_response_time required before the
     per-card avg p50/p95 band is considered trustworthy; below that
@@ -46,6 +48,9 @@ from src.routes.kids_constants import (
     DECK_CATEGORY_BEHAVIOR_TYPE_II,
     DECK_CATEGORY_BEHAVIOR_TYPE_III,
     PRACTICE_PRIORITY_DUE_WEIGHT,
+    PRACTICE_PRIORITY_DUE_ACCELERATION_DENOMINATOR,
+    PRACTICE_PRIORITY_DUE_GRACE_DAYS,
+    PRACTICE_PRIORITY_DUE_RAMP_DAYS,
     PRACTICE_PRIORITY_LAST_FAILED_BOOST,
     PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS,
     PRACTICE_PRIORITY_LEARNING_WEIGHT,
@@ -56,7 +61,6 @@ from src.routes.kids_constants import (
     PRACTICE_PRIORITY_REASON_MISSED,
     PRACTICE_PRIORITY_REASON_SLOW,
     PRACTICE_PRIORITY_SLOW_WEIGHT,
-    PRACTICE_PRIORITY_VERY_DUE_DAYS,
 )
 from src.services.normalize_inputs import normalize_positive_int_list
 
@@ -189,16 +193,24 @@ def build_practice_priority_preview_for_decks(
                 ) AS learning_need,
                 CASE
                     WHEN COALESCE(p.attempt_count, 0) <= 0
-                    THEN 1.0
-                    ELSE LEAST(
-                        GREATEST(
-                            date_diff('day', p.last_practiced_at, current_date)::DOUBLE
-                            / {PRACTICE_PRIORITY_VERY_DUE_DAYS:.6f},
-                            0.0
-                        ),
-                        1.0
+                    THEN {PRACTICE_PRIORITY_DUE_WEIGHT:.6f}
+                    WHEN date_diff('day', p.last_practiced_at, current_date)
+                         <= {PRACTICE_PRIORITY_DUE_RAMP_DAYS:.6f}
+                    THEN {PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * GREATEST(
+                        date_diff('day', p.last_practiced_at, current_date)::DOUBLE
+                        / {PRACTICE_PRIORITY_DUE_RAMP_DAYS:.6f},
+                        0.0
                     )
-                END AS due_need,
+                    WHEN date_diff('day', p.last_practiced_at, current_date)
+                         <= {PRACTICE_PRIORITY_DUE_GRACE_DAYS:.6f}
+                    THEN {PRACTICE_PRIORITY_DUE_WEIGHT:.6f}
+                    ELSE {PRACTICE_PRIORITY_DUE_WEIGHT:.6f}
+                        + POWER(
+                            date_diff('day', p.last_practiced_at, current_date)::DOUBLE
+                            - {PRACTICE_PRIORITY_DUE_GRACE_DAYS:.6f},
+                            2
+                        ) / {PRACTICE_PRIORITY_DUE_ACCELERATION_DENOMINATOR:.6f}
+                END AS due_points,
                 CASE
                     WHEN COALESCE(p.attempt_count, 0) <= 0 THEN NULL
                     ELSE 100.0 * (
@@ -230,12 +242,12 @@ def build_practice_priority_preview_for_decks(
                     * GREATEST(wrong_rate, {PRACTICE_PRIORITY_LAST_FAILED_BOOST:.6f} * last_wrong) AS missed_points,
                 {slow_weight:.6f} * slow_need AS slow_points,
                 {PRACTICE_PRIORITY_LEARNING_WEIGHT:.6f} * learning_need AS learning_points,
-                {PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * COALESCE(due_need, 0.0) AS due_points,
+                COALESCE(due_points, 0.0) AS due_points,
                 ({missed_weight:.6f}
                     * GREATEST(wrong_rate, {PRACTICE_PRIORITY_LAST_FAILED_BOOST:.6f} * last_wrong))
                 + ({slow_weight:.6f} * slow_need)
                 + ({PRACTICE_PRIORITY_LEARNING_WEIGHT:.6f} * learning_need)
-                + ({PRACTICE_PRIORITY_DUE_WEIGHT:.6f} * COALESCE(due_need, 0.0)) AS priority_score,
+                + COALESCE(due_points, 0.0) AS priority_score,
                 correct_rate,
                 correct_count,
                 wrong_count,

@@ -20,7 +20,11 @@ PRACTICE_PRIORITY_SLOW_WEIGHT = 25.0
 PRACTICE_PRIORITY_LEARNING_WEIGHT = 20.0
 PRACTICE_PRIORITY_DUE_WEIGHT = 10.0
 PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS = 5.0
-PRACTICE_PRIORITY_VERY_DUE_DAYS = 30.0
+# Due points: ramp to the normal 10-point ceiling in 30 days, hold there
+# through day 90, then accelerate quadratically so old cards cannot starve.
+PRACTICE_PRIORITY_DUE_RAMP_DAYS = 30.0
+PRACTICE_PRIORITY_DUE_GRACE_DAYS = 90.0
+PRACTICE_PRIORITY_DUE_ACCELERATION_DENOMINATOR = 375.0
 BACKEND_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = os.path.join(BACKEND_ROOT, 'data')
 FAMILIES_ROOT = os.path.join(DATA_DIR, 'families')
