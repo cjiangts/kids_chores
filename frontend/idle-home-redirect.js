@@ -1,29 +1,19 @@
 (function () {
-    // Offline mode was removed. A previous release registered a service worker,
-    // which can otherwise keep intercepting production pages after deployment.
-    // Remove its registration and same-origin Cache Storage on the next page
-    // load; both calls are best-effort and do not block the app.
-    function removeLegacyOfflineWorker() {
+    // Non-API pages and assets are kept in Cache Storage. The Settings page
+    // exposes the explicit reset control for obtaining a newer app version.
+    function enableOfflineAppCache() {
         if (!('serviceWorker' in navigator)) return;
-        navigator.serviceWorker.getRegistrations()
-            .then(function (registrations) {
-                return Promise.all(registrations.map(function (registration) {
-                    return registration.unregister();
-                }));
+        const registrationKey = 'kidsChoresOfflineCacheRegistered';
+        if (window.localStorage.getItem(registrationKey) === '1') return;
+
+        navigator.serviceWorker.register('/service-worker.js', { scope: '/' })
+            .then(function () {
+                window.localStorage.setItem(registrationKey, '1');
             })
-            .catch(function () { /* Best-effort cleanup only. */ });
-        if ('caches' in window) {
-            caches.keys()
-                .then(function (cacheNames) {
-                    return Promise.all(cacheNames.map(function (cacheName) {
-                        return caches.delete(cacheName);
-                    }));
-                })
-                .catch(function () { /* Best-effort cleanup only. */ });
-        }
+            .catch(function () { /* Browser network cache remains the fallback. */ });
     }
 
-    removeLegacyOfflineWorker();
+    enableOfflineAppCache();
 
     var HOME_PATH = '/family-home.html';
     var DEFAULT_TIMEOUT_MS = 30 * 60 * 1000;

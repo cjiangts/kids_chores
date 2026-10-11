@@ -41,6 +41,8 @@ const TIMEZONE_OPTIONS = [
 let currentFamilyTimezone = '';
 const timezoneError = document.getElementById('timezoneError');
 const timezoneSuccess = document.getElementById('timezoneSuccess');
+const clearOfflineCacheBtn = document.getElementById('clearOfflineCacheBtn');
+const offlineCacheStatus = document.getElementById('offlineCacheStatus');
 const downloadBackupBtn = document.getElementById('downloadBackupBtn');
 const restoreBackupBtn = document.getElementById('restoreBackupBtn');
 const backupFileInput = document.getElementById('backupFileInput');
@@ -71,6 +73,33 @@ const kidsManageError = document.getElementById('kidsManageError');
 const kidsManageSuccess = document.getElementById('kidsManageSuccess');
 let pendingRestorePassword = null;
 let isSuperFamily = false;
+
+clearOfflineCacheBtn?.addEventListener('click', async () => {
+    clearOfflineCacheBtn.disabled = true;
+    if (offlineCacheStatus) {
+        offlineCacheStatus.textContent = 'Clearing this device cache…';
+        offlineCacheStatus.classList.remove('hidden');
+    }
+    try {
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map((name) => caches.delete(name)));
+        }
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+        window.localStorage.removeItem('kidsChoresOfflineCacheRegistered');
+        window.location.replace(window.location.pathname);
+    } catch (error) {
+        console.error('Error clearing app cache:', error);
+        if (offlineCacheStatus) {
+            offlineCacheStatus.textContent = 'Could not clear the device cache. Please try again.';
+            offlineCacheStatus.classList.remove('hidden');
+        }
+        clearOfflineCacheBtn.disabled = false;
+    }
+});
 
 // =====================================================================
 // === 2. Shared helpers (modal body lock, escape, closest target)

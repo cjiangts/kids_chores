@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="apple-touch-icon" href="apple-touch-icon.png?v=mommy-icon2-20260607">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png?v=mommy-icon2-20260607">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png?v=mommy-icon2-20260607">
-    <link rel="shortcut icon" href="favicon.ico?v=mommy-icon2-20260607">
-    <link rel="manifest" href="site.webmanifest?v=mommy-icon2-20260607">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="manifest" href="site.webmanifest">
     <script src="idle-home-redirect.js"></script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Family Settings - The Mommy App</title>
@@ -462,6 +462,23 @@
                     <div id="trustedBrowsersList" class="trusted-browser-list"></div>
                     <div id="trustedBrowsersError" class="error hidden"></div>
                     <div id="trustedBrowsersSuccess" class="success hidden"></div>
+                </div>
+            </section>
+
+            <section class="settings-card settings-section">
+                <div class="settings-card-body">
+                    <div class="paradigm-panel-title">
+                        <span class="paradigm-panel-title-icon"><span class="icon" data-icon="refresh-cw"></span></span>
+                        <h2 class="paradigm-panel-heading">App Cache</h2>
+                    </div>
+                    <div class="settings-note">This device keeps pages, scripts, images, and fonts locally for faster loading.</div>
+                    <div class="settings-row backup-actions-row">
+                        <button id="clearOfflineCacheBtn" type="button" class="paradigm-btn">
+                            <span class="btn-icon" aria-hidden="true"><span class="icon" data-icon="trash" data-icon-size="20"></span></span>
+                            <span class="btn-label">Clear This Device's Cache & Refresh</span>
+                        </button>
+                    </div>
+                    <div id="offlineCacheStatus" class="settings-note hidden"></div>
                 </div>
             </section>
 
