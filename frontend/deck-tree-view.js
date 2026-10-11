@@ -842,10 +842,8 @@
 
             const body = event.target.closest('.deck-tree-row-body');
             if (!body) return;
-            // Selection is deliberately limited to the checkbox hit area so
-            // folder actions and label clicks never toggle an entire branch.
-            const checkbox = event.target.closest('.deck-tree-checkbox');
-            if (!checkbox || !body.contains(checkbox)) return;
+            // The whole row is a generous selection target. The expand,
+            // edit, and add controls returned above retain their own actions.
             const action = body.getAttribute('data-tree-action');
 
             if (action === 'orphan') {
