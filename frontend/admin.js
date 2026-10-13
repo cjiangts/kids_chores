@@ -1343,6 +1343,7 @@ async function submitAdminOffAppGrade(reviewKey) {
         adminOffAppEditingKeys.delete(normalizedReviewKey);
         adminOffAppByKidId.delete(kidId);
         await loadAdminOffAppChores(kidId);
+        await window.KidAppNavigation?.refreshKidAvatarPointBalances?.(kidId);
         showError('');
     } catch (error) {
         showError(error.message || 'Failed to save off-app chore grade.');

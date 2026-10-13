@@ -7,6 +7,7 @@ const TRUSTED_PARENT_BROWSER_STORAGE_KEY = 'trusted_parent_browser_v1';
 const bubbleGrid = document.getElementById('userBubbleGrid');
 const errorMessage = document.getElementById('errorMessage');
 const logoutBtn = document.getElementById('logoutBtn');
+const clearOfflineCacheBtn = document.getElementById('clearOfflineCacheBtn');
 let currentKids = [];
 let familyHomeRefreshing = false;
 let familyHomeBootController = null;
@@ -14,6 +15,7 @@ let familyHomeLoggingOut = false;
 
 document.addEventListener('DOMContentLoaded', bootFamilyHome);
 logoutBtn?.addEventListener('click', logoutFamily);
+clearOfflineCacheBtn?.addEventListener('click', clearOfflineCacheAndRefresh);
 
 async function bootFamilyHome() {
     const controller = new AbortController();
@@ -74,6 +76,28 @@ async function logoutFamily() {
     familyHomeLoggingOut = true;
     familyHomeBootController?.abort();
     try { await fetch(`${API_BASE}/family-auth/logout`, { method: 'POST' }); } finally { window.sessionStorage.clear(); window.location.replace('/family-login.html'); }
+}
+
+async function clearOfflineCacheAndRefresh() {
+    if (!clearOfflineCacheBtn || clearOfflineCacheBtn.disabled) return;
+    clearOfflineCacheBtn.disabled = true;
+    clearOfflineCacheBtn.classList.add('is-clearing');
+    try {
+        if ('caches' in window) {
+            const names = await caches.keys();
+            await Promise.all(names.map((name) => caches.delete(name)));
+        }
+        if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+        }
+        window.localStorage.removeItem('kidsChoresOfflineCacheRegistered');
+        window.location.replace(window.location.pathname);
+    } catch (error) {
+        showError('Could not refresh the app cache. Please try again.');
+        clearOfflineCacheBtn.disabled = false;
+        clearOfflineCacheBtn.classList.remove('is-clearing');
+    }
 }
 
 async function enterParentMode(targetHref) {

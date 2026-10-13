@@ -903,6 +903,7 @@ pointLogForm.addEventListener('submit', async (event) => {
         selectedLogKidIds.clear();
         activeMode = '';
         closePointLogComposer();
+        await window.KidAppNavigation?.refreshKidAvatarPointBalances?.(targetKidIds);
         await refreshAfterMutation();
         showSuccess(`${verb} ${formatDelta(signedPoints)}${ruleName ? ` · ${ruleName}` : ''} ${preposition} ${names}.`);
     } catch (error) {

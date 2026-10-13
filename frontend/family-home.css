@@ -135,6 +135,27 @@
     padding: 0;
     border-radius: 50%;
 }
+
+.family-home-cache-refresh {
+    width: 42px;
+    padding: 0;
+    border-radius: 50%;
+    color: #5f54f0;
+}
+
+.family-home-cache-refresh:hover,
+.family-home-cache-refresh:focus-visible {
+    color: #4739d6;
+    border-color: rgba(95, 84, 240, 0.3);
+}
+
+.family-home-cache-refresh.is-clearing .icon {
+    animation: family-home-cache-spin 0.85s linear infinite;
+}
+
+@keyframes family-home-cache-spin {
+    to { transform: rotate(360deg); }
+}
 .family-home-action:hover,
 .family-home-action:focus-visible {
     outline: none;

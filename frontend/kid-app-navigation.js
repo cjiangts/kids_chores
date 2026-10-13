@@ -232,6 +232,21 @@
         return currentBalanceFromPointData(data);
     }
 
+    async function refreshKidAvatarPointBalances(kidIds) {
+        const ids = [...new Set((Array.isArray(kidIds) ? kidIds : [kidIds])
+            .map((kidId) => String(kidId || '').trim())
+            .filter(Boolean))];
+        await Promise.all(ids.map(async (kidId) => {
+            try {
+                const balance = await fetchKidPointBalance(kidId);
+                if (balance !== null) cacheKidAvatarPointBalance(kidId, balance);
+            } catch (_) {
+                // The point operation succeeded already; keep its UI usable if
+                // this separate display refresh is temporarily unavailable.
+            }
+        }));
+    }
+
     function hydrateKidAvatarPoints(container, kids, requestId) {
         const list = Array.isArray(kids) ? kids : [];
         list.forEach(async (kid) => {
@@ -358,7 +373,12 @@
         nav.classList.toggle('kid-app-nav--parent-mode', mode !== 'kid');
         nav.style.setProperty('--kid-app-nav-count', String(items.length));
         nav.setAttribute('aria-label', mode === 'kid' ? 'Kid navigation' : 'Parent navigation');
-        nav.innerHTML = items.map((item) => {
+        nav.innerHTML = `
+            <div class="kid-app-nav__brand" aria-label="The Mommy App">
+                <img src="apple-touch-icon.png" alt="" class="kid-app-nav__brand-icon">
+                <span class="kid-app-nav__brand-name">Mommy App</span>
+            </div>
+        ` + items.map((item) => {
             const isActive = item.key === active;
             return `
                 <a class="kid-app-nav__item${isActive ? ' is-active' : ''}" href="${hrefFor(item)}"${isActive ? ' aria-current="page"' : ''}>
@@ -469,6 +489,7 @@
         renderKidAvatarSwitcher,
         requestRefreshAfterHistoryReturn,
         cacheKidAvatarPointData,
+        refreshKidAvatarPointBalances,
         setKidId,
         setKids,
         setSuppressed,
