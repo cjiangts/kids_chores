@@ -9,19 +9,30 @@ const errorMessage = document.getElementById('errorMessage');
 const logoutBtn = document.getElementById('logoutBtn');
 let currentKids = [];
 let familyHomeRefreshing = false;
+let familyHomeBootController = null;
+let familyHomeLoggingOut = false;
 
 document.addEventListener('DOMContentLoaded', bootFamilyHome);
 logoutBtn?.addEventListener('click', logoutFamily);
 
 async function bootFamilyHome() {
+    const controller = new AbortController();
+    familyHomeBootController?.abort();
+    familyHomeBootController = controller;
     try {
-        const [status, kids] = await Promise.all([fetchJson(`${API_BASE}/family-auth/status`), fetchJson(`${API_BASE}/kids?view=family_home`)]);
-        if (!status.authenticated) return void (window.location.href = '/family-login.html?next=/family-home.html');
+        const status = await fetchJson(`${API_BASE}/family-auth/status`, { signal: controller.signal });
+        if (familyHomeLoggingOut) return;
+        if (!status.authenticated) return redirectToFamilyLogin();
+        const kids = await fetchJson(`${API_BASE}/kids?view=family_home`, { signal: controller.signal });
+        if (familyHomeLoggingOut) return;
         currentKids = Array.isArray(kids) ? kids : [];
         renderBubbles();
     } catch (error) {
-        if (String(error?.message || '').includes('401')) return void (window.location.href = '/family-login.html?next=/family-home.html');
+        if (familyHomeLoggingOut || error?.name === 'AbortError') return;
+        if (error?.status === 401) return redirectToFamilyLogin();
         showError(error.message || 'Failed to load family home.');
+    } finally {
+        if (familyHomeBootController === controller) familyHomeBootController = null;
     }
 }
 
@@ -59,7 +70,10 @@ async function refreshFamilyHomeSnapshot() {
 }
 
 async function logoutFamily() {
-    try { await fetch(`${API_BASE}/family-auth/logout`, { method: 'POST' }); } finally { window.sessionStorage.clear(); window.location.href = '/family-login.html'; }
+    if (familyHomeLoggingOut) return;
+    familyHomeLoggingOut = true;
+    familyHomeBootController?.abort();
+    try { await fetch(`${API_BASE}/family-auth/logout`, { method: 'POST' }); } finally { window.sessionStorage.clear(); window.location.replace('/family-login.html'); }
 }
 
 async function enterParentMode(targetHref) {
@@ -151,7 +165,8 @@ function clearTrustedBrowser() {
     try { window.localStorage?.removeItem(TRUSTED_PARENT_BROWSER_STORAGE_KEY); } catch (_) { /* ignore */ }
 }
 
-async function fetchJson(url) { const response = await fetch(url); const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`); return data; }
+function redirectToFamilyLogin() { window.location.replace('/family-login.html?next=/family-home.html'); }
+async function fetchJson(url, options = {}) { const response = await fetch(url, options); const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.error || `Request failed (${response.status})`); error.status = response.status; throw error; } return data; }
 function persist(key, value) { try { window.sessionStorage?.setItem(key, value); } catch (_) {} }
 function persistAvatar(value) { try { value ? window.sessionStorage?.setItem(CURRENT_USER_AVATAR_STORAGE_KEY, value) : window.sessionStorage?.removeItem(CURRENT_USER_AVATAR_STORAGE_KEY); } catch (_) {} }
 function iconHtml(name, size = 44) { return typeof window.icon === 'function' ? window.icon(name, { className: 'icon', size, strokeWidth: 2.1 }) : ''; }
