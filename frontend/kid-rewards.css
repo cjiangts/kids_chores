@@ -58,8 +58,11 @@
 .kid-rewards-racer-meta, .kid-rewards-mini-racer > span:last-child { text-align: center; }
 .kid-rewards-racer-meta > b, .kid-rewards-mini-racer b { display: block; color: var(--paradigm-list-item-name-color); font-size: var(--paradigm-list-item-name-font-size); font-weight: var(--paradigm-list-item-name-font-weight); line-height: var(--paradigm-list-item-name-line-height); }
 .kid-rewards-racer-row em, .kid-rewards-mini-racer em { font-style: normal; }
-.kid-rewards-racer-row > i { height: 0.45rem; overflow: hidden; border-radius: 999px; background: #e7eaf3; }
-.kid-rewards-racer-row > i > span { display: block; height: 100%; border-radius: inherit; background: #6b5cf6; }
+.kid-rewards-balance-bar { position: relative; height: 0.45rem; overflow: hidden; border-radius: 999px; background: #e7eaf3; }
+.kid-rewards-balance-bar::after { content: ''; position: absolute; z-index: 1; top: 0; bottom: 0; left: calc(var(--zero-position, 0%) - 0.75px); width: 1.5px; background: #aeb8d0; }
+.kid-rewards-balance-bar > span { position: absolute; top: 0; bottom: 0; display: block; }
+.kid-rewards-balance-bar > span.is-positive { border-radius: 0 999px 999px 0; background: #25a968; }
+.kid-rewards-balance-bar > span.is-negative { border-radius: 999px 0 0 999px; background: #e65a5a; }
 .kid-rewards-race-avatar { position: relative; display: inline-flex; width: 40px; height: 40px; border-radius: 50%; overflow: visible; background: #eef2ff; }
 .kid-rewards-race-avatar img, .kid-rewards-race-avatar > span { width: 100%; height: 100%; border-radius: inherit; object-fit: cover; }
 .kid-rewards-race-avatar > span { display: grid; place-items: center; color: #6b5cf6; font-weight: 760; }

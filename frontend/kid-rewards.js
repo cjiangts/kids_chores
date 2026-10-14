@@ -190,6 +190,51 @@ function renderRaceCard(theme, icon, title, rows, getter, formatter, higherWins 
     return `<article class="kid-rewards-race-card kid-rewards-race-card--${escapeHtml(theme)}"><h3><span class="icon" data-icon="${icon}" data-icon-size="16" aria-hidden="true"></span>${escapeHtml(title)}</h3><div>${rows.map((row) => `<div class="kid-rewards-mini-racer${hasWinner && winner.kid.id === row.kid.id ? ' is-leader' : ''}">${avatar(row.kid, hasWinner && winner.kid.id === row.kid.id)}<span><b>${escapeHtml(row.kid.name)}</b><em class="point-rule-delta paradigm-pill ${racePillClass(theme)}">${escapeHtml(formatter(getter(row)))}</em></span></div>`).join('')}</div></article>`;
 }
 
+function balanceRaceScale(rows) {
+    const totals = rows.map((row) => Number(row?.total) || 0);
+    const minimum = Math.min(...totals);
+    const maximum = Math.max(...totals);
+    if (minimum >= 0) {
+        const scale = Math.max(1, maximum);
+        return {
+            positionFor: (value) => Math.min(100, Math.max(0, (Number(value) / scale) * 100)),
+            zeroPosition: 0,
+        };
+    }
+    if (maximum <= 0) {
+        const scale = Math.max(1, Math.abs(minimum));
+        return {
+            positionFor: (value) => Math.min(100, Math.max(0, 100 - ((Math.abs(Number(value)) / scale) * 100))),
+            zeroPosition: 100,
+        };
+    }
+    const negativeMagnitude = Math.abs(minimum);
+    const positiveMagnitude = maximum;
+    const zeroPosition = (negativeMagnitude / (negativeMagnitude + positiveMagnitude)) * 100;
+    return {
+        positionFor: (value) => {
+            const number = Number(value) || 0;
+            if (number < 0) return zeroPosition - ((Math.abs(number) / negativeMagnitude) * zeroPosition);
+            return zeroPosition + ((number / positiveMagnitude) * (100 - zeroPosition));
+        },
+        zeroPosition,
+    };
+}
+
+function renderBalanceRaceBar(total, scale) {
+    const value = Number(total) || 0;
+    const zeroPosition = Number(scale?.zeroPosition) || 0;
+    const valuePosition = Number(scale?.positionFor?.(value)) || 0;
+    const left = value < 0 ? valuePosition : zeroPosition;
+    const width = value < 0 ? zeroPosition - valuePosition : valuePosition - zeroPosition;
+    const tone = value < 0 ? 'is-negative' : 'is-positive';
+    const barStyle = `--zero-position:${zeroPosition.toFixed(2)}%`;
+    if (width <= 0) {
+        return `<i class="kid-rewards-balance-bar" style="${barStyle}" aria-hidden="true"></i>`;
+    }
+    return `<i class="kid-rewards-balance-bar" style="${barStyle}" aria-hidden="true"><span class="${tone}" style="left:${left.toFixed(2)}%;width:${width.toFixed(2)}%"></span></i>`;
+}
+
 function renderRace(weekStartOverride = '') {
     if (!kids.length) return;
     if (raceLoading) {
@@ -208,9 +253,9 @@ function renderRace(weekStartOverride = '') {
         ? `<span class="icon" data-icon="calendar" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>${escapeHtml(weekTimeLeftLabel(new Date(), timezone))}</span>`
         : `<span class="icon" data-icon="circle-check" data-icon-size="13" data-icon-stroke="2.2" aria-hidden="true"></span><span>Completed</span>`;
     const sorted = [...rows].sort((a, b) => b.total - a.total);
-    const max = Math.max(1, ...sorted.map((row) => Math.max(0, row.total)));
+    const raceScale = balanceRaceScale(sorted);
     const lead = sorted[0] && sorted[1] ? sorted[0].total - sorted[1].total : 0;
-    kidRewardsBalanceRace.innerHTML = `<div class="kid-rewards-racer-list">${sorted.map((row, index) => `<div class="kid-rewards-racer-row">${avatar(row.kid, lead > 0 && index === 0)}<div class="kid-rewards-racer-meta"><b>${escapeHtml(row.kid.name)}</b><em class="point-rule-delta paradigm-pill balance">${escapeHtml(formatPoints(row.total))}</em></div><i><span style="width:${Math.max(8, Math.round((Math.max(0, row.total) / max) * 100))}%"></span></i></div>`).join('')}</div><div class="kid-rewards-race-lead"><strong>${lead > 0 ? `${escapeHtml(sorted[0].kid.name)} ${isCurrentWeek ? 'leads' : 'wins'}` : 'All tied'}</strong>${lead > 0 && isCurrentWeek ? `<span>by ${escapeHtml(formatPoints(lead))}</span>` : ''}</div>`;
+    kidRewardsBalanceRace.innerHTML = `<div class="kid-rewards-racer-list">${sorted.map((row, index) => `<div class="kid-rewards-racer-row">${avatar(row.kid, lead > 0 && index === 0)}<div class="kid-rewards-racer-meta"><b>${escapeHtml(row.kid.name)}</b><em class="point-rule-delta paradigm-pill balance">${escapeHtml(formatPoints(row.total))}</em></div>${renderBalanceRaceBar(row.total, raceScale)}</div>`).join('')}</div><div class="kid-rewards-race-lead"><strong>${lead > 0 ? `${escapeHtml(sorted[0].kid.name)} ${isCurrentWeek ? 'leads' : 'wins'}` : 'All tied'}</strong>${lead > 0 && isCurrentWeek ? `<span>by ${escapeHtml(formatPoints(lead))}</span>` : ''}</div>`;
     kidRewardsRaceCards.innerHTML = [renderRaceCard('earned', 'thumbs-up', 'Most earned this week', rows, (row) => row.earned, formatCompactSignedPoints), renderRaceCard('lost', 'thumbs-down', 'Fewest points lost', rows, (row) => row.lost, formatCompactLostPoints, false), renderRaceCard('improved', 'trending-up', 'Earned vs last week', rows, (row) => row.earnedRatio, formatPercent), renderRaceCard('closest', 'trending-down', 'Lost vs last week', rows, (row) => row.lostRatio, formatPercent, false)].join('');
     hydrateIcons(kidRewardsRaceCards);
     hydrateIcons(kidRewardsDaysLeft);
@@ -271,6 +316,7 @@ function renderHistory() {
         showBalance: true,
         highlightEventId: requestedHistoryEventId,
         mode: 'all',
+        sortOrder: 'asc',
         emptyDay: 'No point activity for this day.',
         onWeekChange: (anchorDayKey, nextWeekStart) => {
             nextWeekStart = nextWeekStart || weekStart(anchorDayKey);
