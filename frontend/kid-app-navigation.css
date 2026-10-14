@@ -58,7 +58,7 @@
     font-weight: 500;
 }
 
-.kid-app-nav__brand {
+.kid-app-nav__user {
     display: none;
 }
 
@@ -124,30 +124,113 @@ body.has-kid-app-nav {
         box-shadow: 10px 0 26px rgba(31, 45, 98, 0.13);
     }
 
-    .kid-app-nav__brand {
+    .kid-app-nav__user {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        padding: 0.72rem 0.3rem 0.7rem;
+        margin: 0;
+        border-bottom: 1px solid rgba(202, 209, 232, 0.85);
+        border-radius: 0;
+        color: #394a79;
+        text-decoration: none;
+    }
+
+    .kid-app-nav__user:hover,
+    .kid-app-nav__user:focus-visible {
+        background: rgba(109, 86, 233, 0.045);
+        outline: none;
+    }
+
+    .kid-app-nav__user-summary {
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 0.3rem;
-        padding: 0.1rem 0.1rem 0.68rem;
-        margin-bottom: 0.24rem;
-        color: #4d5f8b;
-        border-bottom: 1px solid rgba(202, 209, 232, 0.85);
+        min-width: 0;
+        gap: 0.28rem;
     }
 
-    .kid-app-nav__brand-icon {
+    .kid-app-nav__user-avatar {
         display: block;
-        width: 42px;
-        height: 42px;
-        border-radius: 14px;
-        box-shadow: 0 5px 12px rgba(50, 59, 130, 0.18);
+        flex: 0 0 auto;
+        width: 56px;
+        height: 56px;
+        border: 3px solid rgba(109, 86, 233, 0.34);
+        border-radius: 50%;
+        object-fit: cover;
+        background: #ece9ff;
     }
 
-    .kid-app-nav__brand-name {
-        font-size: 0.63rem;
-        font-weight: 750;
+    .kid-app-nav__user-avatar--initial {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #5f54f0;
+        font-size: 0.8rem;
+        font-weight: 800;
+    }
+
+    .kid-app-nav__user-avatar--parent {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #6674e8;
+        background: #f3f2ff;
+    }
+
+    .kid-app-nav__parent-icon {
+        display: block;
+    }
+
+    .kid-app-nav__user-meta {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        align-items: center;
+        min-width: 0;
+        line-height: 1.05;
+    }
+
+    .kid-app-nav__user-meta strong,
+    .kid-app-nav__user-meta [data-kid-app-nav-user-points] {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .kid-app-nav__user-meta strong {
+        color: #2d3c67;
+        font-size: 0.86rem;
+    }
+
+    .kid-app-nav__user-meta [data-kid-app-nav-user-points] {
+        margin-top: 0.14rem;
+        color: #6956dd;
+        font-size: 0.76rem;
+        font-weight: 800;
+    }
+
+    .kid-app-nav__user-switch {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        align-self: center;
+        width: 23px;
+        height: 23px;
+        margin-left: 0;
+        color: #7886a8;
+        border: 1px solid rgba(120, 134, 168, 0.22);
+        border-radius: 50%;
+        font-size: 0.7rem;
         line-height: 1;
-        letter-spacing: 0.025em;
+    }
+
+    .kid-app-nav__user-switch-icon {
+        display: block;
+    }
+
+    body.has-kid-app-nav-user-switcher [data-family-user-switcher] {
+        display: none;
     }
 
     .kid-app-nav__item {

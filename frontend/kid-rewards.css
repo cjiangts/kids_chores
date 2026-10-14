@@ -12,13 +12,17 @@
     .kid-rewards-page .point-log-layout {
         display: grid;
         grid-template-columns: minmax(0, 1.35fr) minmax(24rem, 1fr);
-        grid-template-areas:
-            'error error'
-            'history race';
+        grid-template-areas: 'history race';
         align-items: start;
         gap: var(--section-stack-gap);
         max-width: 86rem;
         margin-inline: auto;
+    }
+
+    .kid-rewards-page .point-log-layout:has(#kidRewardsError:not(.hidden)) {
+        grid-template-areas:
+            'error error'
+            'history race';
     }
 
     .kid-rewards-page #kidRewardsError { grid-area: error; }

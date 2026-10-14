@@ -2,6 +2,8 @@
     const API_BASE = `${window.location.origin}/api`;
     const LAST_VIEWED_KID_STORAGE_KEY = 'parent_admin_last_kid_id_v1';
     const CURRENT_USER_MODE_STORAGE_KEY = 'family_current_user_mode_v1';
+    const CURRENT_USER_NAME_STORAGE_KEY = 'family_current_user_name_v1';
+    const CURRENT_USER_AVATAR_STORAGE_KEY = 'family_current_user_avatar_v1';
     const REFRESH_AFTER_HISTORY_RETURN_STORAGE_KEY = 'parent_admin_refresh_after_history_return_v1';
     const NAV_ID = 'kidAppNavigation';
     const MOBILE_NAV_QUERY = '(max-width: 899px)';
@@ -47,6 +49,14 @@
             const mode = String(window.sessionStorage.getItem(CURRENT_USER_MODE_STORAGE_KEY) || '').trim().toLowerCase();
             return mode === 'kid' || mode === 'parent' ? mode : '';
         } catch (error) {
+            return '';
+        }
+    }
+
+    function readSessionValue(key) {
+        try {
+            return String(window.sessionStorage?.getItem(key) || '').trim();
+        } catch (_) {
             return '';
         }
     }
@@ -160,6 +170,24 @@
         });
     }
 
+    function switchUserIconHtml() {
+        if (typeof window.icon !== 'function') return '↔';
+        return window.icon('users', {
+            className: 'kid-app-nav__user-switch-icon',
+            size: 15,
+            strokeWidth: 2.25,
+        });
+    }
+
+    function parentAvatarIconHtml() {
+        if (typeof window.icon !== 'function') return 'Parent';
+        return window.icon('user-cog', {
+            className: 'kid-app-nav__parent-icon',
+            size: 29,
+            strokeWidth: 2.1,
+        });
+    }
+
     function escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -211,6 +239,10 @@
         if (!id || !Number.isFinite(balance)) return;
         kidAvatarPointBalances.set(id, balance);
         document.querySelectorAll(`[data-kid-avatar-points="${escapeCssIdent(id)}"]`).forEach((target) => {
+            target.textContent = formatPoints(balance);
+            target.hidden = false;
+        });
+        document.querySelectorAll(`[data-kid-app-nav-user-points="${escapeCssIdent(id)}"]`).forEach((target) => {
             target.textContent = formatPoints(balance);
             target.hidden = false;
         });
@@ -296,6 +328,49 @@
         return `<span class="kid-initial-avatar kid-initial-avatar--tone-${tone}" aria-hidden="true">${escapeHtml(initial)}</span>`;
     }
 
+    function navUserSwitcherHtml(mode) {
+        if (mode !== 'kid') {
+            return `
+                <a class="kid-app-nav__user kid-app-nav__user--parent" href="/family-home.html" aria-label="Switch user from Parent" title="Switch user">
+                    <span class="kid-app-nav__user-summary">
+                        <span class="kid-app-nav__user-avatar kid-app-nav__user-avatar--parent" aria-hidden="true">${parentAvatarIconHtml()}</span>
+                        <span class="kid-app-nav__user-meta"><strong>Parent</strong></span>
+                    </span>
+                    <span class="kid-app-nav__user-switch" aria-hidden="true">${switchUserIconHtml()}</span>
+                </a>
+            `;
+        }
+        const kidId = String(state.kidId || '').trim();
+        const name = readSessionValue(CURRENT_USER_NAME_STORAGE_KEY) || 'Kid';
+        const avatarUrl = readSessionValue(CURRENT_USER_AVATAR_STORAGE_KEY);
+        const cachedBalance = kidAvatarPointBalances.get(kidId);
+        const hasCachedBalance = kidAvatarPointBalances.has(kidId) && Number.isFinite(cachedBalance);
+        const avatar = avatarUrl
+            ? `<img src="${escapeHtml(avatarUrl)}" alt="" class="kid-app-nav__user-avatar">`
+            : `<span class="kid-app-nav__user-avatar kid-app-nav__user-avatar--initial" aria-hidden="true">${escapeHtml(getKidInitial(name))}</span>`;
+        return `
+            <a class="kid-app-nav__user" href="/family-home.html" aria-label="Switch user from ${escapeHtml(name)}" title="Switch user">
+                <span class="kid-app-nav__user-summary">
+                    ${avatar}
+                    <span class="kid-app-nav__user-meta">
+                        <strong>${escapeHtml(name)}</strong>
+                        <span data-kid-app-nav-user-points="${escapeHtml(kidId)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>
+                    </span>
+                </span>
+                <span class="kid-app-nav__user-switch" aria-hidden="true">${switchUserIconHtml()}</span>
+            </a>
+        `;
+    }
+
+    function hydrateNavUserPoints(nav, mode) {
+        if (mode !== 'kid') return;
+        const kidId = String(state.kidId || '').trim();
+        if (!kidId || kidAvatarPointBalances.has(kidId)) return;
+        fetchKidPointBalance(kidId)
+            .then((balance) => { if (balance !== null && nav.isConnected) cacheKidAvatarPointBalance(kidId, balance); })
+            .catch(() => { /* Keep the switcher available even if points cannot load. */ });
+    }
+
     function renderKidAvatarSwitcher(container, kids, options = {}) {
         if (!container) return;
         const list = Array.isArray(kids) ? kids : [];
@@ -371,14 +446,10 @@
         const items = itemsForMode();
         nav.classList.toggle('kid-app-nav--kid-mode', mode === 'kid');
         nav.classList.toggle('kid-app-nav--parent-mode', mode !== 'kid');
+        document.body.classList.add('has-kid-app-nav-user-switcher');
         nav.style.setProperty('--kid-app-nav-count', String(items.length));
         nav.setAttribute('aria-label', mode === 'kid' ? 'Kid navigation' : 'Parent navigation');
-        nav.innerHTML = `
-            <div class="kid-app-nav__brand" aria-label="The Mommy App">
-                <img src="apple-touch-icon.png" alt="" class="kid-app-nav__brand-icon">
-                <span class="kid-app-nav__brand-name">Mommy App</span>
-            </div>
-        ` + items.map((item) => {
+        nav.innerHTML = navUserSwitcherHtml(mode) + items.map((item) => {
             const isActive = item.key === active;
             return `
                 <a class="kid-app-nav__item${isActive ? ' is-active' : ''}" href="${hrefFor(item)}"${isActive ? ' aria-current="page"' : ''}>
@@ -387,6 +458,7 @@
                 </a>
             `;
         }).join('');
+        hydrateNavUserPoints(nav, mode);
     }
 
     function removeNav() {
@@ -395,6 +467,7 @@
             nav.parentNode.removeChild(nav);
         }
         document.body.classList.remove('has-kid-app-nav');
+        document.body.classList.remove('has-kid-app-nav-user-switcher');
         const headerRow = document.querySelector('.page-header-with-back .page-header-row');
         if (headerRow) {
             headerRow.classList.remove('kid-app-nav-row');

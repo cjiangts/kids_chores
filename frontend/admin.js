@@ -1499,9 +1499,12 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
 
 function buildTodayColumnHeader(kid) {
     const href = '/point-activity-report.html?ruleId=0';
+    const eyeIconHtml = typeof window.icon === 'function'
+        ? window.icon('eye', { size: 21, strokeWidth: 1.9 })
+        : '';
     return `
         <th class="admin-matrix-status-head admin-matrix-all-report-head paradigm-status-column">
-            <a href="${escapeHtml(href)}" class="paradigm-subject-icon admin-point-report-icon" aria-label="All in-app activity" title="All in-app activity"><span class="subject-icon subject-icon--multi subject-blue" aria-hidden="true">ALL</span></a>
+            <a href="${escapeHtml(href)}" class="paradigm-subject-icon admin-point-report-icon admin-matrix-all-report-btn" aria-label="View all in-app activity" title="View all in-app activity"><span class="admin-matrix-all-report-eye" aria-hidden="true">${eyeIconHtml}</span></a>
         </th>
     `;
 }

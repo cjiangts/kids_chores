@@ -76,6 +76,14 @@
             overflow: hidden;
         }
 
+        /* Leave room for the answer controls on shorter laptop screens. */
+        @media (min-width: 721px) {
+            #sessionScreen .flashcard {
+                min-height: 320px;
+                height: 320px;
+            }
+        }
+
         #sessionScreen .controls {
             margin-top: 0.15rem;
             margin-bottom: 0;
@@ -853,7 +861,7 @@
 </head>
 <body class="practice-page">
     <div class="container">
-        <header class="page-header-with-back page-header-with-actions" style="margin-bottom: 0;">
+        <header class="page-header-with-back page-header-with-actions">
             <div class="page-header-row">
                 <h1><span id="kidTitleIcon" class="page-title-icon" aria-hidden="true"></span> <span id="kidName">Practice</span></h1>
                 <div class="page-header-actions">
