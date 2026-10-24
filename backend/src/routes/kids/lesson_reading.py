@@ -16,14 +16,11 @@ from src.routes.kids import (
     request,
     send_file,
     send_from_directory,
-    subprocess,
-    threading,
-    uuid,
 )
 from src.services.audio_io import (
-    resolve_ffmpeg_executable,
     sanitize_download_filename_stem,
 )
+from src.services.recording_audio import ensure_recording_mp3, recording_audio_lock
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.normalize_inputs import normalize_positive_int_list
 from src.services.shared_deck_category import is_type_iii_session_type
@@ -33,76 +30,15 @@ from src.services.shared_deck_category import is_type_iii_session_type
 # === 1. Per-file MP3 transcode locks + on-demand MP3-sibling materializer
 # =====================================================================
 
-_TYPE3_MP3_TRANSCODE_LOCKS = {}
-_TYPE3_MP3_TRANSCODE_LOCKS_GUARD = threading.Lock()
-
-
-def _get_type3_mp3_transcode_lock(key):
-    with _TYPE3_MP3_TRANSCODE_LOCKS_GUARD:
-        lock = _TYPE3_MP3_TRANSCODE_LOCKS.get(key)
-        if lock is None:
-            lock = threading.Lock()
-            _TYPE3_MP3_TRANSCODE_LOCKS[key] = lock
-        return lock
-
-
 def _ensure_type3_mp3_sibling(audio_dir, file_name, stored_mime_type):
-    """Return (sibling_name, sibling_mime) if an MP3 sibling is available; else (None, None)."""
-    source_ext = os.path.splitext(file_name)[1].lower()
-    if source_ext == '.mp3' or stored_mime_type == 'audio/mpeg':
+    """Materialize MP3 for playback; maintenance later retires the original."""
+    if os.path.splitext(file_name)[1].lower() == '.mp3' or stored_mime_type == 'audio/mpeg':
         return None, None
-
-    sibling_stem = os.path.splitext(file_name)[0]
-    sibling_name = f'{sibling_stem}.mp3'
-    sibling_path = os.path.join(audio_dir, sibling_name)
-    if os.path.exists(sibling_path):
-        return sibling_name, 'audio/mpeg'
-
-    ffmpeg_exe = resolve_ffmpeg_executable()
-    if not ffmpeg_exe:
+    try:
+        with recording_audio_lock(audio_dir):
+            return ensure_recording_mp3(audio_dir, file_name), 'audio/mpeg'
+    except Exception:
         return None, None
-
-    lock = _get_type3_mp3_transcode_lock(sibling_path)
-    with lock:
-        if os.path.exists(sibling_path):
-            return sibling_name, 'audio/mpeg'
-
-        source_path = os.path.join(audio_dir, file_name)
-        tmp_path = f'{sibling_path}.{uuid.uuid4().hex}.tmp'
-        ffmpeg_cmd = [
-            ffmpeg_exe,
-            '-v', 'error',
-            '-i', source_path,
-            '-vn',
-            '-c:a', 'libmp3lame',
-            '-b:a', '160k',
-            '-f', 'mp3',
-            tmp_path,
-        ]
-        try:
-            process = subprocess.run(
-                ffmpeg_cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-            )
-            if process.returncode != 0 or not os.path.exists(tmp_path) or os.path.getsize(tmp_path) == 0:
-                if os.path.exists(tmp_path):
-                    try:
-                        os.remove(tmp_path)
-                    except Exception:
-                        pass
-                return None, None
-            os.replace(tmp_path, sibling_path)
-        except Exception:
-            if os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
-            return None, None
-
-    return sibling_name, 'audio/mpeg'
 
 
 # =====================================================================

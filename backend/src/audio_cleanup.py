@@ -3,13 +3,21 @@ from datetime import datetime, timedelta, timezone
 import fcntl
 import logging
 import os
+import re
 import threading
 import time
 
 from src.db import kid_db, metadata
+from src.services.recording_audio import (
+    ensure_recording_mp3, recording_audio_lock, recording_file_names,
+)
 
 
-KID_AUDIO_RETENTION_DAYS = 14
+KID_AUDIO_RETENTION_DAYS = 10
+# Pending uploads can remain uncommitted for six hours. Restores also reset
+# file mtimes, so give unreferenced files a day before sweeping them.
+ORPHAN_AUDIO_GRACE_SECONDS = 24 * 60 * 60
+_RECORDING_FILE_RE = re.compile(r'^lr_[0-9a-f]{32}_\d+_[0-9a-f]{32}\.[a-zA-Z0-9]+$')
 _CLEANUP_LOCK_FILE = os.path.join(kid_db.DATA_DIR, 'kid_audio_cleanup.lock')
 _SCHEDULER_LOCK = threading.Lock()
 _SCHEDULER_STARTED = False
@@ -22,11 +30,10 @@ SELECT
     lra.file_name,
     COALESCE(lra.created_at, sr.timestamp, s.completed_at, s.started_at) AS recorded_at
 FROM lesson_reading_audio lra
-JOIN session_results sr ON sr.id = lra.result_id
+LEFT JOIN session_results sr ON sr.id = lra.result_id
 LEFT JOIN sessions s ON s.id = sr.session_id
 WHERE lra.file_name IS NOT NULL
   AND TRIM(lra.file_name) <> ''
-  AND sr.card_id IS NOT NULL
 ORDER BY
     sr.card_id ASC,
     recorded_at DESC NULLS LAST,
@@ -108,8 +115,55 @@ def _delete_metadata_rows(conn, result_ids):
     return len(result_ids)
 
 
-def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RETENTION_DAYS):
-    """Delete type-III kid recordings older than the retention window."""
+def _remove_file(audio_dir, file_name, stats):
+    path = _safe_audio_path(audio_dir, file_name)
+    if path is None or os.path.islink(path):
+        raise ValueError(f'Unsafe audio filename: {file_name}')
+    try:
+        size = os.path.getsize(path)
+        os.remove(path)
+    except FileNotFoundError:
+        return False
+    stats['deletedFiles'] += 1
+    stats['deletedBytes'] += size
+    return True
+
+
+def _sweep_orphan_files(conn, audio_dir, orphan_cutoff, stats):
+    # Re-read after conversion and expiration, retaining the MP3 caches of any
+    # still-referenced uploads. Snapshot candidates only after DB work succeeds.
+    referenced = set()
+    for (name,) in conn.execute('SELECT file_name FROM lesson_reading_audio').fetchall():
+        referenced.update(recording_file_names(name))
+    if not os.path.isdir(audio_dir):
+        return
+    for name in os.listdir(audio_dir):
+        if name in referenced or not _RECORDING_FILE_RE.fullmatch(name):
+            continue
+        path = _safe_audio_path(audio_dir, name)
+        if not path or os.path.islink(path) or not os.path.isfile(path):
+            continue
+        if os.path.getmtime(path) >= orphan_cutoff:
+            continue
+        try:
+            with recording_audio_lock(audio_dir):
+                # An upload may have been committed since the initial query.
+                stem = os.path.splitext(name)[0]
+                live = conn.execute(
+                    'SELECT file_name FROM lesson_reading_audio WHERE starts_with(file_name, ?)',
+                    [stem + '.'],
+                ).fetchall()
+                if any(name in recording_file_names(row[0]) for row in live):
+                    continue
+                if _remove_file(audio_dir, name, stats):
+                    stats['orphanFilesDeleted'] += 1
+        except Exception as exc:
+            stats['errors'].append(f'orphan {name}: {exc}')
+
+
+def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RETENTION_DAYS,
+                          orphan_grace_seconds=ORPHAN_AUDIO_GRACE_SECONDS):
+    """Expire recordings, promote retained uploads to MP3, and sweep old orphans."""
     log = _logger(logger)
     lock_handle = _acquire_cleanup_lock()
     if lock_handle is None:
@@ -120,7 +174,8 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
         }
 
     started_at = time.perf_counter()
-    cutoff = _utc_naive(now or datetime.now(timezone.utc)) - timedelta(
+    now_utc = _utc_naive(now or datetime.now(timezone.utc))
+    cutoff = now_utc - timedelta(
         days=int(retention_days)
     )
     stats = {
@@ -135,6 +190,8 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
         'missingFiles': 0,
         'deletedMetadataRows': 0,
         'unsafeFileNames': 0,
+        'mp3RecordingsPromoted': 0,
+        'orphanFilesDeleted': 0,
         'errors': [],
     }
 
@@ -172,7 +229,6 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
 
                 for row in rows:
                     result_id = int(row[0])
-                    card_id = int(row[1])
                     file_name = str(row[2] or '').strip()
                     recorded_at = _utc_naive(row[3])
                     audio_path = _safe_audio_path(audio_dir, file_name)
@@ -190,31 +246,52 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
                             )
                             continue
 
-                        if file_exists:
-                            try:
-                                size_bytes = int(os.path.getsize(audio_path))
-                            except Exception:
-                                size_bytes = 0
-                            try:
-                                os.remove(audio_path)
-                                stats['deletedFiles'] += 1
-                                stats['deletedBytes'] += max(0, size_bytes)
+                        try:
+                            with recording_audio_lock(audio_dir):
+                                for name in sorted(recording_file_names(file_name),
+                                                   key=lambda name: not name.endswith('.mp3')):
+                                    _remove_file(audio_dir, name, stats)
+                                if not file_exists:
+                                    stats['missingFiles'] += 1
                                 metadata_delete_result_ids.append(result_id)
-                            except Exception as exc:
-                                stats['errors'].append(
-                                    f'kid {kid_id}: failed deleting {file_name}: {exc}'
+                        except FileNotFoundError:
+                            # A kid's entire recording directory may be missing.
+                            if not os.path.exists(audio_dir):
+                                stats['missingFiles'] += 1
+                                metadata_delete_result_ids.append(result_id)
+                            else:
+                                raise
+                        except Exception as exc:
+                            stats['errors'].append(f'kid {kid_id}: failed deleting {file_name}: {exc}')
+                    elif audio_path and os.path.splitext(file_name)[1].lower() != '.mp3':
+                        try:
+                            with recording_audio_lock(audio_dir):
+                                mp3_name = ensure_recording_mp3(
+                                    audio_dir, file_name, validate_existing=True,
                                 )
-                                continue
-                        else:
-                            stats['missingFiles'] += 1
-                            metadata_delete_result_ids.append(result_id)
-                            continue
+                                # Commit the new reference before removing the
+                                # original. A failed DB write must keep it intact.
+                                updated = conn.execute(
+                                    "UPDATE lesson_reading_audio SET file_name = ?, mime_type = 'audio/mpeg' "
+                                    'WHERE result_id = ? AND file_name = ? RETURNING result_id',
+                                    [mp3_name, result_id, file_name],
+                                ).fetchone()
+                                if updated:
+                                    stats['mp3RecordingsPromoted'] += 1
+                                    _remove_file(audio_dir, file_name, stats)
+                        except Exception as exc:
+                            stats['errors'].append(f'kid {kid_id}: MP3 promotion {file_name}: {exc}')
 
                 if metadata_delete_result_ids:
                     stats['deletedMetadataRows'] += _delete_metadata_rows(
                         conn,
                         metadata_delete_result_ids,
                     )
+                _sweep_orphan_files(
+                    conn, audio_dir,
+                    now_utc.replace(tzinfo=timezone.utc).timestamp() - orphan_grace_seconds,
+                    stats,
+                )
             except Exception as exc:
                 stats['errors'].append(f'kid {kid_id}: {exc}')
             finally:
@@ -227,7 +304,8 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
         duration_ms = (time.perf_counter() - started_at) * 1000.0
         log.info(
             'Kid audio cleanup finished: kids=%s candidates=%s files_deleted=%s '
-            'bytes_deleted=%s metadata_deleted=%s missing=%s unsafe=%s errors=%s duration_ms=%.1f',
+            'bytes_deleted=%s metadata_deleted=%s missing=%s unsafe=%s mp3_promoted=%s '
+            'orphans_deleted=%s errors=%s duration_ms=%.1f',
             stats['kidsScanned'],
             stats['candidateFiles'],
             stats['deletedFiles'],
@@ -235,6 +313,8 @@ def cleanup_old_kid_audio(logger=None, *, now=None, retention_days=KID_AUDIO_RET
             stats['deletedMetadataRows'],
             stats['missingFiles'],
             stats['unsafeFileNames'],
+            stats['mp3RecordingsPromoted'],
+            stats['orphanFilesDeleted'],
             len(stats['errors']),
             duration_ms,
         )
