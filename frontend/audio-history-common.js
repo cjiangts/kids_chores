@@ -8,7 +8,8 @@
         if (!item || !item.audio_url) {
             return '';
         }
-        const audioEl = `<audio class="attempt-audio js-simple-audio" preload="metadata" src="${escapeHtml(item.audio_url)}"${audioExtraAttrs || ''}></audio>`;
+        const durationMs = Math.max(0, Number(item.response_time_ms) || 0);
+        const audioEl = `<audio class="attempt-audio js-simple-audio" preload="none" data-audio-src="${escapeHtml(item.audio_url)}" data-duration-ms="${durationMs}"${audioExtraAttrs || ''}></audio>`;
         return `<div class="audio-history-row">${audioEl}</div>`;
     }
 

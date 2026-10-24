@@ -108,6 +108,12 @@ async function loadCardReport() {
         currentCardFront = String(card.front || '').trim();
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
+        historyErrorsOnly = !attempts.some(isType3Attempt);
+        historyFilterBtns?.querySelectorAll('[data-history-filter]').forEach((button) => {
+            const active = (button.dataset.historyFilter === 'errors') === historyErrorsOnly;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-pressed', String(active));
+        });
 
         window.PracticeUiCommon?.applyKidPageTitle({
             titleEl: pageTitle?.closest('h1'),
@@ -588,9 +594,7 @@ function renderHistory(attempts) {
         const toneClass = correctness ? ` tone-${correctness}` : '';
         if (isType3Attempt(item)) {
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
-            const lessonReadingAudioAttrs = from === 'lesson-reading'
-                ? ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`
-                : '';
+            const lessonReadingAudioAttrs = ` data-result-id="${Number.isFinite(Number(item.result_id)) ? Number(item.result_id) : ''}" data-response-time-ms="${Math.round(rawMs)}"`;
             const audioBlockHtml = window.AudioHistoryCommon.renderRow({
                 item,
                 audioExtraAttrs: lessonReadingAudioAttrs,
@@ -650,7 +654,7 @@ function renderHistory(attempts) {
         });
     }).join('');
 
-    if (from === 'lesson-reading' && window.LessonReadingDurationBackfill) {
+    if (window.LessonReadingDurationBackfill) {
         window.LessonReadingDurationBackfill.attach(historyList, { kidId });
     }
     window.AudioHistoryCommon.attachPlayers(historyList, { rewindSeconds: 5 });

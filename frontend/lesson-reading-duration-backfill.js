@@ -1,10 +1,13 @@
 window.LessonReadingDurationBackfill = (() => {
     const inFlight = new Set();
     const done = new Set();
+    const attached = new WeakSet();
 
     function getFiniteDurationMs(audioEl) {
         if (!audioEl) return 0;
-        const durationSec = Number(audioEl.duration);
+        const durationSec = Number.isFinite(audioEl.duration) && audioEl.duration > 0
+            ? audioEl.duration
+            : Number(audioEl.dataset.decodedDurationMs || 0) / 1000;
         if (!Number.isFinite(durationSec) || durationSec <= 0) {
             return 0;
         }
@@ -41,6 +44,8 @@ window.LessonReadingDurationBackfill = (() => {
         const root = container || document;
         const audios = Array.from(root.querySelectorAll('audio.attempt-audio[data-result-id][data-response-time-ms]'));
         audios.forEach((audioEl) => {
+            if (attached.has(audioEl)) return;
+            attached.add(audioEl);
             const resultId = Number(audioEl.dataset.resultId);
             const rawResponseMs = Number(audioEl.dataset.responseTimeMs || 0);
             if (!Number.isFinite(resultId) || resultId <= 0) {
@@ -50,13 +55,18 @@ window.LessonReadingDurationBackfill = (() => {
                 return;
             }
 
+            let saving = false;
             const tryBackfill = async () => {
+                if (audioEl.dataset.audioPlaybackRequested !== '1'
+                    || saving || Number(audioEl.dataset.responseTimeMs) > 0) return;
                 const durationMs = getFiniteDurationMs(audioEl);
                 if (durationMs <= 0) {
                     return;
                 }
+                saving = true;
                 try {
                     const saved = await sendBackfill(kidId, resultId, durationMs);
+                    if (!saved) return;
                     let resolvedMs = durationMs;
                     if (saved && Number(saved.response_time_ms || 0) > 0) {
                         resolvedMs = Number(saved.response_time_ms);
@@ -72,12 +82,15 @@ window.LessonReadingDurationBackfill = (() => {
                 } catch (error) {
                     // Best effort only: ignore failures.
                     console.warn('Lesson reading duration backfill failed:', error);
+                } finally {
+                    saving = false;
                 }
             };
 
             audioEl.addEventListener('loadedmetadata', () => { void tryBackfill(); });
             audioEl.addEventListener('durationchange', () => { void tryBackfill(); });
             audioEl.addEventListener('play', () => { void tryBackfill(); });
+            audioEl.addEventListener('audio-duration-ready', () => { void tryBackfill(); });
         });
     }
 

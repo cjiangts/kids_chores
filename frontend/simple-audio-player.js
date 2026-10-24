@@ -128,9 +128,9 @@
                     reject(e);
                 }
             });
-            const peaks = computePeaksFromBuffer(decoded, count);
-            _peaksCache.set(cacheKey, peaks);
-            return peaks;
+            const result = { peaks: computePeaksFromBuffer(decoded, count), duration: decoded.duration };
+            _peaksCache.set(cacheKey, result);
+            return result;
         } catch (error) {
             console.warn('Waveform decode failed:', error);
             return null;
@@ -202,6 +202,7 @@
         }
 
         const useWaveform = Boolean(options.waveform);
+        const deferredSrc = audioEl.dataset.audioSrc || '';
 
         const wrapper = document.createElement('div');
         wrapper.className = 'simple-audio-player';
@@ -337,23 +338,29 @@
             speedBtn.setAttribute('title', `Playback speed ${label} — click to switch`);
         };
 
+        const getDuration = () => {
+            if (Number.isFinite(audioEl.duration) && audioEl.duration > 0) return audioEl.duration;
+            return Math.max(0, Number(audioEl.dataset.decodedDurationMs || audioEl.dataset.durationMs) || 0) / 1000;
+        };
+
         const getRatio = () => {
-            const duration = Number.isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : 0;
+            const duration = getDuration();
             const current = Number.isFinite(audioEl.currentTime) && audioEl.currentTime >= 0 ? audioEl.currentTime : 0;
             return duration > 0 ? Math.max(0, Math.min(1, current / duration)) : 0;
         };
 
         const updateUi = () => {
-            const duration = Number.isFinite(audioEl.duration) && audioEl.duration > 0 ? audioEl.duration : 0;
+            const duration = getDuration();
+            const durationLabel = duration > 0 ? formatDuration(duration) : '—';
             const current = Number.isFinite(audioEl.currentTime) && audioEl.currentTime >= 0 ? audioEl.currentTime : 0;
             const ratio = getRatio();
             if (useWaveform) {
                 drawWaveform(canvas, peaks, ratio, colors);
                 timeStart.textContent = formatDuration(current);
-                timeEnd.textContent = formatDuration(duration);
+                timeEnd.textContent = durationLabel;
             } else {
                 progress.value = String(Math.round(ratio * 1000));
-                timeLabel.textContent = `${formatDuration(current)} / ${formatDuration(duration)}`;
+                timeLabel.textContent = `${formatDuration(current)} / ${durationLabel}`;
             }
             const nextLabel = audioEl.paused ? playLabel : pauseLabel;
             const nextAriaLabel = audioEl.paused ? playAriaLabel : pauseAriaLabel;
@@ -367,6 +374,10 @@
             playing = true;
             try {
                 if (audioEl.paused) {
+                    audioEl.dataset.audioPlaybackRequested = '1';
+                    if (deferredSrc && !audioEl.getAttribute('src')) {
+                        audioEl.src = deferredSrc;
+                    }
                     if (audioEl.ended) {
                         audioEl.currentTime = 0;
                     }
@@ -482,17 +493,30 @@
         applySpeed();
         updateUi();
 
-        if (useWaveform) {
+        let waveformLoading = false;
+        let waveformLoaded = false;
+        const loadWaveform = () => {
+            if (!useWaveform || waveformLoading || waveformLoaded) return;
             const src = audioEl.getAttribute('src') || audioEl.src || '';
+            if (!src) return;
+            waveformLoading = true;
             wrapper.classList.add('waveform-loading');
             loadRealPeaks(src, WAVEFORM_BAR_COUNT).then((real) => {
-                if (real && real.length === WAVEFORM_BAR_COUNT) {
-                    peaks = real;
+                if (real && real.peaks.length === WAVEFORM_BAR_COUNT) {
+                    peaks = real.peaks;
+                    waveformLoaded = true;
+                    if (Number.isFinite(real.duration) && real.duration > 0) {
+                        audioEl.dataset.decodedDurationMs = String(Math.round(real.duration * 1000));
+                        audioEl.dispatchEvent(new Event('audio-duration-ready'));
+                    }
                 }
+                waveformLoading = false;
                 wrapper.classList.remove('waveform-loading');
                 updateUi();
             });
-        }
+        };
+        if (deferredSrc) audioEl.addEventListener('play', loadWaveform);
+        else loadWaveform();
         return wrapper;
     }
 

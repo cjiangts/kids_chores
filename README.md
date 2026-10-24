@@ -149,6 +149,8 @@ Shared TTS audio prompt plays → kid writes character → self-marks right/wron
 ### Type-III (lesson reading)
 Kid reads passage aloud while recording (live waveform visualizer). Review phase: replay, re-record, or accept. All audio batch-uploaded on session complete. Parent grades each recording (pass / fail / ungraded). Admin dashboard shows pending grading queue.
 
+Session/card report audio is loaded only when Play is clicked; opening a report does not preload recordings or download waveform data. Players show the stored `response_time_ms` as duration before loading, or `—` when missing. On first playback, a finite media/decoded duration is backfilled through the existing response-time endpoint, which only fills missing values. Upload/submission does not extract duration.
+
 Recordings are uploaded in the browser's native format so submission does not wait for transcoding. At startup and daily at UTC midnight, background maintenance expires recordings older than 10 days (including MP3 caches), then converts retained non-MP3 uploads to MP3. Existing MP3 caches are decoded to verify them before reuse. Only after conversion and the database update succeed is the original removed; failures retain the original for retry. Playback/download can still generate MP3 on demand before maintenance; after promotion, recording metadata and newly generated URLs point directly to MP3. Unreferenced recording files are swept after a 24-hour file-age grace period, protecting pending uploads (six-hour lifetime); freshly restored backup files also receive this grace period. Shared TTS audio is unaffected.
 
 ### Type-IV (math generator)

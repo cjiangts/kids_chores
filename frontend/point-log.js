@@ -73,13 +73,14 @@ function showError(text) {
     showMessage(logError, text || '');
 }
 
-function showSuccess(text) {
+function showSuccess(text, { floating = false } = {}) {
     if (!pointLogSuccess) return;
     if (pointLogSuccessTimer) window.clearTimeout(pointLogSuccessTimer);
     const message = String(text || '').trim();
     if (!message) {
         pointLogSuccess.innerHTML = '';
         pointLogSuccess.classList.add('hidden');
+        pointLogSuccess.classList.remove('is-floating');
         return;
     }
     const checkIcon = typeof window.icon === 'function'
@@ -87,6 +88,7 @@ function showSuccess(text) {
         : '<span class="icon" data-icon="check" data-icon-size="18"></span>';
     pointLogSuccess.innerHTML = `<span aria-hidden="true">${checkIcon}</span><span>${escapeHtml(message)}</span>`;
     pointLogSuccess.classList.remove('hidden');
+    pointLogSuccess.classList.toggle('is-floating', floating);
     window.hydrateIcons?.(pointLogSuccess);
     pointLogSuccessTimer = window.setTimeout(() => showSuccess(''), 3600);
 }
@@ -970,7 +972,16 @@ pointHistory.addEventListener('point-history-edit-note', async (event) => {
         });
         pointHistory.__pointHistoryTimeDraft = null;
         await refreshAfterMutation();
+        if (detail.createdAt) {
+            showSuccess(`Date and time updated${detail.displayDateTime ? ` to ${detail.displayDateTime}` : ''}.`, { floating: true });
+        } else {
+            showSuccess('Activity updated.', { floating: true });
+        }
     } catch (error) {
+        if (pointHistory.__pointHistoryTimeDraft) {
+            pointHistory.__pointHistoryTimeDraft.saving = false;
+            renderHistory();
+        }
         showError(error.message || (detail.createdAt ? 'Failed to update time.' : 'Failed to update note.'));
     }
 });

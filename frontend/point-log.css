@@ -175,6 +175,16 @@
     display: inline-flex;
 }
 
+.point-log-success-banner.is-floating {
+    position: fixed;
+    z-index: 1200;
+    top: max(0.75rem, env(safe-area-inset-top));
+    left: 50%;
+    transform: translateX(-50%);
+    width: max-content;
+    max-width: calc(100vw - 1.5rem);
+}
+
 .point-template-list,
 .point-history {
     display: grid;
@@ -1173,6 +1183,14 @@
     display: flex;
     align-items: center;
     gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.point-history-time-stepper-value.is-dirty {
+    border-color: #6f84e8;
+    background: #eef1ff;
+    color: #243a91;
+    box-shadow: 0 0 0 2px rgba(99, 115, 220, 0.14);
 }
 
 .point-history-time-actions {

@@ -437,9 +437,16 @@
             ? 'redeemed'
             : (delta >= 0 ? 'positive' : 'negative');
         const note = String(event.note || '').trim();
-        const timeLabel = formatHistoryTime(event.createdAt, timezone);
-        const dateLabel = formatHistoryDate(event.createdAt, timezone);
         const isEditingTime = showDelete && Number.parseInt(opts.timeEditEventId, 10) === Number.parseInt(event.eventId, 10);
+        const timeDraft = isEditingTime ? opts.timeDraft : null;
+        const displayedCreatedAt = timeDraft?.createdAt || event.createdAt;
+        const timeLabel = formatHistoryTime(displayedCreatedAt, timezone);
+        const dateLabel = formatHistoryDate(displayedCreatedAt, timezone);
+        const timeDraftDirty = Boolean(
+            timeDraft
+            && String(timeDraft.createdAt || '') !== String(timeDraft.originalCreatedAt || '')
+        );
+        const timeDraftSaving = Boolean(timeDraft?.saving);
         const showRowActions = showDelete && opts.showRowActions !== false;
         const isHighlighted = Number.parseInt(opts.highlightEventId, 10) === Number.parseInt(event?.eventId, 10);
         const className = `point-history-row activity-timeline-row point-history-row--${deltaClass}${showDelete ? '' : ' no-delete'}${showBalance ? ' has-balance' : ''}${showRowActions ? '' : ' no-actions'}${opts.clickToEdit ? ' point-history-row--click-edit' : ''}${isEditingTime ? ' paradigm-editing-row' : ''}${isHighlighted ? ' is-highlighted' : ''}`;
@@ -480,19 +487,19 @@
                     <div class="point-history-time-editor">
                         <div class="point-history-time-steppers">
                             <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event date">
-                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier">${icon('minus')}</button>
-                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(dateLabel)}</span>
-                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later">${icon('plus')}</button>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="-1" aria-label="Move event one day earlier" title="One day earlier"${timeDraftSaving ? ' disabled' : ''}>${icon('minus')}</button>
+                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value${timeDraftDirty ? ' is-dirty' : ''}" aria-live="polite">${escapeHtml(dateLabel)}</span>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-day-step="1" aria-label="Move event one day later" title="One day later"${timeDraftSaving ? ' disabled' : ''}>${icon('plus')}</button>
                             </div>
                             <div class="point-history-time-stepper paradigm-compact-stepper" aria-label="Event time">
-                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier">${icon('minus')}</button>
-                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value">${escapeHtml(timeLabel)}</span>
-                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later">${icon('plus')}</button>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="-1" aria-label="Move event one hour earlier" title="One hour earlier"${timeDraftSaving ? ' disabled' : ''}>${icon('minus')}</button>
+                                <span class="point-history-time-stepper-value paradigm-compact-stepper-value${timeDraftDirty ? ' is-dirty' : ''}">${escapeHtml(timeLabel)}</span>
+                                <button type="button" class="point-history-step-btn paradigm-compact-stepper-button" data-history-time-step="1" aria-label="Move event one hour later" title="One hour later"${timeDraftSaving ? ' disabled' : ''}>${icon('plus')}</button>
                             </div>
                         </div>
                         <span class="point-history-time-actions paradigm-edit-actions">
-                            <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-history-time-cancel>Cancel</button>
-                            <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-history-time-save>Confirm</button>
+                            <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-history-time-cancel${timeDraftSaving ? ' disabled' : ''}>Cancel</button>
+                            <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-history-time-save${(!timeDraftDirty || timeDraftSaving) ? ' disabled' : ''}>${timeDraftSaving ? 'Saving…' : 'Confirm'}</button>
                         </span>
                     </div>
                     ` : ''}
@@ -512,6 +519,17 @@
         if (focusSelector) {
             row.querySelector(focusSelector)?.focus?.({ preventScroll: true });
         }
+    }
+
+    function syncDraftDay(container, draft) {
+        const timezone = String(container?.__pointHistoryLastOptions?.familyTimezone || '').trim();
+        const dayKey = dateKeyInTimezone(parseHistoryDate(draft?.createdAt), timezone);
+        if (!dayKey) return;
+        container.dataset.pointHistoryWeekAnchorDayKey = dayKey;
+        container.dispatchEvent(new CustomEvent('point-history-active-day-change', {
+            bubbles: true,
+            detail: { dayKey },
+        }));
     }
 
     function openNoteEditor(row) {
@@ -674,6 +692,8 @@
                 container.__pointHistoryTimeDraft = {
                     eventId,
                     createdAt: row?.dataset.createdAt || '',
+                    originalCreatedAt: row?.dataset.createdAt || '',
+                    saving: false,
                 };
                 render(container, container.__pointHistoryLastOptions || {});
                 return;
@@ -682,10 +702,11 @@
             if (stepBtn) {
                 event.preventDefault();
                 const draft = container.__pointHistoryTimeDraft;
-                if (!draft?.eventId) return;
+                if (!draft?.eventId || draft.saving) return;
                 const beforeTop = stepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
                 const step = stepBtn.dataset.historyTimeStep;
                 draft.createdAt = shiftIsoHours(draft.createdAt, step);
+                syncDraftDay(container, draft);
                 render(container, container.__pointHistoryLastOptions || {});
                 keepDraftRowInView(container, beforeTop, `[data-history-time-step="${step}"]`);
                 return;
@@ -694,10 +715,11 @@
             if (dayStepBtn) {
                 event.preventDefault();
                 const draft = container.__pointHistoryTimeDraft;
-                if (!draft?.eventId) return;
+                if (!draft?.eventId || draft.saving) return;
                 const beforeTop = dayStepBtn.closest('[data-event-id]')?.getBoundingClientRect().top;
                 const dayStep = Number.parseInt(dayStepBtn.dataset.historyTimeDayStep, 10) || 0;
                 draft.createdAt = shiftIsoHours(draft.createdAt, dayStep * 24);
+                syncDraftDay(container, draft);
                 render(container, container.__pointHistoryLastOptions || {});
                 keepDraftRowInView(container, beforeTop, `[data-history-time-day-step="${dayStep}"]`);
                 return;
@@ -707,12 +729,21 @@
                 event.preventDefault();
                 const row = timeSaveBtn.closest('[data-event-id]');
                 const draft = container.__pointHistoryTimeDraft;
-                if (!draft?.eventId) return;
+                if (!draft?.eventId || draft.saving
+                    || String(draft.createdAt || '') === String(draft.originalCreatedAt || '')) return;
+                const familyTimezone = container.__pointHistoryLastOptions?.familyTimezone;
+                const displayDateTime = [
+                    formatHistoryDate(draft.createdAt, familyTimezone),
+                    formatHistoryTime(draft.createdAt, familyTimezone),
+                ].filter(Boolean).join(' · ');
+                draft.saving = true;
+                render(container, container.__pointHistoryLastOptions || {});
                 container.dispatchEvent(new CustomEvent('point-history-edit-note', {
                     bubbles: true,
                     detail: {
                         eventId: draft.eventId,
                         createdAt: draft.createdAt,
+                        displayDateTime,
                         pointsDelta: Number.parseInt(row?.dataset.pointsDelta || '', 10),
                         note: row?.dataset.note || '',
                     },
@@ -722,6 +753,7 @@
             const timeCancelBtn = target.closest('[data-history-time-cancel]');
             if (timeCancelBtn) {
                 event.preventDefault();
+                if (container.__pointHistoryTimeDraft?.saving) return;
                 container.__pointHistoryTimeDraft = null;
                 render(container, container.__pointHistoryLastOptions || {});
             }
@@ -779,9 +811,12 @@
             container.innerHTML = `<div class="point-empty">${escapeHtml(opts.emptyTimezone || 'Family timezone is not configured.')}</div>`;
             return '';
         }
-        const requestedActiveDayKey = String(opts.selectedDayKey || '').trim();
+        const draftDayKey = timeDraft?.eventId
+            ? dateKeyInTimezone(parseHistoryDate(timeDraft.createdAt), timezone)
+            : '';
+        const requestedActiveDayKey = draftDayKey || String(opts.selectedDayKey || '').trim();
         const todayDayKey = dateKeyInTimezone(new Date(), timezone);
-        const requestedAnchorDayKey = String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
+        const requestedAnchorDayKey = draftDayKey || String(opts.weekAnchorDayKey || container.dataset.pointHistoryWeekAnchorDayKey || '').trim();
         const anchorDayKey = requestedAnchorDayKey || requestedActiveDayKey || todayDayKey;
         if (anchorDayKey) {
             container.dataset.pointHistoryWeekAnchorDayKey = anchorDayKey;
@@ -806,7 +841,9 @@
         if (draftEvent && !selectedEvents.some((event) => Number.parseInt(event?.eventId, 10) === timeDraft.eventId)) {
             selectedEvents = sortEventsNewestFirst([...selectedEvents, draftEvent]);
         }
-        const rowOpts = timeDraft?.eventId ? { ...opts, timeEditEventId: timeDraft.eventId } : opts;
+        const rowOpts = timeDraft?.eventId
+            ? { ...opts, timeEditEventId: timeDraft.eventId, timeDraft }
+            : opts;
         const selectedListHtml = selectedEvents.length
             ? `
             <section class="point-history-group activity-timeline-group">
