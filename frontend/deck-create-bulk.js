@@ -746,15 +746,21 @@ async function fetchTagPathAvailability(firstTag, extraTags) {
     };
 }
 
-function buildOverlapSummary(overlapInfo) {
+function buildOverlapSummary(overlapInfo, cards) {
     const overlaps = Array.isArray(overlapInfo && overlapInfo.overlaps) ? overlapInfo.overlaps : [];
     let exactCount = 0;
     let mismatchCount = 0;
     const exactDecks = [];
     const mismatchDecks = [];
+    const duplicateCards = [];
+    const overlapIndexes = new Set();
     overlaps.forEach((item) => {
         const exact = Array.isArray(item && item.exact_match_decks) ? item.exact_match_decks : [];
         const mismatch = Array.isArray(item && item.mismatch_decks) ? item.mismatch_decks : [];
+        const index = Number.parseInt(item && item.index, 10);
+        if (Number.isInteger(index) && index >= 0) {
+            overlapIndexes.add(index);
+        }
         if (exact.length > 0) {
             exactCount += 1;
             exactDecks.push(...exact);
@@ -763,6 +769,12 @@ function buildOverlapSummary(overlapInfo) {
             mismatchCount += 1;
             mismatchDecks.push(...mismatch);
         }
+        duplicateCards.push({
+            front: String(item && item.front ? item.front : ''),
+            back: String(item && item.back ? item.back : ''),
+            exactDecks: exact,
+            mismatchDecks: mismatch,
+        });
     });
     const exactDeckText = deckCreateCommon.formatDeckNameList(exactDecks);
     const mismatchDeckText = deckCreateCommon.formatDeckNameList(mismatchDecks);
@@ -773,6 +785,8 @@ function buildOverlapSummary(overlapInfo) {
         warningText: mismatchCount > 0
             ? `Warning: ${mismatchCount} card(s) share same front with different back in: ${mismatchDeckText}.`
             : '',
+        duplicateCards,
+        newCards: (Array.isArray(cards) ? cards : []).filter((_, index) => !overlapIndexes.has(index)),
     };
 }
 
@@ -833,9 +847,11 @@ async function previewBulkCreate() {
                 currentFirstTag,
                 blocks[index].cards,
             );
-            const summary = buildOverlapSummary(info);
+            const summary = buildOverlapSummary(info, blocks[index].cards);
             blocks[index].exactText = summary.exactText;
             blocks[index].warningText = summary.warningText;
+            blocks[index].duplicateCards = summary.duplicateCards;
+            blocks[index].newCards = summary.newCards;
         }
     } catch (error) {
         showError(error.message || 'Failed to compare with existing cards.');
@@ -955,15 +971,66 @@ function renderReview() {
         <div><strong>Invalid (tag-path/name conflicts):</strong> <span class="${invalid > 0 ? 'deck-row-status-conflict' : ''}">${invalid}</span></div>
     `;
 
-    reviewTableBody.innerHTML = previewDecks.map((item) => `
-        <tr>
-            <td>${item.blockIndex}</td>
-            <td><code>${escapeHtml(item.deckName)}</code></td>
-            <td>${item.parsedRowCount}</td>
-            <td>${item.cards.length}</td>
-            <td>${deckCreateCommon.renderStatusCellHtml(item, { warnClass: 'deck-row-status-conflict' })}</td>
-        </tr>
+    reviewTableBody.innerHTML = previewDecks.map(renderReviewBlock).join('');
+}
+
+function allDeckNames(rawDecks) {
+    return deckCreateCommon.formatDeckNameList(rawDecks, Number.MAX_SAFE_INTEGER);
+}
+
+function renderDuplicateChips(item) {
+    const duplicates = Array.isArray(item.duplicateCards) ? item.duplicateCards : [];
+    const chips = [];
+    duplicates.forEach((card) => {
+        const exactNames = allDeckNames(card.exactDecks);
+        const mismatchNames = allDeckNames(card.mismatchDecks);
+        if (exactNames) {
+            chips.push(`<span class="deck-bulk-review-chip is-exact"><code>${escapeHtml(card.front)}</code><span>already in ${escapeHtml(exactNames)}</span></span>`);
+        }
+        if (mismatchNames) {
+            chips.push(`<span class="deck-bulk-review-chip is-mismatch"><code>${escapeHtml(card.front)}</code><span>different back in ${escapeHtml(mismatchNames)}</span></span>`);
+        }
+    });
+    return chips.length > 0
+        ? chips.join('')
+        : '<span class="deck-bulk-review-empty">None</span>';
+}
+
+function renderNewCardChips(item) {
+    const cards = Array.isArray(item.newCards) ? item.newCards : [];
+    if (cards.length === 0) {
+        return '<span class="deck-bulk-review-empty">None</span>';
+    }
+    return cards.map((card) => `
+        <span class="deck-bulk-review-chip is-new"><code>${escapeHtml(card.front)}</code></span>
     `).join('');
+}
+
+function renderReviewBlock(item) {
+    const cards = Array.isArray(item.cards) ? item.cards : [];
+    const parsedRows = Number(item.parsedRowCount || 0);
+    const countText = parsedRows !== cards.length
+        ? `${cards.length} cards · ${parsedRows} rows`
+        : `${cards.length} card${cards.length === 1 ? '' : 's'}`;
+    const isReady = item.statusCode === 'ready';
+    const stateText = isReady ? 'Ready' : String(item.statusText || 'Invalid');
+    return `
+        <article class="deck-bulk-review-block">
+            <div class="deck-bulk-review-title">
+                <code class="deck-bulk-review-name">${escapeHtml(item.deckName)}</code>
+                <span class="deck-bulk-review-count">${escapeHtml(countText)}</span>
+                <span class="deck-bulk-review-state ${isReady ? 'is-ready' : 'is-invalid'}">${escapeHtml(stateText)}</span>
+            </div>
+            <div class="deck-bulk-review-line">
+                <span class="deck-bulk-review-label">Duplicates</span>
+                <div class="deck-bulk-review-items">${renderDuplicateChips(item)}</div>
+            </div>
+            <div class="deck-bulk-review-line">
+                <span class="deck-bulk-review-label">New cards</span>
+                <div class="deck-bulk-review-items">${renderNewCardChips(item)}</div>
+            </div>
+        </article>
+    `;
 }
 
 async function createDecks() {
