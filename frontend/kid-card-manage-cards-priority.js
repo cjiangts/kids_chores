@@ -222,7 +222,7 @@ function getCardIncorrectRateSortValue(card) {
 }
 
 function getCardAvgResponseTimeSortValue(card) {
-    const avg = Number(card && card.practice_priority_avg_correct_response_time);
+    const avg = Number(card && card.practice_priority_queue_response_time);
     if (Number.isFinite(avg) && avg > 0) {
         return avg;
     }
@@ -574,15 +574,19 @@ function getPracticePriorityLegendDetail(card, segment) {
         return `${formatMetricPercent(wrongRate)} wrong${lastWrong ? ' · last wrong' : ''}`;
     }
     if (key === PRACTICE_PRIORITY_REASON_SLOW) {
-        const avg = Number(card && card.practice_priority_avg_correct_response_time);
+        const avg = Number(card && card.practice_priority_queue_response_time);
         const baseline = currentPracticePrioritySubjectBaseline || {};
         const p50 = Number(baseline.p50_correct_time);
         const p95 = Number(baseline.p95_correct_time);
-        if (!Number.isFinite(avg) || avg <= 0 || !Number.isFinite(p50) || !Number.isFinite(p95) || p95 <= p50) {
+        if (!Number.isFinite(avg) || avg <= 0) {
             return 'p-';
         }
+        const queueResponseTime = formatQueueResponseTime(avg);
+        if (!Number.isFinite(p50) || !Number.isFinite(p95) || p95 <= p50) {
+            return queueResponseTime;
+        }
         const percentile = Math.round(Math.max(1, Math.min(99, 50 + ((avg - p50) / (p95 - p50)) * 45)));
-        return `p${percentile}`;
+        return `${queueResponseTime} · p${percentile}`;
     }
     if (key === PRACTICE_PRIORITY_REASON_LEARNING) {
         const remaining = Math.max(0, PRACTICE_PRIORITY_LEARNING_TARGET_ATTEMPTS - getPracticePriorityAttemptCount(card));
@@ -593,6 +597,15 @@ function getPracticePriorityLegendDetail(card, segment) {
         return Number.isFinite(daysSinceLastSeen) ? `${daysSinceLastSeen}d` : 'Never';
     }
     return '';
+}
+
+function formatQueueResponseTime(responseTimeMs) {
+    const milliseconds = Number(responseTimeMs);
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+        return '';
+    }
+    const seconds = milliseconds / 1000;
+    return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`;
 }
 
 function formatFastestCorrectResponseTime(responseTimeMs) {

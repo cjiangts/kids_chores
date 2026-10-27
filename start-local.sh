@@ -53,8 +53,13 @@ fi
 # Start the Flask app
 echo ""
 echo "✅ Starting Flask server..."
-echo "📍 Local URL: http://localhost:5001"
-echo "📍 Network URL: http://$(ipconfig getifaddr en0 2>/dev/null || echo "localhost"):5001"
+if [ -f "$SCRIPT_DIR/.local-certs/kids-chores-local.pem" ] && [ -f "$SCRIPT_DIR/.local-certs/kids-chores-local-key.pem" ]; then
+    LOCAL_SCHEME="https"
+else
+    LOCAL_SCHEME="http"
+fi
+echo "📍 Local URL: ${LOCAL_SCHEME}://localhost:5001"
+echo "📍 Network URL: ${LOCAL_SCHEME}://$(ipconfig getifaddr en0 2>/dev/null || echo "localhost"):5001"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo "================================================"

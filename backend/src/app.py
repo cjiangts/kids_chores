@@ -752,4 +752,11 @@ if __name__ == '__main__':
     # Disable debug in production
     debug = os.environ.get('FLASK_ENV') != 'production'
 
-    app.run(debug=debug, host='0.0.0.0', port=port)
+    ssl_context = None
+    if debug:
+        local_cert = os.path.join(PROJECT_ROOT, '.local-certs', 'kids-chores-local.pem')
+        local_key = os.path.join(PROJECT_ROOT, '.local-certs', 'kids-chores-local-key.pem')
+        if os.path.isfile(local_cert) and os.path.isfile(local_key):
+            ssl_context = (local_cert, local_key)
+
+    app.run(debug=debug, host='0.0.0.0', port=port, ssl_context=ssl_context)

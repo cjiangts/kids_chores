@@ -45,6 +45,7 @@ const trendFootnote = document.getElementById('trendFootnote');
 const historyList = document.getElementById('historyList');
 const historyFilterBtns = document.getElementById('historyFilterBtns');
 let currentTrendAttempts = [];
+let currentQueuePreview = null;
 let currentHistoryAttempts = [];
 let currentTrendZoomRange = null;
 let historyErrorsOnly = true;
@@ -77,7 +78,7 @@ historyFilterBtns?.addEventListener('click', (event) => {
 
 trendZoomResetBtn?.addEventListener('click', () => {
     currentTrendZoomRange = null;
-    renderTrend(currentTrendAttempts);
+    renderTrend(currentTrendAttempts, currentQueuePreview);
 });
 
 // =====================================================================
@@ -124,8 +125,9 @@ async function loadCardReport() {
         });
         document.title = `${kidName || 'Kid'} - Card History - The Mommy App`;
 
-        renderHero(card, attempts, data.queue_preview);
-        renderTrend(attempts);
+        currentQueuePreview = data.queue_preview || null;
+        renderHero(card, attempts, currentQueuePreview);
+        renderTrend(attempts, currentQueuePreview);
         renderHistory(attempts);
         scrollToTargetAttempt();
         if (window.hydrateIcons) window.hydrateIcons(document);
@@ -156,6 +158,10 @@ async function loadReportTimezone() {
 function renderHero(card, attempts, queuePreview) {
     if (!cardReportHero) return;
 
+    const subjectName = resolveSubjectDisplayName(attempts);
+    const manageCategoryKey = categoryKey || window.DeckCategoryCommon.normalizeCategoryKey(
+        attempts.at(-1)?.session_type
+    );
     const cardLabel = getCardDisplayLabel(card?.front, card?.back)
         || `#${card?.id || cardId}`;
     const labelText = String(cardLabel || '');
@@ -176,7 +182,6 @@ function renderHero(card, attempts, queuePreview) {
         }
     });
 
-    const subjectName = resolveSubjectDisplayName(attempts);
     const sourceDeckLabel = formatSourceDeckLabel(currentDeckName);
     const hasType3Attempts = attempts.some(isType3Attempt);
     const metaBits = [];
@@ -202,10 +207,15 @@ function renderHero(card, attempts, queuePreview) {
         const historyIcon = window.icon ? window.icon('history', { size: 12, strokeWidth: 2.4 }) : '';
         metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${historyIcon}</span><span class="report-hero-meta-value">${escapeHtml(lastPracticeAgo)}</span></span>`);
     }
-    const speedPercentile = Number(queuePreview?.speed_percentile);
+    const rawSpeedPercentile = queuePreview?.speed_percentile;
+    const speedPercentile = rawSpeedPercentile === null || rawSpeedPercentile === undefined
+        ? NaN
+        : Number(rawSpeedPercentile);
     if (Number.isFinite(speedPercentile)) {
         const speedIcon = window.icon ? window.icon('clock', { size: 12, strokeWidth: 2.4 }) : '';
-        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${speedIcon}</span><span class="report-hero-meta-value">p${escapeHtml(String(speedPercentile))}</span></span>`);
+        const queueResponseTime = formatQueueResponseTime(queuePreview?.queue_response_time_ms);
+        const speedText = `${queueResponseTime ? `${queueResponseTime} · ` : ''}p${speedPercentile}`;
+        metaBits.push(`<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${speedIcon}</span><span class="report-hero-meta-value">${escapeHtml(speedText)}</span></span>`);
     }
     const queueRank = Number(queuePreview?.queue_rank);
     const queueTotal = Number(queuePreview?.queue_total);
@@ -224,6 +234,11 @@ function renderHero(card, attempts, queuePreview) {
     const metaHtml = metaBits.length
         ? `<div class="report-hero-meta">${metaBits.join('')}</div>`
         : '';
+    const manageCardsHtml = !isKidMode() && manageCategoryKey
+        ? `<a class="card-report-manage-link" href="${escapeHtml(buildCardManageHref(manageCategoryKey))}" aria-label="Manage ${escapeHtml(subjectName || 'subject')} cards" title="Manage cards">
+                ${window.DeckCategoryCommon.renderCategorySubjectIcon(manageCategoryKey, { size: 36 })}
+           </a>`
+        : '';
     cardReportHero.innerHTML = `
         <div class="card-report-hero">
             ${heroIconHtml}
@@ -232,8 +247,15 @@ function renderHero(card, attempts, queuePreview) {
                     ${metaHtml}
                 </div>
             </div>
+            ${manageCardsHtml}
         </div>
     `;
+}
+
+function buildCardManageHref(manageCategoryKey) {
+    const query = new URLSearchParams({ categoryKey: manageCategoryKey });
+    if (kidId) query.set('id', kidId);
+    return `/kid-card-manage.html?${query.toString()}`;
 }
 
 function getCardReportHeroLabelClasses(labelText) {
@@ -305,7 +327,7 @@ function resolveSubjectDisplayName(attempts) {
 // === 4. Trend chart + period selector
 // =====================================================================
 
-function renderTrend(attempts) {
+function renderTrend(attempts, queuePreview = currentQueuePreview) {
     currentTrendAttempts = Array.isArray(attempts) ? attempts : [];
     if (trendLegend) trendLegend.innerHTML = '';
     if (trendFootnote) trendFootnote.textContent = '';
@@ -314,6 +336,12 @@ function renderTrend(attempts) {
         return;
     }
 
+    const queueIncludedResultIds = new Set(
+        (queuePreview?.queue_included_result_ids || []).map((value) => Number(value))
+    );
+    const queueExcludedResultIds = new Set(
+        (queuePreview?.queue_excluded_result_ids || []).map((value) => Number(value))
+    );
     const nowDate = new Date();
     const allItems = currentTrendAttempts.map((item, index) => {
         const ts = item.session_completed_at || item.session_started_at || item.timestamp;
@@ -324,6 +352,7 @@ function renderTrend(attempts) {
         const ms = getAttemptDisplayResponseMs(item);
         return {
             index,
+            resultId: Number(item?.result_id),
             ts,
             ms,
             daysAgo,
@@ -332,6 +361,9 @@ function renderTrend(attempts) {
     });
 
     const fullSpanDays = Math.max(7, ...allItems.map((it) => it.daysAgo));
+    const allQueueItems = allItems.filter((item) => (
+        queueIncludedResultIds.has(item.resultId) || queueExcludedResultIds.has(item.resultId)
+    ));
     const zoomRange = normalizeTrendZoomRange(currentTrendZoomRange, fullSpanDays);
     currentTrendZoomRange = zoomRange;
     if (trendZoomResetBtn) trendZoomResetBtn.hidden = !zoomRange;
@@ -368,8 +400,27 @@ function renderTrend(attempts) {
     const sorted = [...items].sort((a, b) => a.bottomPx - b.bottomPx || a.index - b.index);
     const stageHeight = MAX_OFFSET_PX + TOP_PADDING_PX;
 
+    const queueResponseMs = Number(queuePreview?.queue_response_time_ms);
+    const visibleQueueItems = items.filter((item) => (
+        queueIncludedResultIds.has(item.resultId) || queueExcludedResultIds.has(item.resultId)
+    ));
+    const showQueueSummaryMarker = Number.isFinite(queueResponseMs)
+        && queueResponseMs > 0
+        && queueResponseMs <= yMax
+        && newerDays <= 0.5
+        && visibleQueueItems.length > 0;
+    const queueSummaryMarkerHtml = showQueueSummaryMarker
+        ? `<div class="trend-queue-summary-marker" style="bottom:${((queueResponseMs / yMax) * MAX_OFFSET_PX).toFixed(1)}px;" title="Queue ${escapeHtml(formatQueueResponseTime(queueResponseMs))}"></div>`
+        : '';
+
     const markerHtml = sorted.map((it) => {
-        return `<div class="trend-marker ${it.correctness}" style="left:${it.xPct.toFixed(2)}%; bottom:${it.bottomPx.toFixed(1)}px;" title="${escapeHtml(it.title)}"></div>`;
+        const queueState = queueIncludedResultIds.has(it.resultId)
+            ? ' queue-included'
+            : (queueExcludedResultIds.has(it.resultId) ? ' queue-excluded' : '');
+        const queueTitle = queueState === ' queue-included'
+            ? ' · used for queue time'
+            : (queueState === ' queue-excluded' ? ' · excluded from queue time' : '');
+        return `<div class="trend-marker ${it.correctness}${queueState}" style="left:${it.xPct.toFixed(2)}%; bottom:${it.bottomPx.toFixed(1)}px;" title="${escapeHtml(`${it.title}${queueTitle}`)}"></div>`;
     }).join('');
 
     const chronoItems = [...items].sort((a, b) => {
@@ -406,13 +457,17 @@ function renderTrend(attempts) {
     const finalAvgLabel = avgCount ? formatTrendResponseTime(finalAvgMs, useMinutesUnit) : '';
 
     const tickSegments = 6;
-    const zoomCellsHtml = Array.from({ length: tickSegments }, (_, index) => {
-        const olderBound = olderDays - (visibleSpanDays * index / tickSegments);
-        const newerBound = olderDays - (visibleSpanDays * (index + 1) / tickSegments);
-        const hasItems = items.some((item) => item.daysAgo >= newerBound && item.daysAgo <= olderBound);
-        const label = `Zoom to ${formatTrendDayRange(olderBound, newerBound)}`;
-        return `<button type="button" class="trend-zoom-cell" style="left:${(index / tickSegments * 100).toFixed(3)}%; width:${(100 / tickSegments).toFixed(3)}%;" data-trend-zoom-older-days="${olderBound.toFixed(3)}" data-trend-zoom-newer-days="${newerBound.toFixed(3)}" aria-label="${escapeHtml(label)}" title="${escapeHtml(label)}"${hasItems ? '' : ' disabled'}></button>`;
-    }).join('');
+    const oldestQueueAttemptDays = allQueueItems.length
+        ? Math.max(...allQueueItems.map((item) => item.daysAgo))
+        : 0;
+    const queueZoomPaddingDays = Math.max(1, oldestQueueAttemptDays * 0.08);
+    const queueZoomOlderDays = Math.min(fullSpanDays, oldestQueueAttemptDays + queueZoomPaddingDays);
+    const canZoomToQueue = !zoomRange
+        && allQueueItems.length > 0
+        && queueZoomOlderDays < fullSpanDays - 0.5;
+    const queueZoomButtonHtml = canZoomToQueue
+        ? `<button type="button" class="trend-queue-zoom-button" data-trend-zoom-older-days="${queueZoomOlderDays.toFixed(3)}" data-trend-zoom-newer-days="0" aria-label="Zoom to queue attempts" title="Zoom to queue attempts"></button>`
+        : '';
     const gridVHtml = Array.from({ length: tickSegments + 1 }, (_, i) => {
         const pct = (i / tickSegments) * 100;
         return `<div class="trend-grid-line-v" style="left:${pct}%"></div>`;
@@ -454,11 +509,24 @@ function renderTrend(attempts) {
     if (showAvgLine) {
         legendParts.push(`<span><span class="trend-legend-line"></span>Avg <span style="color: #5b6acf;">${escapeHtml(finalAvgLabel)}</span></span>`);
     }
+    const queueIncludedCount = queueIncludedResultIds.size;
+    const queueExcludedCount = queueExcludedResultIds.size;
+    const queueCandidateCount = queueIncludedCount + queueExcludedCount;
+    const queueResponseTime = formatQueueResponseTime(queuePreview?.queue_response_time_ms);
+    if (queueCandidateCount > 0 && queueResponseTime) {
+        legendParts.push(`<span><span class="trend-legend-queue-summary"></span>Queue <span class="trend-legend-queue-value">${escapeHtml(queueResponseTime)}</span></span>`);
+        legendParts.push(`<span><span class="trend-legend-queue queue-included"></span>${queueIncludedCount} used</span>`);
+        if (queueExcludedCount > 0) {
+            legendParts.push(`<span><span class="trend-legend-queue queue-excluded"></span>${queueExcludedCount} excluded</span>`);
+        }
+    }
     if (trendLegend) {
         trendLegend.innerHTML = legendParts.join('');
     }
     if (trendFootnote) {
-        trendFootnote.textContent = 'Avg includes only fully-correct (green) attempts.';
+        trendFootnote.textContent = queueCandidateCount > 0
+            ? `Avg uses all fully-correct attempts. Queue uses ${queueIncludedCount} of the latest ${queueCandidateCount}${queueExcludedCount ? `; ${queueExcludedCount} slowest excluded` : ''}.`
+            : 'Avg includes only fully-correct (green) attempts.';
     }
 
     trendChart.innerHTML = `
@@ -471,8 +539,9 @@ function renderTrend(attempts) {
                     <div class="trend-numberline-arrows" style="height:${stageHeight}px;">
                         <div class="trend-grid">${gridHHtml}${gridVHtml}</div>
                         ${avgLineHtml}
+                        ${queueSummaryMarkerHtml}
                         ${markerHtml}
-                        ${zoomCellsHtml}
+                        ${queueZoomButtonHtml}
                     </div>
                     <div class="trend-numberline-axis"></div>
                     <div class="trend-numberline-tick-labels">${tickLabelHtml}</div>
@@ -485,7 +554,7 @@ function renderTrend(attempts) {
                 olderDays: Number(button.dataset.trendZoomOlderDays),
                 newerDays: Number(button.dataset.trendZoomNewerDays),
             };
-            renderTrend(currentTrendAttempts);
+            renderTrend(currentTrendAttempts, currentQueuePreview);
         });
     });
 }
@@ -497,12 +566,6 @@ function normalizeTrendZoomRange(range, fullSpanDays) {
     const older = Math.min(fullSpanDays, Math.max(0, olderDays));
     const newer = Math.min(older, Math.max(0, newerDays));
     return older - newer > 0.25 ? { olderDays: older, newerDays: newer } : null;
-}
-
-function formatTrendDayRange(olderDays, newerDays) {
-    const older = Math.max(0, Math.round(olderDays));
-    const newer = Math.max(0, Math.round(newerDays));
-    return newer === 0 ? `today to ${older} days ago` : `${newer} to ${older} days ago`;
 }
 
 function pickTrendTimeStepMs(maxMs) {
@@ -538,15 +601,16 @@ function formatHistoryElapsedSeconds(ms) {
     return `${seconds}s`;
 }
 
-function renderCompactHistoryAttempt({ itemOpen, itemClose, correctness, daysAgoLabel, rawMs, pillsHtml, isLink }) {
+function renderCompactHistoryAttempt({ itemOpen, itemClose, correctness, daysAgoLabel, rawMs, pillsHtml, isLink, queueState }) {
     const historyIcon = window.icon ? window.icon('history', { size: 13, strokeWidth: 2.4 }) : '';
     const clockIcon = window.icon ? window.icon('clock', { size: 13, strokeWidth: 2.4 }) : '';
+    const queueClass = queueState ? ` queue-${queueState}` : '';
     return `
         ${itemOpen}
             <div class="history-attempt-row">
-                <span class="history-result-dot tone-${escapeHtml(correctness || 'pending')}" aria-label="${escapeHtml(correctness || 'pending')}"></span>
+                <span class="history-result-dot tone-${escapeHtml(correctness || 'pending')}${queueClass}" aria-label="${escapeHtml(correctness || 'pending')}"></span>
                 <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${historyIcon}</span><span>${escapeHtml(daysAgoLabel || '-')}</span></span>
-                <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${clockIcon}</span><span>${escapeHtml(formatHistoryElapsedSeconds(rawMs))}</span></span>
+                <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${clockIcon}</span><span>${escapeHtml(formatHistoryElapsedSeconds(rawMs))}</span>${renderHistoryQueueBadge(queueState)}</span>
                 <span class="history-detail-group submitted-group">${pillsHtml}</span>
                 ${isLink ? '<span class="history-attempt-chevron" aria-hidden="true">›</span>' : ''}
             </div>
@@ -580,6 +644,7 @@ function renderHistory(attempts) {
         const rawMs = getAttemptDisplayResponseMs(item);
         const responseTimeLabel = formatResponseTime(rawMs);
         const correctness = resolveCorrectness(item);
+        const queueState = getHistoryQueueState(item);
         const itemTimestamp = item.session_completed_at || item.session_started_at || item.timestamp;
         const daysAgoLabel = formatDaysAgo(itemTimestamp);
         const isToday = daysAgoLabel === 'today';
@@ -605,6 +670,7 @@ function renderHistory(attempts) {
                         <div class="history-status-side">
                             <span class="history-time-badge paradigm-pill">${escapeHtml(responseTimeLabel)}</span>
                             ${daysAgoBadge}
+                            ${renderHistoryQueueBadge(queueState)}
                         </div>
                         <div class="answer-head-actions">
                             ${renderGradingControls(item)}
@@ -630,6 +696,7 @@ function renderHistory(attempts) {
                 rawMs,
                 pillsHtml: submittedPills,
                 isLink: Boolean(sessionUrl),
+                queueState,
             });
         }
         const answer = getType1AttemptAnswer(item) || 'n/a';
@@ -651,6 +718,7 @@ function renderHistory(attempts) {
             rawMs,
             pillsHtml: mainPillsHtml,
             isLink: Boolean(sessionUrl),
+            queueState,
         });
     }).join('');
 
@@ -658,6 +726,28 @@ function renderHistory(attempts) {
         window.LessonReadingDurationBackfill.attach(historyList, { kidId });
     }
     window.AudioHistoryCommon.attachPlayers(historyList, { rewindSeconds: 5 });
+}
+
+function getHistoryQueueState(item) {
+    const resultId = Number(item?.result_id);
+    if (!Number.isFinite(resultId)) return '';
+    if ((currentQueuePreview?.queue_included_result_ids || []).some((value) => Number(value) === resultId)) {
+        return 'included';
+    }
+    if ((currentQueuePreview?.queue_excluded_result_ids || []).some((value) => Number(value) === resultId)) {
+        return 'excluded';
+    }
+    return '';
+}
+
+function renderHistoryQueueBadge(queueState) {
+    if (queueState === 'included') {
+        return '<span class="history-queue-badge queue-included" title="Used for queue time">Queue</span>';
+    }
+    if (queueState === 'excluded') {
+        return '<span class="history-queue-badge queue-excluded" title="Excluded from queue time">Excluded</span>';
+    }
+    return '';
 }
 
 function renderGradingControls(item) {
@@ -910,6 +1000,13 @@ function getType1AttemptSubmittedPills(item) {
 
 function isChineseLikeText(value) {
     return /[\u3400-\u9fff\uf900-\ufaff]/.test(String(value || ''));
+}
+
+function formatQueueResponseTime(ms) {
+    const rawMs = Number(ms);
+    if (!Number.isFinite(rawMs) || rawMs <= 0) return '';
+    const seconds = rawMs / 1000;
+    return `${seconds < 10 ? seconds.toFixed(1) : Math.round(seconds)}s`;
 }
 
 function formatResponseTime(ms) {

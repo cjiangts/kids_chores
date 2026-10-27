@@ -1349,24 +1349,27 @@ def get_kid_report_card_detail(kid_id, card_id):
                 details = priority_preview['details_by_card_id'].get(card_id_int) or {}
                 queue_rank = details.get('order')
                 queue_total = len(priority_preview['order_by_card_id'])
-                avg_correct_time = details.get('avg_correct_response_time')
+                queue_response_time = details.get('queue_correct_response_time')
                 baseline = priority_preview.get('subject_baseline') or {}
                 p50 = baseline.get('p50_correct_time')
                 p95 = baseline.get('p95_correct_time')
                 speed_percentile = None
                 if (
-                    isinstance(avg_correct_time, (int, float)) and avg_correct_time > 0
+                    isinstance(queue_response_time, (int, float)) and queue_response_time > 0
                     and isinstance(p50, (int, float))
                     and isinstance(p95, (int, float))
                     and p95 > p50
                 ):
-                    speed_percentile = round(max(1, min(99, 50 + ((avg_correct_time - p50) / (p95 - p50)) * 45)))
+                    speed_percentile = round(max(1, min(99, 50 + ((queue_response_time - p50) / (p95 - p50)) * 45)))
                 session_card_count = min(
                     get_category_session_card_count_for_kid(kid, category_key),
                     queue_total,
                 )
                 queue_preview = {
                     'speed_percentile': speed_percentile,
+                    'queue_response_time_ms': queue_response_time,
+                    'queue_included_result_ids': details.get('queue_included_result_ids') or [],
+                    'queue_excluded_result_ids': details.get('queue_excluded_result_ids') or [],
                     'queue_rank': int(queue_rank) if queue_rank else None,
                     'queue_total': queue_total,
                     'in_next_session': bool(queue_rank and int(queue_rank) <= session_card_count),
