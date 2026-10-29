@@ -35,10 +35,10 @@
             <section id="sheetHistorySection" class="paradigm-settings-panel">
                 <h2 class="paradigm-panel-title">
                     <span class="paradigm-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
-                    <span id="sheetHistoryTitle" class="paradigm-panel-heading">Practice Sheets</span>
+                    <span id="sheetHistoryTitle" class="paradigm-panel-heading">Sheets</span>
                     <span class="paradigm-row-action-group paradigm-panel-action" aria-label="Build sheets">
-                        <button type="button" id="buildChineseSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle" title="Build writing sheet" aria-label="Build writing sheet" aria-disabled="true">
-                            <span class="icon" data-icon="plus" data-icon-size="16"></span>
+                        <button type="button" id="buildChineseSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle" title="Build vertical sheet" aria-label="Build vertical sheet" aria-disabled="true">
+                            <span class="icon" data-icon="layout-grid" data-icon-size="16"></span>
                         </button>
                         <button type="button" id="buildSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle hidden" title="Build vertical sheet" aria-label="Build vertical sheet" disabled>
                             <span class="icon" data-icon="layout-grid" data-icon-size="16"></span>
@@ -57,13 +57,22 @@
         </div>
     </div>
 
+    <!-- Shared shell for Chinese, vertical math, and inline math builders. -->
+    <template id="sheetBuilderChromeTemplate">
+        <div class="paradigm-sheet-header">
+            <h2 class="paradigm-sheet-title"></h2>
+            <button type="button" class="paradigm-icon-btn paradigm-sheet-close" aria-label="Close" title="Close">×</button>
+        </div>
+        <div class="sheet-builder-actions">
+            <span class="sheet-builder-question-count" role="status" aria-live="polite" aria-atomic="true">0 questions total</span>
+            <button type="button" class="paradigm-btn paradigm-submit-confirm paradigm-compact-control" aria-label="Save sheet" title="Save sheet" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span></button>
+        </div>
+    </template>
+
     <!-- Chinese Writing Sheet Builder Modal -->
-    <div id="chineseSheetBuilderModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+    <div id="chineseSheetBuilderModal" class="modal hidden paradigm-sheet-modal sheet-builder-modal" data-builder-prefix="chineseSheet" data-builder-title="Build Writing Sheet" aria-hidden="true">
+        <div class="modal-content paradigm-sheet-dialog">
             <div class="sheet-builder-head">
-                <div class="sheet-builder-title-row">
-                    <h2 style="margin:0;">Build Writing Sheet</h2>
-                </div>
                 <div style="display:inline-flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
                     <span class="sheet-builder-paper-control queue-stepper">
                         <span>Size</span>
@@ -90,28 +99,33 @@
                     </label>
                 </div>
             </div>
-            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
+            <div class="sheet-builder-body">
                 <div style="display:flex; justify-content:center; min-width:max-content;">
                     <div id="chineseSheetA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
                 </div>
                 <div id="chineseSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
-                        <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
-                        <div class="sb-picker-legend" aria-label="Character source legend">
+                        <div class="sb-picker-header">
+                            <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
+                            <div id="chineseSheetPickerFilter" class="paradigm-chip-toggle-group paradigm-segmented-toggle" role="group" aria-label="Character filter">
+                                <button type="button" class="paradigm-chip-toggle active" data-character-filter="recommended" aria-pressed="true">Recommended</button>
+                                <button type="button" class="paradigm-chip-toggle" data-character-filter="all" aria-pressed="false">All</button>
+                            </div>
+                        </div>
+                        <div class="search-bar sb-picker-search">
+                            <input id="chineseSheetPickerSearch" type="search" class="paradigm-search-input" placeholder="Search characters or card text…" aria-label="Search characters or card text" autocomplete="off">
+                        </div>
+                        <div id="chineseSheetPickerLegend" class="sb-picker-legend" aria-label="Character source legend">
                             <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-new" aria-hidden="true"></span>Newly added</span>
                             <span class="sb-picker-legend-item"><span class="sb-picker-legend-dot reason-failed" aria-hidden="true"></span>Last failed</span>
+                            <span id="chineseSheetPickerOtherLegend" class="sb-picker-legend-item hidden"><span class="sb-picker-legend-dot reason-default" aria-hidden="true"></span>Not recommended</span>
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
                         <div class="sb-picker-actions">
-                            <button type="button" id="chineseSheetPickerFillBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm hidden"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                             <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="chineseSheetCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                <button type="button" id="chineseSheetDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
             </div>
         </div>
     </div>
@@ -155,12 +169,9 @@
     </div>
 
     <!-- Sheet Builder Modal -->
-    <div id="sheetBuilderModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+    <div id="sheetBuilderModal" class="modal hidden paradigm-sheet-modal sheet-builder-modal" data-builder-prefix="sheetBuilder" data-builder-title="Build Vertical Sheet" aria-hidden="true">
+        <div class="modal-content paradigm-sheet-dialog">
             <div class="sheet-builder-head">
-                <div class="sheet-builder-title-row">
-                    <h2 style="margin:0;">Build Vertical Sheet</h2>
-                </div>
                 <label class="sheet-builder-paper-control" for="sheetBuilderPaperSize">
                     <span>Paper</span>
                     <select id="sheetBuilderPaperSize">
@@ -169,7 +180,7 @@
                     </select>
                 </label>
             </div>
-            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
+            <div class="sheet-builder-body">
                 <div style="display:flex; justify-content:center; min-width:max-content;">
                     <div id="sheetBuilderA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
                 </div>
@@ -184,20 +195,13 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="sheetBuilderCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                <button type="button" id="sheetBuilderDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-            </div>
         </div>
     </div>
 
     <!-- Inline Sheet Builder Modal -->
-    <div id="inlineSheetBuilderModal" class="modal hidden" aria-hidden="true">
-        <div class="modal-content" style="max-width:1100px; max-height:calc(100vh - 15px); padding:0.5rem 0.8rem; display:flex; flex-direction:column; overflow:hidden;">
+    <div id="inlineSheetBuilderModal" class="modal hidden paradigm-sheet-modal sheet-builder-modal" data-builder-prefix="inlineSheet" data-builder-title="Build Inline Sheet" aria-hidden="true">
+        <div class="modal-content paradigm-sheet-dialog">
             <div class="sheet-builder-head">
-                <div class="sheet-builder-title-row">
-                    <h2 style="margin:0;">Build Inline Sheet</h2>
-                </div>
                 <label class="sheet-builder-paper-control" for="inlineSheetPaperSize">
                     <span>Paper</span>
                     <select id="inlineSheetPaperSize">
@@ -206,7 +210,7 @@
                     </select>
                 </label>
             </div>
-            <div style="flex:1; min-height:0; overflow:auto; position:relative;">
+            <div class="sheet-builder-body">
                 <div style="display:flex; justify-content:center; min-width:max-content;">
                     <div id="inlineSheetA4" style="position:relative; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.12);"></div>
                 </div>
@@ -220,20 +224,18 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:0.4rem; flex-shrink:0;">
-                <button type="button" id="inlineSheetCloseBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                <button type="button" id="inlineSheetDoneBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Done" title="Done" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-            </div>
         </div>
     </div>
 
     <script src="icons.js"></script>
+    <script src="search-bar.js"></script>
     <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="deck-category-common.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="practice-ui-common.js"></script>
     <script src="math-rendering-common.js"></script>
+    <script src="sheet-builder-dialog.js"></script>
     <script src="kid-writing-sheet-manage-core.js"></script>
     <script src="kid-writing-sheet-manage-lists.js"></script>
     <script src="kid-writing-sheet-manage-builder.js"></script>

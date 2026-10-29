@@ -16,6 +16,8 @@ async function loadSuggestedCards() {
     if (!response.ok) throw new Error(data.error || `Failed to load Chinese Writing cards (HTTP ${response.status})`);
     if (!Boolean(data.has_chinese_specific_logic)) throw new Error('This subject does not support printable Chinese writing sheets.');
     state2Cards = Array.isArray(data.practicing_cards) ? data.practicing_cards : [];
+    chineseSheetBankCards = (Array.isArray(data.cards) ? data.cards : [])
+        .filter((card) => !card.skip_practice && !card.from_practice_history);
     updateBuildChineseSheetButton();
 }
 

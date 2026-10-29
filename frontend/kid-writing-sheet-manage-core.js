@@ -211,21 +211,13 @@ function applyPageMode() {
     const buildChineseBtn = document.getElementById('buildChineseSheetBtn');
     const buildVerticalBtn = document.getElementById('buildSheetBtn');
     const buildInlineBtn = document.getElementById('buildInlineSheetBtn');
-    if (pageMode === 'math') {
-        if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
-        if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
-        if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
-        buildChineseBtn?.classList.add('hidden');
-        buildVerticalBtn?.classList.remove('hidden');
-        buildInlineBtn?.classList.remove('hidden');
-    } else {
-        if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
-        if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Practice Sheets';
-        if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
-        buildChineseBtn?.classList.remove('hidden');
-        buildVerticalBtn?.classList.add('hidden');
-        buildInlineBtn?.classList.add('hidden');
-    }
+    if (sheetHistorySection) sheetHistorySection.classList.remove('hidden');
+    if (sheetHistoryTitle) sheetHistoryTitle.textContent = 'Sheets';
+    if (sheetHistoryNote) sheetHistoryNote.classList.add('hidden');
+    const isMath = pageMode === 'math';
+    buildChineseBtn?.classList.toggle('hidden', isMath);
+    buildVerticalBtn?.classList.toggle('hidden', !isMath);
+    buildInlineBtn?.classList.toggle('hidden', !isMath);
 }
 
 // =====================================================================
@@ -247,8 +239,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     /* Chinese Sheet Builder */
     if (buildChineseSheetBtn) {
         buildChineseSheetBtn.addEventListener('click', () => {
-            if (!Array.isArray(state2Cards) || state2Cards.length === 0) {
-                showSheetBuildHint('No candidate characters available yet. Practice Chinese Writing first, then printable characters will appear here.');
+            if (chineseSheetBankCards.length === 0) {
+                showSheetBuildHint('No unskipped cards in this bank. Add a card or unskip one to build a sheet.');
                 return;
             }
             hideSheetBuildHint();
@@ -281,7 +273,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const cardId = Number.parseInt(optionBtn.getAttribute('data-cwb-picker-card-id'), 10);
         if (Number.isInteger(cardId)) handleChineseSheetPickerChoice(cardId);
     });
-    document.getElementById('chineseSheetPickerFillBtn')?.addEventListener('click', fillPageWithCards);
+    document.getElementById('chineseSheetPickerFilter')?.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-character-filter]');
+        if (!button) return;
+        chineseSheetPickerShowAll = button.dataset.characterFilter === 'all';
+        renderChineseSheetPickerOptions();
+    });
+    document.getElementById('chineseSheetPickerSearch')?.addEventListener('input', (event) => {
+        chineseSheetPickerQuery = event.target.value;
+        renderChineseSheetPickerOptions();
+    });
     document.getElementById('chineseSheetPickerCancelBtn')?.addEventListener('click', closeChineseSheetPicker);
     chineseSheetPaperSizeSelect?.addEventListener('change', (event) => {
         handleChineseSheetPaperSizeChange(event.target.value);

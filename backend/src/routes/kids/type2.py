@@ -43,8 +43,6 @@ from src.services.kid_category_resolve import (
     resolve_kid_type_ii_category_with_mode,
 )
 from src.services.writing_candidates import (
-    get_pending_writing_card_ids,
-    get_writing_candidate_card_ids,
     remove_cards_from_type2_chinese_print_sheets,
 )
 
@@ -610,24 +608,10 @@ def create_chinese_print_sheet(kid_id):
             bank_deck_ids = [
                 int(src['local_deck_id'])
                 for src in source_decks
-                if int(src.get('card_count') or 0) > 0
+                if int(src.get('card_count') or 0) > 0 and bool(src.get('included_in_bank', True))
             ]
             if len(bank_deck_ids) == 0:
                 return jsonify({'error': 'No writing cards are available for this category'}), 409
-
-            pending_card_ids = get_pending_writing_card_ids(conn)
-            pending_card_set = set(pending_card_ids)
-            if any(card_id in pending_card_set for card_id in card_ids):
-                return jsonify({'error': 'Some selected cards are already practicing in another sheet'}), 409
-
-            candidate_card_set = set(get_writing_candidate_card_ids(
-                conn,
-                bank_deck_ids,
-                category_key,
-                excluded_card_ids=pending_card_ids,
-            ))
-            if any(card_id not in candidate_card_set for card_id in card_ids):
-                return jsonify({'error': 'Some selected cards are no longer in the suggested card list'}), 409
 
             deck_placeholders = ','.join(['?'] * len(bank_deck_ids))
             card_placeholders = ','.join(['?'] * len(card_ids))
@@ -637,6 +621,7 @@ def create_chinese_print_sheet(kid_id):
                 FROM cards
                 WHERE deck_id IN ({deck_placeholders})
                   AND id IN ({card_placeholders})
+                  AND COALESCE(skip_practice, FALSE) = FALSE
                 """,
                 [*bank_deck_ids, *card_ids],
             ).fetchall()
