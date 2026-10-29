@@ -24,7 +24,6 @@ function getOptedDecks() {
 
 function renderDeckSetupSummary() {
     renderDeckSetupActionButtons();
-    renderType4DeckTargetControls();
 }
 
 function syncDeckTreeUtilityButtons() {

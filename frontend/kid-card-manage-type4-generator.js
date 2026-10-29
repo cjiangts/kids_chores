@@ -1,62 +1,59 @@
 // Type-IV generator: Ace code viewer setup, modal rendering, sample preview, run-example API call.
 //
 // Layout:
-//   1. Type-IV deck/count readers + message banners
+//   1. Generator message banners
 //   2. Generator card lookup + Ace code-viewer setup
 //   3. Sample renderer + modal renderer + preview request
 //   4. Modal opener + run-example action + opt-in help text
 
-// =====================================================================
-// === 1. Type-IV deck/count readers + message banners
-// =====================================================================
+const type4GeneratorPanel = type4GeneratorModal?.querySelector('.manage-popup-modal-body');
+const type4GeneratorPanelHome = type4GeneratorPanel?.parentElement;
+const type4GeneratorSamplesHome = type4GeneratorSamples?.parentElement;
+const type4GeneratorRerunHome = runType4GeneratorPreviewBtn?.parentElement;
+let type4GeneratorPreviewCardId = '';
 
-function getPersistedOptedInType4Decks() {
-    return (Array.isArray(allDecks) ? allDecks : []).filter((deck) => Boolean(deck && deck.opted_in));
+function placeType4GeneratorRerun() {
+    if (type4GeneratorSamples && runType4GeneratorPreviewBtn) {
+        type4GeneratorSamples.appendChild(runType4GeneratorPreviewBtn);
+    }
 }
 
-function getType4DeckDailyTargetCount(deck) {
-    const parsed = Number.parseInt(deck && deck.daily_target_count, 10);
-    return Number.isInteger(parsed) ? Math.max(0, parsed) : 0;
+function restoreType4GeneratorPanel() {
+    if (runType4GeneratorPreviewBtn) type4GeneratorRerunHome.appendChild(runType4GeneratorPreviewBtn);
+    if (type4GeneratorSamples && type4GeneratorSamples.parentElement !== type4GeneratorSamplesHome) {
+        type4GeneratorSamplesHome.appendChild(type4GeneratorSamples);
+    }
+    if (type4GeneratorPanel && type4GeneratorPanel.parentElement !== type4GeneratorPanelHome) {
+        type4GeneratorPanelHome.appendChild(type4GeneratorPanel);
+    }
 }
 
-function getPersistedType4DeckCountEntries() {
-    const entries = getPersistedOptedInType4Decks().map((deck) => ({
-        kind: 'shared',
-        deck,
-    }));
-    if (orphanDeck && stagedIncludeOrphanInQueue) {
-        entries.push({
-            kind: 'orphan',
-            deck: orphanDeck,
+function mountType4GeneratorInline(card, host) {
+    if (!host || !type4GeneratorPanel) return;
+    host.appendChild(type4GeneratorPanel);
+    const samplesHost = host.closest('.card-item')?.querySelector('.type4-generator-inline-samples');
+    if (samplesHost && type4GeneratorSamples) samplesHost.appendChild(type4GeneratorSamples);
+    activeType4GeneratorCardId = String(card.id || '');
+    renderType4GeneratorModal(card);
+    requestAnimationFrame(() => {
+        const source = host.closest('.card-item')?.querySelector('.card-deck-meta');
+        if (source && type4GeneratorAceViewer) {
+            type4GeneratorAceViewer.setOption('fontSize', getComputedStyle(source).fontSize);
+        }
+        type4GeneratorAceViewer?.resize();
+    });
+    if (!String(card.type4_generator_code || '').trim()) {
+        void runType4GeneratorPreview().catch((error) => {
+            if (getCurrentType4GeneratorCard() === card) {
+                showType4GeneratorMessage(error.message || 'Failed to load generator.', true);
+            }
         });
     }
-    return entries;
 }
 
-function getType4TotalCardsPerDay() {
-    return getPersistedType4DeckCountEntries().reduce(
-        (sum, entry) => sum + getType4DeckDailyTargetCount(entry && entry.deck),
-        0
-    );
-}
-
-function showType4DeckCountsMessage(message, isError = false) {
-    if (!type4DeckCountsMessage) {
-        return;
-    }
-    const text = String(message || '').trim();
-    if (!text) {
-        type4DeckCountsMessage.textContent = '';
-        type4DeckCountsMessage.classList.add('hidden');
-        type4DeckCountsMessage.classList.remove('error');
-        type4DeckCountsMessage.classList.add('success');
-        return;
-    }
-    type4DeckCountsMessage.textContent = text;
-    type4DeckCountsMessage.classList.remove('hidden');
-    type4DeckCountsMessage.classList.toggle('error', !!isError);
-    type4DeckCountsMessage.classList.toggle('success', !isError);
-}
+// =====================================================================
+// === 1. Generator message banners
+// =====================================================================
 
 function showType4GeneratorMessage(message, isError = false) {
     if (!type4GeneratorMessage) {
@@ -107,7 +104,7 @@ function initializeType4GeneratorCodeViewer() {
     type4GeneratorAceViewer.setHighlightActiveLine(false);
     type4GeneratorAceViewer.setShowPrintMargin(false);
     type4GeneratorAceViewer.setOption('fontFamily', 'ui-monospace, SFMono-Regular, Menlo, monospace');
-    type4GeneratorAceViewer.setOption('fontSize', '14px');
+    type4GeneratorAceViewer.setOption('fontSize', getComputedStyle(type4GeneratorCodeEditor).fontSize);
     type4GeneratorAceViewer.setOption('wrap', true);
     type4GeneratorAceViewer.setOption('showLineNumbers', true);
     type4GeneratorAceViewer.setOption('highlightGutterLine', false);
@@ -143,9 +140,11 @@ function renderType4GeneratorSamples(samples = [], message = '') {
     if (!type4GeneratorSamples) {
         return;
     }
+    if (runType4GeneratorPreviewBtn) type4GeneratorRerunHome.appendChild(runType4GeneratorPreviewBtn);
     const items = Array.isArray(samples) ? samples : [];
     if (!items.length) {
         type4GeneratorSamples.innerHTML = `<p class="type4-generator-empty">${escapeHtml(message || 'No example yet.')}</p>`;
+        placeType4GeneratorRerun();
         return;
     }
     const sample = items[0] || {};
@@ -157,18 +156,19 @@ function renderType4GeneratorSamples(samples = [], message = '') {
         : '<span class="type4-generator-empty">No distractors provided.</span>';
     type4GeneratorSamples.innerHTML = `
         <div class="type4-generator-sample-card">
-            <div class="type4-generator-sample-label">Prompt</div>
-            <div class="type4-generator-sample-prompt">${escapeHtml(prompt || '(empty prompt)')}</div>
+            <div class="type4-generator-sample-prompt">Prompt: ${escapeHtml(prompt || '(empty prompt)')}</div>
             <div class="type4-generator-sample-answer">Answer: <code>${escapeHtml(answer || '-')}</code></div>
             <div class="type4-generator-sample-answer">Distractors: ${distractorMarkup}</div>
         </div>
     `;
+    placeType4GeneratorRerun();
 }
 
 function renderType4GeneratorModal(card) {
     if (!type4GeneratorHeading || !type4GeneratorDeckText || !type4GeneratorCodeText) {
         return;
     }
+    if (runType4GeneratorPreviewBtn) type4GeneratorRerunHome.appendChild(runType4GeneratorPreviewBtn);
     const sourceName = resolveCardSourceDeckName(card);
     type4GeneratorHeading.textContent = String(card && card.front ? card.front : 'Generator');
     type4GeneratorDeckText.textContent = String(sourceName || '-');
@@ -190,6 +190,7 @@ function renderType4GeneratorModal(card) {
         const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
         if (label) label.textContent = 'Rerun Code';
     }
+    placeType4GeneratorRerun();
 }
 
 async function requestType4GeneratorPreview(card) {
@@ -213,6 +214,7 @@ function openType4GeneratorModal(card) {
     if (!card) {
         return;
     }
+    restoreType4GeneratorPanel();
     activeType4GeneratorCardId = String(card.id || '');
     renderType4GeneratorModal(card);
     setManageModalOpen(type4GeneratorModal, true);
@@ -235,10 +237,12 @@ async function runType4GeneratorPreview() {
         showType4GeneratorMessage('Representative card not found.', true);
         return;
     }
-    if (isType4GeneratorPreviewLoading) {
+    const requestCardId = String(card.id);
+    if (isType4GeneratorPreviewLoading && type4GeneratorPreviewCardId === requestCardId) {
         return;
     }
     isType4GeneratorPreviewLoading = true;
+    type4GeneratorPreviewCardId = requestCardId;
     if (runType4GeneratorPreviewBtn) {
         runType4GeneratorPreviewBtn.disabled = true;
         const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
@@ -251,6 +255,7 @@ async function runType4GeneratorPreview() {
             card.type4_generator_code = String(result && result.code ? result.code : '');
             card.type4_generator_samples = Array.isArray(result && result.samples) ? result.samples : [];
         }
+        if (getCurrentType4GeneratorCard() !== card) return;
         setType4GeneratorCodeContent(card && card.type4_generator_code ? card.type4_generator_code : '');
         renderType4GeneratorSamples(result.samples || [], 'No example returned.');
         const pmc = window.PracticeManageCommon;
@@ -269,11 +274,13 @@ async function runType4GeneratorPreview() {
             }
         }
     } finally {
-        isType4GeneratorPreviewLoading = false;
-        if (runType4GeneratorPreviewBtn) {
-            runType4GeneratorPreviewBtn.disabled = false;
-            const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
-            if (label) label.textContent = 'Rerun Code';
+        if (type4GeneratorPreviewCardId === requestCardId) {
+            isType4GeneratorPreviewLoading = false;
+            if (runType4GeneratorPreviewBtn) {
+                runType4GeneratorPreviewBtn.disabled = false;
+                const label = runType4GeneratorPreviewBtn.querySelector('.run-example-label');
+                if (label) label.textContent = 'Rerun Code';
+            }
         }
     }
 }

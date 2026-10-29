@@ -306,45 +306,6 @@ def normalize_shared_deck_ids(deck_ids):
     return normalized
 
 
-def normalize_type_iv_daily_count(value, *, label='daily_count'):
-    """Normalize one type-IV per-deck daily count."""
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        raise ValueError(f'{label} must be an integer') from None
-    if parsed < 0:
-        raise ValueError(f'{label} must be 0 or more')
-    if parsed > MAX_TYPE_IV_DAILY_TARGET_COUNT:
-        raise ValueError(
-            f'{label} must be {MAX_TYPE_IV_DAILY_TARGET_COUNT} or less'
-        )
-    return parsed
-
-
-def normalize_type_iv_daily_counts_payload(raw_map):
-    """Normalize shared-deck-id -> daily-count payload for type-IV settings."""
-    if not isinstance(raw_map, dict):
-        raise ValueError('dailyCountsByDeckId must be an object')
-
-    normalized = {}
-    for raw_key, raw_value in raw_map.items():
-        try:
-            shared_deck_id = int(str(raw_key or '').strip())
-        except (TypeError, ValueError):
-            raise ValueError('dailyCountsByDeckId keys must be shared deck ids') from None
-        if shared_deck_id <= 0:
-            raise ValueError('dailyCountsByDeckId keys must be shared deck ids')
-        normalized[shared_deck_id] = normalize_type_iv_daily_count(
-            raw_value,
-            label=f'dailyCountsByDeckId[{shared_deck_id}]',
-        )
-        if len(normalized) > MAX_SHARED_DECK_OPTIN_BATCH:
-            raise ValueError(
-                f'dailyCountsByDeckId exceeds max allowed ({MAX_SHARED_DECK_OPTIN_BATCH})'
-            )
-    return normalized
-
-
 def normalize_deck_category_keys(category_keys):
     """Validate and normalize deck-category keys for kid opt-in payloads."""
     if category_keys is None:

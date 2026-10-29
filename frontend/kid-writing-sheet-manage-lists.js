@@ -42,6 +42,23 @@ function formatSheetDay(value) {
     return date.toLocaleDateString();
 }
 
+function renderSheetProgress(sheet) {
+    if (sheet.status === 'preview') {
+        return '<span class="sheet-progress-pill is-preview">To finalize</span>';
+    }
+    const total = Math.max(0, Number(sheet.total_question_count) || 0);
+    const completed = sheet.status === 'done' ? total : Math.min(total, Math.max(0, Number(sheet.completed_question_count) || 0));
+    const done = sheet.status === 'done' || (total > 0 && completed === total);
+    return `<span class="sheet-progress-pill ${done ? 'is-done' : 'is-progress'}" aria-label="${completed} of ${total} questions completed">${completed} / ${total} completed</span>`;
+}
+
+function renderSheetHero(sheetId, kind) {
+    const qs = new URLSearchParams({ id: String(kidId || ''), sheet: String(sheetId), from: 'worksheets' });
+    if (activeCategoryKey) qs.set('categoryKey', activeCategoryKey);
+    const page = kind === 'type4' ? 'math-sheet-print' : 'writing-sheet-print';
+    return `<a class="card-report-hero-icon card-report-hero-icon-link sheet-preview-hero" href="/${page}.html?${escapeHtml(qs.toString())}" aria-label="View Sheet #${sheetId}"><span class="card-report-hero-icon-text">Sheet #${sheetId}</span></a>`;
+}
+
 function renderChineseSheets(sheets) {
     if (!sheetList) return;
     if (!Array.isArray(sheets) || sheets.length === 0) {
@@ -58,21 +75,17 @@ function renderChineseSheets(sheets) {
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const cardLabels = Array.isArray(sheet && sheet.card_labels) ? sheet.card_labels : [];
         const answersHtml = cardLabels.length > 0
-            ? cardLabels.map((label) => `<span class="sheet-card-pill paradigm-pill">${escapeHtml(label)}</span>`).join('')
+            ? cardLabels.map((label) => `<span class="sheet-card-label">${escapeHtml(label)}</span>`).join('')
             : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
-        const statusClass = isDone ? 'sheet-status-pill--done' : 'sheet-status-pill--pending';
-        const statusLabel = isDone ? 'done' : 'practicing';
         const printedDay = formatSheetDay(sheet && sheet.created_at);
         const actionBtns = [
-            sheetActionButton('print', safeSheetId, 'printer', 'Print sheet', 'blue'),
-            isPending ? sheetActionButton('done', safeSheetId, 'check', 'Mark sheet done', 'green') : '',
-            isPending ? sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red') : '',
+            isPending && !sheet.task_started ? sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red') : '',
         ].join('');
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${escapeHtml(printedDay)}</span></div><div class="sheet-head-right"><span class="paradigm-pill sheet-status-pill ${statusClass}">${statusLabel}</span><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
+                <div class="sheet-head"><div class="sheet-head-main">${renderSheetHero(safeSheetId, 'type2')}<span class="sheet-meta">${escapeHtml(printedDay)}</span>${renderSheetProgress(sheet)}</div><div class="sheet-head-right"><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
                 <div class="sheet-cards">${answersHtml}</div>
             </article>`;
     }).join('');
@@ -174,7 +187,7 @@ function renderMathSheets(sheets) {
         });
         const rowPillsHtml = cardTotals.size > 0
             ? Array.from(cardTotals.entries()).map(([name, total]) =>
-                `<span class="sheet-card-pill paradigm-pill">${escapeHtml(name)}${total > 0 ? ` · ${total}` : ''}</span>`
+                `<span class="sheet-card-label">${escapeHtml(name)}${total > 0 ? ` · ${total}` : ''}</span>`
             ).join('')
             : '<span class="sheet-card-empty">(no rows)</span>';
         const problemCount = Number.parseInt(sheet && sheet.problem_count, 10) || 0;
@@ -189,14 +202,11 @@ function renderMathSheets(sheets) {
         let actionBtns = '';
         if (isPreview) {
             actionBtns = `
-                ${sheetActionButton('print', safeSheetId, 'eye', 'Preview sheet', 'blue')}
-                ${sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
+                ${sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
                 ${cloneBtnHtml}`;
         } else if (isPending) {
             actionBtns = `
-                ${sheetActionButton('print', safeSheetId, 'eye', 'View sheet', 'blue')}
-                ${sheetActionButton('done', safeSheetId, 'check', 'Mark sheet done', 'green')}
-                ${sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
+                ${sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
                 ${cloneBtnHtml}`;
         } else if (isDone) {
             actionBtns = cloneBtnHtml;
@@ -214,7 +224,7 @@ function renderMathSheets(sheets) {
             : escapeHtml(printedDay);
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">Sheet #${safeSheetId} · ${sheetMetaHtml}</span><span class="sheet-layout-tag">${layoutLabel}</span><span class="sheet-problem-tag">${problemCount} problem${problemCount === 1 ? '' : 's'}</span><span class="sheet-repeat-tag">x${repeatCount}</span></div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
+                <div class="sheet-head"><div class="sheet-head-main">${renderSheetHero(safeSheetId, 'type4')}<span class="sheet-meta">${sheetMetaHtml}</span><span class="sheet-layout-tag">${layoutLabel}</span>${renderSheetProgress(sheet)}<span class="sheet-repeat-tag">${problemCount} × ${repeatCount}</span></div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
                 <div class="sheet-cards">${rowPillsHtml}</div>
             </article>`;
     }).join('');

@@ -178,12 +178,15 @@
 
         }
     </style>
+    <link rel="stylesheet" href="sheet-tasks.css">
 </head>
 <body class="print-sheet-page">
     <header class="page-header-with-back page-header-with-actions">
         <div class="page-header-row">
             <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
             <div class="page-header-actions">
+                <a id="backToSheetManage" class="paradigm-btn page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets"><span data-icon="arrow-left" data-icon-size="16"></span><span>Back</span></a>
+                <button id="finalizeBtn" type="button" class="paradigm-btn hidden">Finalize</button>
                 <button id="printBtn" type="button" class="paradigm-btn">Print</button>
             </div>
         </div>
@@ -197,6 +200,7 @@
     <script src="deck-category-common.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+    <script src="sheet-task-overlay.js"></script>
     <script src="writing-sheet-print.js"></script>
 </body>
 </html>

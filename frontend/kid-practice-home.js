@@ -292,6 +292,8 @@ function buildCategoryProgressModel({
     const targetCount = Number.isInteger(latestTargetRaw) && latestTargetRaw > 0
         ? latestTargetRaw
         : (Number.isInteger(configuredTargetRaw) && configuredTargetRaw > 0 ? configuredTargetRaw : 0);
+    const sheetStatus = todaySessionStatusByCategory?.[categoryKey] || {};
+    const isSheet = sheetStatus.deliveryMode === 'sheet';
     const normalizedBehaviorType = String(behaviorType || '').trim().toLowerCase();
     const isTypeIII = normalizedBehaviorType === 'type_iii';
     const triedRaw = Number.parseInt(dailyTriedByCategory?.[categoryKey], 10);
@@ -331,16 +333,16 @@ function buildCategoryProgressModel({
         ? Math.max(0, targetCount - seenCount)
         : 0;
     const isTypeIIIRecordedComplete = isTypeIII && targetCount > 0 && seenCount > 0 && unseenCount <= 0;
-    const displayMasteredCount = isTypeIIIRecordedComplete ? seenCount : masteredCount;
-    const displayRedoCount = isTypeIIIRecordedComplete ? 0 : redoCount;
+    const displayMasteredCount = isTypeIIIRecordedComplete || (isSheet && !sheetStatus.pendingReview && sheetStatus.status === 'done') ? seenCount : masteredCount;
+    const displayRedoCount = isTypeIIIRecordedComplete || isSheet ? 0 : redoCount;
     const masteredPercent = targetCount > 0
         ? Math.max(0, Math.min(100, (displayMasteredCount / targetCount) * 100))
         : 0;
     const redoPercent = targetCount > 0
         ? Math.max(0, Math.min(100, (displayRedoCount / targetCount) * 100))
         : 0;
-    const isReview = !isTypeIIIRecordedComplete && targetCount > 0 && seenCount > 0 && unseenCount <= 0 && redoCount > 0;
-    const isFullyComplete = targetCount > 0
+    const isReview = Boolean(sheetStatus.pendingReview) || (!isSheet && !isTypeIIIRecordedComplete && targetCount > 0 && seenCount > 0 && unseenCount <= 0 && redoCount > 0);
+    const isFullyComplete = isSheet ? sheetStatus.status === 'done' && !sheetStatus.pendingReview : targetCount > 0
         ? (isTypeIIIRecordedComplete || (seenCount > 0 && unseenCount <= 0 && redoCount <= 0))
         : Boolean(starsModel.isDoneToday && latestPercentValue >= 100);
     const sessionStatus = todaySessionStatusByCategory?.[categoryKey] || {};
@@ -349,12 +351,12 @@ function buildCategoryProgressModel({
 
     let actionLabel = 'Start';
     if (isReview) {
-        actionLabel = 'Review';
+        actionLabel = sheetStatus.pendingReview ? 'Waiting for review' : 'Review';
     } else if (hasStarted && !isFullyComplete) {
         actionLabel = 'Resume';
     }
 
-    const subText = targetCount > 0
+    const subText = sheetStatus.pendingReview ? 'Waiting for parent review' : targetCount > 0
         ? `${displayMasteredCount} mastered · ${displayRedoCount} redo · ${seenCount}/${targetCount} seen`
         : 'Not started';
     const unseenPercent = Math.max(0, 100 - seenPercent);
@@ -379,6 +381,7 @@ function buildCategoryProgressModel({
         earnedPoints,
         isFullyComplete,
         isReview,
+        pendingReview: Boolean(sheetStatus.pendingReview),
         isDoneToday: starsModel.isDoneToday,
     };
 }
@@ -414,7 +417,7 @@ function buildCategoryCardInnerHtml({
         : progressModel.actionLabel;
     const actionIconName = progressModel.isFullyComplete
         ? 'check'
-        : ({ Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right' }[progressModel.actionLabel] || 'play');
+        : ({ Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right', 'Waiting for review': 'clock' }[progressModel.actionLabel] || 'play');
     const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 18, strokeWidth: 2.4 }) : '';
     return `
         <span class="practice-row-tile" aria-hidden="true">${tileHtml}</span>
@@ -432,9 +435,9 @@ function buildCategoryCardInnerHtml({
                 </div>
             </div>
         </div>
-        <span class="practice-row-chevron${progressModel.isFullyComplete ? ' is-done' : ''}" aria-hidden="true">
+        <span class="practice-task-action practice-row-chevron${progressModel.isFullyComplete ? ' is-done' : ''}" title="${escapeHtmlLocal(actionLabel)}" aria-hidden="true">
             ${actionIconHtml}
-            <span class="practice-row-action-label">${escapeHtmlLocal(actionLabel)}</span>
+            <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.pendingReview ? 'Waiting' : actionLabel)}</span>
         </span>
     `;
 }
@@ -468,6 +471,7 @@ function renderPracticeOptionCard({
         todaySessionStatusByCategory,
         practiceTargetByCategory,
     });
+    button.classList.toggle('is-pending-review', Boolean(todaySessionStatusByCategory?.[categoryKey]?.pendingReview));
     button.innerHTML = buildCategoryCardInnerHtml({
         categoryKey,
         displayName,
@@ -601,7 +605,7 @@ function renderOffAppTaskRow(chore) {
         <button type="button" class="${classes}" data-off-app-rule-id="${ruleId}" aria-pressed="${ariaPressed}" aria-label="${escapeHtmlLocal(ariaLabel)}"${disabled}>
             <span class="off-app-task-tile">${renderOffAppTaskIcon(chore)}</span>
             <span class="off-app-task-name">${escapeHtmlLocal(name)}</span>
-            <span class="off-app-task-action">
+            <span class="practice-task-action off-app-task-action">
                 ${icon(actionIcon, { size: 18 })}
                 <span>${escapeHtmlLocal(statusText)}</span>
             </span>

@@ -826,7 +826,8 @@ def get_kid_report_session_detail(kid_id, session_id):
                 COALESCE(retry_count, 0),
                 COALESCE(retry_total_response_ms, 0),
                 COALESCE(retry_best_rety_correct_count, 0),
-                COALESCE(practice_mode, 'na') AS practice_mode
+                COALESCE(practice_mode, 'na') AS practice_mode,
+                delivery_mode
             FROM sessions
             WHERE id = ?
             """,
@@ -919,6 +920,10 @@ def get_kid_report_session_detail(kid_id, session_id):
                         awarded_points = int(event_row[1] or 0)
             finally:
                 shared_conn.close()
+        sheet_task = None
+        if session_row[9] == 'sheet':
+            from src.services.sheet_tasks import get_sheet_task
+            sheet_task = get_sheet_task(conn, session_id_int)
         conn.close()
 
         answers = []
@@ -1011,6 +1016,7 @@ def get_kid_report_session_detail(kid_id, session_id):
                 'retry_total_response_ms': int(session_row[6] or 0),
                 'retry_best_rety_correct_count': int(session_row[7] or 0),
                 'practice_mode': normalized_practice_mode,
+                'delivery_mode': session_row[9],
                 'drill_speed_target_ms': drill_speed_target_ms,
                 'answer_count': len(answers),
                 'right_count': len(right_cards),
@@ -1019,9 +1025,9 @@ def get_kid_report_session_detail(kid_id, session_id):
                 # Early finalization credits answered cards except unresolved
                 # wrong / partial answers. A normally completed clean session
                 # still credits all of its cards through the usual path.
-                'point_eligible_card_count': len(answers) - len(wrong_cards),
+                'point_eligible_card_count': len(answers) if sheet_task else len(answers) - len(wrong_cards),
                 'projected_points': (
-                    (len(answers) - len(wrong_cards)) // cards_per_point
+                    (len(answers) if sheet_task else len(answers) - len(wrong_cards)) // cards_per_point
                     if cards_per_point else 0
                 ),
                 'awarded_points': awarded_points,
@@ -1030,6 +1036,7 @@ def get_kid_report_session_detail(kid_id, session_id):
             'right_cards': right_cards,
             'wrong_cards': wrong_cards,
             'answers': answers,
+            'sheet_task': sheet_task,
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1068,6 +1075,9 @@ def finish_kid_report_session_here(kid_id, session_id):
 
         conn = get_kid_connection_for(kid)
         try:
+            mode_row = conn.execute('SELECT delivery_mode FROM sessions WHERE id = ?', [session_id_int]).fetchone()
+            if mode_row and mode_row[0] == 'sheet':
+                return jsonify({'error': 'Use printed-work review to complete a sheet task'}), 409
             conn.execute('BEGIN TRANSACTION')
             row = conn.execute(
                 """
@@ -1179,43 +1189,55 @@ def delete_kid_report_session(kid_id, session_id):
         except (TypeError, ValueError):
             return jsonify({'error': 'Invalid session id'}), 400
 
-        conn = get_kid_connection_for(kid)
-        try:
-            session_row = conn.execute(
-                "SELECT type, completed_at FROM sessions WHERE id = ?",
-                [session_id_int],
-            ).fetchone()
-            if session_row is None:
-                return jsonify({'error': 'Session not found'}), 404
-            session_type = session_row[0]
-            session_completed_at = session_row[1]
-
-            kid_audio_dir = get_kid_type3_audio_dir(kid)
-            delete_session_with_recompute(
-                conn,
-                session_id_int,
-                kid_audio_dir=kid_audio_dir,
-            )
-
-            # Drop the in-app-chore points auto-awarded for this session — they
-            # carry no session FK, so deleting the session would otherwise orphan
-            # them. The parent's manual refresh would not re-create them (the
-            # source session is gone), so the cleanup must happen here.
-            family_id = str(kid.get('familyId') or '').strip()
-            if family_id and session_completed_at is not None:
-                shared_conn = get_shared_decks_connection(read_only=True)
+        from src.services.sheet_tasks import SHEET_TASK_LOCK
+        with SHEET_TASK_LOCK:
+            conn = get_kid_connection_for(kid)
+            try:
+                session_row = conn.execute(
+                    "SELECT type, completed_at, delivery_mode FROM sessions WHERE id = ?",
+                    [session_id_int],
+                ).fetchone()
+                if session_row is None:
+                    return jsonify({'error': 'Session not found'}), 404
+                is_sheet = session_row[2] == 'sheet'
+                if is_sheet:
+                    conn.execute('BEGIN TRANSACTION')
                 try:
-                    delete_in_app_chore_events_for_session(
+                    session_type = session_row[0]
+                    session_completed_at = session_row[1]
+
+                    kid_audio_dir = get_kid_type3_audio_dir(kid)
+                    delete_session_with_recompute(
                         conn,
-                        shared_conn,
-                        family_id,
-                        session_type,
-                        session_completed_at,
+                        session_id_int,
+                        kid_audio_dir=kid_audio_dir,
                     )
-                finally:
-                    shared_conn.close()
-        finally:
-            conn.close()
+
+                    # Drop the in-app-chore points auto-awarded for this session — they
+                    # carry no session FK, so deleting the session would otherwise orphan
+                    # them. The parent's manual refresh would not re-create them (the
+                    # source session is gone), so the cleanup must happen here.
+                    family_id = str(kid.get('familyId') or '').strip()
+                    if family_id and session_completed_at is not None:
+                        shared_conn = get_shared_decks_connection(read_only=True)
+                        try:
+                            delete_in_app_chore_events_for_session(
+                                conn,
+                                shared_conn,
+                                family_id,
+                                session_type,
+                                session_completed_at,
+                            )
+                        finally:
+                            shared_conn.close()
+                    if is_sheet:
+                        conn.execute('COMMIT')
+                except Exception:
+                    if is_sheet:
+                        conn.execute('ROLLBACK')
+                    raise
+            finally:
+                conn.close()
         return jsonify({'message': 'Session deleted'}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -1395,7 +1417,8 @@ def get_kid_report_card_detail(kid_id, card_id):
                 t4.prompt,
                 t4.answer,
                 t4.submitted_answers,
-                t4.submitted_grades
+                t4.submitted_grades,
+                s.delivery_mode
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             LEFT JOIN lesson_reading_audio lra ON lra.result_id = sr.id
@@ -1413,6 +1436,7 @@ def get_kid_report_card_detail(kid_id, card_id):
         wrong_count = 0
         ungraded_count = 0
         response_sum_ms = 0
+        timed_attempt_count = 0
         for row in attempts_rows:
             correct_score = int(row[1] or 0)
             is_correct = correct_score == 1 or correct_score <= -2
@@ -1463,6 +1487,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'timestamp': row[3].isoformat() if row[3] else None,
                 'session_id': int(row[4]) if row[4] is not None else None,
                 'session_type': row[5],
+                'delivery_mode': row[18],
                 'session_behavior_type': session_behavior_type,
                 'session_category_display_name': get_deck_category_display_name(session_type, category_meta_by_key),
                 'session_started_at': row[6].isoformat() if row[6] else None,
@@ -1477,7 +1502,9 @@ def get_kid_report_card_detail(kid_id, card_id):
                 'submitted_answers': submitted_answers,
                 'submitted_grades': submitted_grades,
             })
-            response_sum_ms += avg_response_ms
+            if row[18] != 'sheet':
+                response_sum_ms += avg_response_ms
+                timed_attempt_count += 1
             if correct_score == 1 or correct_score <= SESSION_RESULT_RETRY_FIXED_FIRST:
                 right_count += 1
             elif correct_score < 0:
@@ -1486,7 +1513,7 @@ def get_kid_report_card_detail(kid_id, card_id):
                 ungraded_count += 1
 
         attempts_count = len(attempts)
-        avg_response_ms = (response_sum_ms / attempts_count) if attempts_count > 0 else 0
+        avg_response_ms = (response_sum_ms / timed_attempt_count) if timed_attempt_count > 0 else 0
         graded_count = right_count + wrong_count
         accuracy_pct = ((right_count * 100.0) / graded_count) if graded_count > 0 else 0
 
@@ -1684,6 +1711,11 @@ def update_kid(kid_id):
             if not isinstance(raw_map, dict):
                 return jsonify({'error': f'{SESSION_CARD_COUNT_BY_CATEGORY_FIELD} must be an object'}), 400
             card_count_by_category = get_kid_active_card_count_by_deck_category(kid)
+            mode_conn = get_kid_connection_for(kid, read_only=True)
+            try:
+                sheet_mode_keys = {row[0] for row in mode_conn.execute("SELECT category_key FROM deck_category_opt_in WHERE task_delivery_mode = 'sheet'").fetchall()}
+            finally:
+                mode_conn.close()
             for raw_key, raw_value in raw_map.items():
                 key = normalize_shared_deck_tag(raw_key)
                 if key not in all_category_keys:
@@ -1697,7 +1729,7 @@ def update_kid(kid_id):
                 behavior_type = str(
                     (category_meta_by_key.get(key) or {}).get('behavior_type') or ''
                 ).strip().lower()
-                if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV:
+                if behavior_type != DECK_CATEGORY_BEHAVIOR_TYPE_IV and key not in sheet_mode_keys:
                     cap = int(card_count_by_category.get(key, 0))
                     if parsed > cap:
                         return jsonify({

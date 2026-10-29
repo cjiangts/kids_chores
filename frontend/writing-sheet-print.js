@@ -121,6 +121,7 @@ function clampScale(value) {
 
 function computeSheetPreviewScale(paperSize = currentPaperSpec.key) {
     const paperSpec = getPaperSpec(paperSize);
+    if (params.get('taskSession')) return sheetPreviewWrap.clientWidth / paperSpec.pageWidth;
     const maxW = Math.min(window.innerWidth - 120, 780);
     const maxH = window.innerHeight - 200;
     const widthScale = maxW / paperSpec.pageWidth;
@@ -184,9 +185,9 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
     const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
     const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
-    const headerFontPx = Math.max(10, Math.round(12 * scale));
-    const pageWidthPx = Math.round(paperSpec.pageWidth * scale);
-    const pageHeightPx = Math.round(paperSpec.pageHeight * scale);
+    const headerFontPx = Math.max(10, Math.round(20 * scale));
+    const pageWidthPx = paperSpec.pageWidth * scale;
+    const pageHeightPx = paperSpec.pageHeight * scale;
 
     const globalRowScale = layoutRows.length > 0
         ? clampScale(layoutRows[0]?.scale || CW_DEFAULT_SCALE)
@@ -255,7 +256,14 @@ function renderSheetPreview(sheet) {
     if (!sheetPreviewWrap) return;
     const paperSize = normalizePaperSize(sheet?.layout?.paper_size || DEFAULT_PAPER_SIZE);
     const previewScale = computeSheetPreviewScale(paperSize);
-    sheetPreviewWrap.innerHTML = buildSheetPageMarkup(sheet, previewScale, { showDebugBorder: true });
+    sheetPreviewWrap.innerHTML = buildSheetPageMarkup(sheet, previewScale, { showDebugBorder: !params.get('taskSession') });
+    const page = sheetPreviewWrap.querySelector('.sheet-page');
+    const bounds = page.getBoundingClientRect();
+    const rects = Array.from(page.querySelectorAll('.cw-grid-cell')).filter((cell) => !cell.querySelector('.cw-grid-char')).map((cell) => {
+        const box = cell.getBoundingClientRect();
+        return { x: box.left - bounds.left, y: box.top - bounds.top, width: box.width, height: box.height };
+    });
+    window.SheetTaskOverlay?.attach(page, { page_index: 1 }, rects, bounds.width, bounds.height, 'type2');
 }
 
 async function handlePrint() {
@@ -343,6 +351,8 @@ async function loadAndRender() {
         updateSheetTitle(sheet);
 
         currentSheetData = sheet;
+        document.getElementById('finalizeBtn').classList.toggle('hidden', sheet.status !== 'preview');
+        if (printBtn) printBtn.classList.toggle('hidden', sheet.status === 'preview');
         renderSheetPreview(sheet);
     } catch (error) {
         console.error('Error loading Chinese sheet:', error);
@@ -362,6 +372,20 @@ function updateSheetTitle(sheet) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const backLink = document.getElementById('backToSheetManage');
+    if (backLink) {
+        const backParams = new URLSearchParams({ id: kidId });
+        if (categoryKey) backParams.set('categoryKey', categoryKey);
+        backLink.href = `/kid-writing-sheet-manage.html?${backParams}`;
+    }
+    document.getElementById('finalizeBtn')?.addEventListener('click', async (event) => {
+        event.currentTarget.disabled = true;
+        try {
+            await fetchJson(buildType2ApiUrl(`/chinese-print-sheets/${sheetId}/finalize`), { method: 'POST' });
+            await loadAndRender();
+        } catch (error) { alert(error.message); }
+        finally { document.getElementById('finalizeBtn').disabled = false; }
+    });
     applyPaperSpec(DEFAULT_PAPER_SIZE);
 
     document.addEventListener('keydown', (event) => {

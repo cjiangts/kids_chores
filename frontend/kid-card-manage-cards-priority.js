@@ -37,7 +37,26 @@ function filterCardsByQuery(cards, rawQuery) {
     });
 }
 
+function getType4CardFolder(card) {
+    const deck = (Array.isArray(allDecks) ? allDecks : []).find(
+        (entry) => Number(entry.deck_id) === Number(card?.type4_shared_deck_id)
+    );
+    if (deck) {
+        const tags = getDeckTags(deck);
+        const labels = getDeckTagLabels(deck);
+        const index = tags[0] === categoryKey ? 1 : 0;
+        return tags[index]
+            ? { key: `__folder__:${tags[index]}`, label: labels[index] || tags[index] }
+            : { key: '__unfiled__', label: 'Unfiled' };
+    }
+    const path = String(card?.source_deck_label || card?.source_deck_name || '').split('/').map((part) => part.trim()).filter(Boolean);
+    return path.length > 1
+        ? { key: `__folder__:${path[0]}`, label: path[0] }
+        : { key: '__unfiled__', label: 'Unfiled' };
+}
+
 function getCardSourceDeckFilterKey(card) {
+    if (isType4Behavior()) return getType4CardFolder(card).key;
     const raw = String(card?.source_deck_label || card?.source_deck_name || '').trim();
     const normalized = raw.toLowerCase().replace(/[\s_]+/g, '');
     if (
@@ -60,7 +79,7 @@ function getSourceDeckFilterOptions(cards) {
             return;
         }
         if (!map.has(key)) {
-            map.set(key, { label: resolveCardSourceDeckName(card), count: 0 });
+            map.set(key, { label: isType4Behavior() ? getType4CardFolder(card).label : resolveCardSourceDeckName(card), count: 0 });
         }
         map.get(key).count += 1;
     });
@@ -96,7 +115,7 @@ function buildSourceDeckFilterMenuItems() {
     sourceDeckFilterPopover.innerHTML = '';
     const totalCount = (Array.isArray(currentCards) ? currentCards : []).length;
     const options = [
-        { key: '', label: 'All decks', count: totalCount },
+        { key: '', label: isType4Behavior() ? 'All folders' : 'All decks', count: totalCount },
         ...getSourceDeckFilterOptions(currentCards),
     ];
     options.forEach((option) => {
@@ -1106,6 +1125,7 @@ function isSortMenuOpen() {
 // === 7. Queue settings + drill-speed save state
 // =====================================================================
 function getSessionCardCountCap() {
+    if (document.getElementById('sheetTaskMode')?.dataset.mode === 'sheet') return null;
     if (isType4Behavior()) {
         return null;
     }
@@ -1162,9 +1182,6 @@ function clampSessionCardCount(rawValue) {
 }
 
 function getSessionCardCountForMixLegend() {
-    if (isType4Behavior()) {
-        return getType4TotalCardsPerDay();
-    }
     return clampSessionCardCount(sessionCardCountInput ? sessionCardCountInput.value : '');
 }
 
@@ -1189,9 +1206,6 @@ function setQueueSettingsBaseline(sessionCount) {
 }
 
 function hasQueueSettingsChanges() {
-    if (isType4Behavior()) {
-        return false;
-    }
     if (getSessionCardCountForMixLegend() !== baselineSessionCardCount) {
         return true;
     }
@@ -1199,7 +1213,7 @@ function hasQueueSettingsChanges() {
 }
 
 function hasSessionCountSettingsChanges() {
-    return !isType4Behavior() && getSessionCardCountForMixLegend() !== baselineSessionCardCount;
+    return getSessionCardCountForMixLegend() !== baselineSessionCardCount;
 }
 
 function setQueueSettingsSaveButton(kind, state, labelText) {
@@ -1214,11 +1228,6 @@ function setQueueSettingsSaveButton(kind, state, labelText) {
 
 function updateQueueSettingsSaveButtonState() {
     if (!queueSettingsSaveBtn) {
-        return;
-    }
-    if (isType4Behavior()) {
-        setQueueSettingsSaveButton('session', 'saved', 'Saved');
-        setQueueSettingsSaveButton('speed', 'saved', 'Saved');
         return;
     }
     const sessionChanged = hasSessionCountSettingsChanges();

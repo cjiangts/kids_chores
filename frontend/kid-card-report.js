@@ -109,7 +109,11 @@ async function loadCardReport() {
         currentCardFront = String(card.front || '').trim();
         currentCardBack = String(card.back || '').trim();
         currentDeckName = String(card.deck_name || '').trim();
-        historyErrorsOnly = !attempts.some(isType3Attempt);
+        const targetAttempt = Number.isFinite(targetResultId) && targetResultId > 0
+            ? attempts.find((item) => Number(item?.result_id) === targetResultId)
+            : null;
+        historyErrorsOnly = !attempts.some(isType3Attempt)
+            && !(targetAttempt && resolveCorrectness(targetAttempt) === 'right');
         historyFilterBtns?.querySelectorAll('[data-history-filter]').forEach((button) => {
             const active = (button.dataset.historyFilter === 'errors') === historyErrorsOnly;
             button.classList.toggle('active', active);
@@ -328,11 +332,11 @@ function resolveSubjectDisplayName(attempts) {
 // =====================================================================
 
 function renderTrend(attempts, queuePreview = currentQueuePreview) {
-    currentTrendAttempts = Array.isArray(attempts) ? attempts : [];
+    currentTrendAttempts = Array.isArray(attempts) ? attempts.filter((item) => item.delivery_mode !== 'sheet') : [];
     if (trendLegend) trendLegend.innerHTML = '';
     if (trendFootnote) trendFootnote.textContent = '';
     if (!currentTrendAttempts.length) {
-        trendChart.innerHTML = `<div class="chart-empty">No attempts yet for this card.</div>`;
+        trendChart.innerHTML = `<div class="chart-empty">No timed attempts yet for this card.</div>`;
         return;
     }
 
@@ -597,6 +601,7 @@ function formatTrendResponseTime(ms, useMinutesUnit) {
 // =====================================================================
 
 function formatHistoryElapsedSeconds(ms) {
+    if (ms == null) return '—';
     const seconds = Math.max(0, Math.ceil((Number(ms) || 0) / 1000));
     return `${seconds}s`;
 }
@@ -610,7 +615,7 @@ function renderCompactHistoryAttempt({ itemOpen, itemClose, correctness, daysAgo
             <div class="history-attempt-row">
                 <span class="history-result-dot tone-${escapeHtml(correctness || 'pending')}${queueClass}" aria-label="${escapeHtml(correctness || 'pending')}"></span>
                 <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${historyIcon}</span><span>${escapeHtml(daysAgoLabel || '-')}</span></span>
-                <span class="history-attempt-meta"><span class="history-attempt-meta-icon" aria-hidden="true">${clockIcon}</span><span>${escapeHtml(formatHistoryElapsedSeconds(rawMs))}</span>${renderHistoryQueueBadge(queueState)}</span>
+                <span class="history-attempt-meta">${rawMs == null ? '' : `<span class="history-attempt-meta-icon" aria-hidden="true">${clockIcon}</span><span>${escapeHtml(formatHistoryElapsedSeconds(rawMs))}</span>`}${renderHistoryQueueBadge(queueState)}</span>
                 <span class="history-detail-group submitted-group">${pillsHtml}</span>
                 ${isLink ? '<span class="history-attempt-chevron" aria-hidden="true">›</span>' : ''}
             </div>
@@ -682,6 +687,11 @@ function renderHistory(attempts) {
         }
         if (isType4Attempt(item)) {
             const submittedPills = getType4AttemptSubmittedPills(item);
+            const prompt = String(item.materialized_prompt || '').trim();
+            const promptHtml = prompt ? `<span class="history-question-prompt">${escapeHtml(prompt)}</span>` : '';
+            const answerHtml = item.delivery_mode === 'sheet'
+                ? `<span class="history-type4-pill paradigm-pill answer-pill" title="Standard answer">${escapeHtml(getType4AttemptAnswer(item))}</span>`
+                : '';
             const resultIdAttr = Number.isFinite(Number(item?.result_id)) ? Number(item.result_id) : null;
             const idAttrPart = resultIdAttr !== null ? ` id="result-${resultIdAttr}" data-result-id="${resultIdAttr}"` : '';
             const itemOpen = sessionUrl
@@ -694,7 +704,7 @@ function renderHistory(attempts) {
                 correctness,
                 daysAgoLabel,
                 rawMs,
-                pillsHtml: submittedPills,
+                pillsHtml: `${promptHtml}${answerHtml}${submittedPills}`,
                 isLink: Boolean(sessionUrl),
                 queueState,
             });
@@ -879,6 +889,7 @@ function getCorrectnessLabel(correctness) {
 }
 
 function getAttemptDisplayResponseMs(item) {
+    if (item?.delivery_mode === 'sheet') return null;
     const avgMs = Math.max(0, Number(item?.avg_response_ms) || 0);
     if (avgMs > 0) {
         return avgMs;
@@ -942,6 +953,7 @@ function renderPromptAudioAssistMarker() {
 function getType4AttemptSubmittedPills(item) {
     const submittedAnswers = getLoggedSubmittedAnswers(item);
     if (submittedAnswers.length === 0) {
+        if (item?.delivery_mode === 'sheet') return '';
         return '<span class="history-type4-pill paradigm-pill tried-pill">-</span>';
     }
     const grades = getLoggedSubmittedGrades(item);

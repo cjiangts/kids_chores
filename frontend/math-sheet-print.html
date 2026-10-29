@@ -33,26 +33,32 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 10px;
-            border: 1px solid #d8dfef;
-            border-radius: 10px;
-            background: #fff;
+            padding: 0;
+            border: 0;
+            background: transparent;
         }
 
         .repeat-control label {
-            color: #5b6783;
+            color: #fff;
             font-size: 0.85rem;
             font-weight: 600;
         }
 
-        .repeat-control input {
-            width: 76px;
-            border: 1px solid #c9d4ec;
-            border-radius: 8px;
-            padding: 7px 9px;
-            font: inherit;
-            color: #234b9a;
-            background: #f8fbff;
+        .sheet-title-controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .page-header-row .sheet-title-controls h1 {
+            flex: 0 1 auto;
+        }
+
+        #mathSheetPager [data-page-label] {
+            color: #fff;
         }
 
         .sheet-preview-wrap {
@@ -307,16 +313,23 @@
         }
 
     </style>
+    <link rel="stylesheet" href="sheet-tasks.css">
 </head>
 <body class="print-sheet-page">
     <header class="page-header-with-back page-header-with-actions">
         <div class="page-header-row">
-            <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
-            <div class="page-header-actions">
+            <div class="sheet-title-controls">
+                <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
                 <div id="repeatControl" class="repeat-control" style="display:none;">
-                    <label for="repeatCountInput">Print Sheets</label>
-                    <input id="repeatCountInput" type="number" min="1" step="1" value="1" inputmode="numeric">
+                    <div class="paradigm-compact-stepper">
+                        <button type="button" class="paradigm-compact-stepper-button" data-repeat-step="-1" aria-label="Decrease print sheets"><span data-icon="minus"></span></button>
+                        <input id="repeatCountInput" class="paradigm-compact-stepper-value" type="number" min="1" step="1" value="1" inputmode="numeric" aria-label="Print sheets">
+                        <button type="button" class="paradigm-compact-stepper-button" data-repeat-step="1" aria-label="Increase print sheets"><span data-icon="plus"></span></button>
+                    </div>
                 </div>
+            </div>
+            <div class="page-header-actions">
+                <a id="backToSheetManage" class="paradigm-btn page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets"><span data-icon="arrow-left" data-icon-size="16"></span><span>Back</span></a>
                 <button id="showAnswersBtn" type="button" class="paradigm-btn">Show Answers</button>
                 <button id="regenerateBtn" type="button" class="paradigm-btn">Regenerate</button>
                 <button id="finalizeBtn" type="button" class="paradigm-btn">Finalize</button>
@@ -330,6 +343,7 @@
     <script src="icons.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="math-rendering-common.js"></script>
+    <script src="sheet-task-overlay.js"></script>
     <script src="math-sheet-print.js"></script>
 </body>
 </html>

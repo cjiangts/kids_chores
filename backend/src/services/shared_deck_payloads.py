@@ -33,7 +33,6 @@ from src.services.deck_source_merge import (
     get_card_count_summary_by_deck_ids,
     get_shared_merged_source_decks_for_kid,
     get_type_iv_bank_source_rows,
-    get_type_iv_total_daily_target_for_category,
 )
 from src.services.family_auth import get_kid_connection_for
 from src.services.kid_category_config import (
@@ -67,7 +66,7 @@ from src.services.shared_deck_queries import (
 )
 from src.services.type4_generator_definitions import build_type_iv_generator_detail_maps
 from src.services.type4_session import (
-    build_type_iv_continue_count_by_source_key,
+    distribute_type_iv_count_across_sources,
     get_type_iv_retry_source_result_rows,
 )
 
@@ -78,11 +77,10 @@ from src.services.type4_session import (
 def build_orphan_deck_payload(conn, orphan_deck_id, default_orphan_name):
     """Build one orphan deck summary payload."""
     orphan_row = conn.execute(
-        "SELECT id, name, COALESCE(daily_target_count, 0) FROM decks WHERE id = ? LIMIT 1",
+        "SELECT id, name FROM decks WHERE id = ? LIMIT 1",
         [orphan_deck_id]
     ).fetchone()
     orphan_name = str(orphan_row[1] or default_orphan_name) if orphan_row else str(default_orphan_name)
-    orphan_daily_target_count = int(orphan_row[2] or 0) if orphan_row and len(orphan_row) >= 3 else 0
     counts = get_card_count_summary_by_deck_ids(conn, [orphan_deck_id]).get(int(orphan_deck_id)) or {}
     return {
         'deck_id': orphan_deck_id,
@@ -90,7 +88,6 @@ def build_orphan_deck_payload(conn, orphan_deck_id, default_orphan_name):
         'card_count': int(counts.get('card_count') or 0),
         'active_card_count': int(counts.get('active_card_count') or 0),
         'skipped_card_count': int(counts.get('skipped_card_count') or 0),
-        'daily_target_count': orphan_daily_target_count,
     }
 
 
@@ -307,7 +304,6 @@ def build_type_iv_shared_decks_payload(
     local_by_shared_id = {}
     local_card_count_by_deck_id = {}
     local_representative_front_by_deck_id = {}
-    local_daily_target_by_deck_id = {}
     try:
         shared_conn = get_shared_decks_connection(read_only=True)
         decks = get_shared_type_iv_deck_rows(shared_conn, category_key)
@@ -330,21 +326,19 @@ def build_type_iv_shared_decks_payload(
                 f"""
                 SELECT
                     d.id AS deck_id,
-                    COALESCE(d.daily_target_count, 0) AS daily_target_count,
                     COUNT(c.id) AS card_count,
                     ARG_MIN(c.front, c.id) AS representative_front
                 FROM decks d
                 LEFT JOIN cards c ON c.deck_id = d.id
                 WHERE d.id IN ({placeholders})
-                GROUP BY d.id, d.daily_target_count
+                GROUP BY d.id
                 """,
                 local_deck_ids
             ).fetchall()
             for row in card_rows:
                 deck_id = int(row[0])
-                local_daily_target_by_deck_id[deck_id] = int(row[1] or 0)
-                local_card_count_by_deck_id[deck_id] = int(row[2] or 0)
-                local_representative_front_by_deck_id[deck_id] = str(row[3] or '')
+                local_card_count_by_deck_id[deck_id] = int(row[1] or 0)
+                local_representative_front_by_deck_id[deck_id] = str(row[2] or '')
 
         orphan_deck_name = get_category_orphan_deck_name(category_key)
         orphan_row = kid_conn.execute(
@@ -405,11 +399,6 @@ def build_type_iv_shared_decks_payload(
         )
         deck['mix_percent'] = 0
         deck['session_cards'] = 0
-        deck['daily_target_count'] = (
-            int(local_daily_target_by_deck_id.get(materialized_deck_id, 0))
-            if materialized_deck_id is not None
-            else 0
-        )
 
     # Keep kid-local materialized decks visible even if source shared deck was deleted.
     for shared_deck_id, local_entry in local_by_shared_id.items():
@@ -437,21 +426,13 @@ def build_type_iv_shared_decks_payload(
             'update_warning_reason': 'source_deleted',
             'mix_percent': 0,
             'session_cards': 0,
-            'daily_target_count': int(local_daily_target_by_deck_id.get(local_deck_id, 0)),
             'source_deleted': True,
         })
 
     session_card_count = (
         int(session_card_count_override)
         if session_card_count_override is not None
-        else (
-            sum(int(deck.get('daily_target_count') or 0) for deck in decks if bool(deck.get('opted_in')))
-            + (
-                int(orphan_deck_payload.get('daily_target_count') or 0)
-                if orphan_deck_payload is not None and include_orphan_in_queue
-                else 0
-            )
-        )
+        else get_category_session_card_count_for_kid(kid, category_key)
     )
     if orphan_deck_payload is not None:
         orphan_deck_payload['included_in_queue'] = bool(include_orphan_in_queue)
@@ -633,12 +614,7 @@ def build_type_iv_shared_cards_payload(
         session_card_count = (
             int(session_card_count_override)
             if session_card_count_override is not None
-            else get_type_iv_total_daily_target_for_category(
-                conn,
-                kid,
-                category_key,
-                include_orphan_in_queue_override=include_orphan_in_queue,
-            )
+            else get_category_session_card_count_for_kid(kid, category_key)
         )
 
         def _source_label(source):
@@ -741,10 +717,11 @@ def get_type_iv_practice_source_rows(
         placeholders = ','.join(['?'] * len(local_deck_ids))
         rows = conn.execute(
             f"""
-            SELECT c.id, c.deck_id, c.front, d.daily_target_count
+            SELECT c.id, c.deck_id, c.front
             FROM cards c
             JOIN decks d ON d.id = c.deck_id
             WHERE c.deck_id IN ({placeholders})
+              AND COALESCE(c.skip_practice, FALSE) = FALSE
             ORDER BY c.deck_id ASC, c.id ASC
             """,
             local_deck_ids,
@@ -784,7 +761,6 @@ def get_type_iv_practice_source_rows(
                 'skipped_card_count': 0,
                 'representative_card_id': representative_card_id,
                 'representative_front': representative_front,
-                'daily_target_count': max(0, int(row[3] or 0)),
                 'generator_code': generator_code if include_generator_code else '',
                 'is_multichoice_only': bool(generator_details.get('is_multichoice_only')),
                 'is_orphan': is_orphan,
@@ -801,7 +777,7 @@ def build_type_iv_special_session_ready_payload(conn, kid, category_key, practic
             0,
             int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
         )
-        continue_counts = build_type_iv_continue_count_by_source_key(practice_sources, missing_count)
+        continue_counts = distribute_type_iv_count_across_sources(practice_sources, missing_count)
         source_practice_mode = get_session_practice_mode(conn, continue_source_session['session_id'])
         return {
             'is_continue_session': True,

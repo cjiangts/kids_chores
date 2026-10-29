@@ -745,6 +745,21 @@ async function loadKidInfo(options = {}) {
 }
 
 async function loadReadyState() {
+    if (isType(BEHAVIOR_TYPE_II) || isType(BEHAVIOR_TYPE_IV)) {
+        const sheetRoot = document.getElementById('sheetTaskRoot') || document.createElement('section');
+        sheetRoot.id = 'sheetTaskRoot';
+        if (!sheetRoot.isConnected) practiceSection.appendChild(sheetRoot);
+        const usingSheets = await window.SheetTaskView.loadPractice(sheetRoot, kidId, state.categoryKey);
+        startScreen.classList.toggle('hidden', usingSheets);
+        sheetRoot.classList.toggle('hidden', !usingSheets);
+        if (usingSheets) {
+            practiceSection.classList.remove('hidden');
+            sessionScreen.classList.add('hidden');
+            resultScreen.classList.add('hidden');
+            showError('');
+            return;
+        }
+    }
     if (isType(BEHAVIOR_TYPE_I)) {
         await loadType1ReadyState();
         return;

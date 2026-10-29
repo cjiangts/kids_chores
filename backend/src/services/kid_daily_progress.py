@@ -36,7 +36,6 @@ from src.routes.kids_constants import (
     SESSION_RESULT_PARTIAL,
     SESSION_RESULT_WRONG_UNRESOLVED,
 )
-from src.services.deck_source_merge import get_type_iv_total_daily_target_for_category
 from src.services.family_auth import (
     can_family_access_deck_category,
     get_kid_connection_for,
@@ -163,6 +162,7 @@ def get_kid_dashboard_stats(
                     id,
                     type,
                     planned_count,
+                    delivery_mode,
                     completed_at,
                     started_at,
                     CASE
@@ -193,6 +193,7 @@ def get_kid_dashboard_stats(
                 FROM session_results sr
                 JOIN todays_sessions ts ON ts.id = sr.session_id
                 WHERE sr.card_id IS NOT NULL
+                  AND ts.delivery_mode <> 'sheet'
                   AND (sr.correct = -1 OR sr.correct = 2)
                 GROUP BY sr.session_id
             )
@@ -578,7 +579,8 @@ def get_kid_today_session_status_by_deck_category(
                 'ungradedCount': ungraded_count,
                 'earnedPoints': points_by_key.get(category_key, 0),
             }
-        return status_by_key
+        from src.services.sheet_tasks import apply_sheet_statuses
+        return apply_sheet_statuses(local_conn, kid, status_by_key)
     except Exception:
         return status_by_key
     finally:
@@ -806,26 +808,15 @@ def get_kid_practice_target_by_deck_category(
             continue
         seen_keys.add(key)
         keys.append(key)
-    owned_conn = None
     for key in keys:
         if not key:
             continue
         category_meta = category_meta_by_key.get(key) if isinstance(category_meta_by_key, dict) else None
         behavior_type = str((category_meta or {}).get('behavior_type') or '').strip().lower()
-        if behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_IV:
-            target_conn = conn
-            if target_conn is None:
-                if owned_conn is None:
-                    owned_conn = get_kid_connection_for(kid, read_only=True)
-                target_conn = owned_conn
-            targets[key] = int(get_type_iv_total_daily_target_for_category(target_conn, kid, key))
-            continue
         if behavior_type in DECK_CATEGORY_BEHAVIOR_TYPES:
             targets[key] = int(get_category_session_card_count_for_kid(kid, key))
             continue
         targets[key] = 0
-    if owned_conn is not None:
-        owned_conn.close()
     return targets
 
 

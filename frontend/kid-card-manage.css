@@ -107,8 +107,7 @@
         }
 
         #openDeckOptInActionBtn .manage-popup-btn-emoji { color: var(--p-accent); }
-        #openType4DeckCountsModalBtn .manage-popup-btn-emoji { color: #f59e0b; }
-        .manage-popup-modal {
+.manage-popup-modal {
             z-index: 1300;
         }
 
@@ -189,124 +188,6 @@
             margin: 0 0 0.55rem 0;
             color: #334;
             font-size: 1rem;
-        }
-
-        .type4-deck-counts-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.18rem;
-            margin: 0.45rem 0 0.7rem;
-        }
-
-        .type4-deck-counts-toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.7rem;
-            margin-top: 0.1rem;
-        }
-
-        .type4-deck-counts-modal-body {
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            overflow: hidden;
-        }
-
-        .type4-deck-counts-modal-body .deck-v2-action-row {
-            justify-content: flex-end;
-        }
-
-        .type4-deck-counts-scroll {
-            flex: 1 1 auto;
-            min-height: 0;
-            max-height: min(50vh, 420px);
-            overflow-y: auto;
-            padding-right: 0.15rem;
-            -webkit-overflow-scrolling: touch;
-            overscroll-behavior: contain;
-        }
-
-        .type4-deck-counts-toolbar-label {
-            font-size: 0.9rem;
-            font-weight: 700;
-            color: var(--p-ink-title);
-            white-space: nowrap;
-        }
-
-        .type4-deck-counts-toolbar-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-left: auto;
-        }
-
-        .type4-deck-count-row {
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 0.55rem;
-            align-items: center;
-            padding: 0.16rem 0;
-            border: none;
-            border-radius: 0;
-            background: transparent;
-        }
-
-        .type4-deck-count-copy {
-            min-width: 0;
-        }
-
-        .type4-deck-count-name {
-            font-size: 0.88rem;
-            font-weight: 700;
-            color: var(--p-ink-title);
-            word-break: break-word;
-            line-height: 1.1;
-        }
-
-        .type4-deck-count-input {
-            width: 82px;
-            min-width: 82px;
-            max-width: 88px;
-            min-height: 30px;
-            padding: 0.18rem 0.46rem;
-            border: 1px solid var(--control-border-color);
-            border-radius: var(--control-radius);
-            background: var(--control-bg);
-            color: var(--control-text);
-            font-size: 0.86rem;
-            line-height: 1.2;
-            box-sizing: border-box;
-            text-align: right;
-            justify-self: end;
-            margin: 0;
-        }
-
-        .type4-deck-counts-toolbar .type4-deck-counts-apply-btn {
-            min-width: 0;
-            min-height: 30px;
-            height: 30px;
-            padding: 0 0.65rem;
-            font-size: 0.86rem;
-            white-space: nowrap;
-        }
-
-        .type4-deck-count-input:focus {
-            outline: none;
-            border-color: var(--control-border-focus);
-            box-shadow: var(--control-shadow-focus);
-        }
-
-        .type4-deck-count-summary {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 0.8rem;
-            padding-top: 0.9rem;
-            border-top: 1px solid var(--p-border-soft);
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--p-ink-title);
         }
 
         .mix-bar {
@@ -1484,21 +1365,7 @@
                 height: 18px;
             }
 
-            .type4-deck-count-row {
-                grid-template-columns: minmax(0, 1fr) auto;
-                gap: 0.65rem;
-            }
-
-            .type4-deck-counts-toolbar-label {
-                font-size: 0.8rem;
-            }
-
-            .type4-deck-count-input {
-                width: 82px;
-                min-width: 82px;
-            }
-
-            .queue-save-row .settings-save-btn {
+.queue-save-row .settings-save-btn {
                 min-width: 88px;
                 padding-left: 0.7rem;
                 padding-right: 0.7rem;
@@ -1533,6 +1400,10 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 1rem;
+        }
+
+        .kid-card-manage-page.type4-manage .cards-toolbar > :not(.filter-menu):not(.cards-import-decks-btn) {
+            display: none;
         }
 
         .cards-grid.short-view {
@@ -2321,48 +2192,6 @@
         }
 
 
-        .expanded-detail-card.type4-card .expanded-card-hero {
-            grid-template-columns: minmax(0, 1fr);
-        }
-
-        .expanded-detail-card.type4-card .expanded-card-main {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 0.6rem;
-            flex-wrap: wrap;
-        }
-
-        .expanded-detail-card.type4-card .card-front {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            font-size: 1.15rem;
-            font-weight: 700;
-            line-height: 1.2;
-            width: fit-content;
-            min-width: 5.5rem;
-            min-height: 3.4rem;
-            padding: 0.55rem 0.95rem;
-            margin: 0;
-            border-radius: 0.65rem;
-            border: 1px solid var(--p-border-soft);
-            background: #f8fafc;
-            color: #1e293b;
-        }
-
-        .expanded-detail-card.type4-card .card-deck-row {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-            justify-content: center;
-            flex-wrap: nowrap;
-            gap: 0.3rem;
-            margin: 0;
-            min-width: 0;
-        }
-
         .type4-multichoice-chip {
             display: inline-flex;
             align-items: center;
@@ -2449,7 +2278,8 @@
             margin: 0;
             white-space: pre-wrap;
             word-break: break-word;
-            font-size: 0.84rem;
+            font-size: 0.72rem;
+            font-weight: 600;
             line-height: 1.42;
             color: var(--p-ink-title);
             max-height: 180px;
@@ -2462,6 +2292,8 @@
         }
 
         .type4-generator-code-editor {
+            font-size: 0.72rem;
+            font-weight: 600;
             width: 100%;
             height: 180px;
             border-radius: 10px;
@@ -2477,14 +2309,70 @@
         .type4-generator-samples {
             display: grid;
             gap: 0.55rem;
+            position: relative;
+            padding-right: 1.75rem;
         }
 
-        #type4GeneratorModal .type4-generator-modal-section + .type4-generator-modal-section {
+        .type4-generator-samples .type4-generator-rerun {
+            --paradigm-icon-btn-size: 1.4rem;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 1.4rem;
+            height: 1.4rem;
+            min-width: 1.4rem;
+            min-height: 1.4rem;
+            max-width: 1.4rem;
+            max-height: 1.4rem;
+            box-sizing: border-box;
+            aspect-ratio: 1;
+            padding: 0;
+            border-radius: 50%;
+        }
+
+        .type4-generator-modal-head:not(:has(button)) {
+            display: none;
+        }
+
+        .type4-generator-modal-section + .type4-generator-modal-section {
             margin-top: 0.85rem;
         }
 
-        #type4GeneratorModal .type4-generator-modal-head {
+        .type4-generator-modal-head {
             margin-bottom: 0.7rem;
+        }
+
+        .type4-generator-inline {
+            margin-top: 0.4rem;
+        }
+
+        .type4-generator-inline .type4-generator-modal-section + .type4-generator-modal-section {
+            margin-top: 0;
+        }
+
+        .type4-generator-inline-samples {
+            margin-top: 0.35rem;
+            min-width: 0;
+        }
+
+        .type4-generator-inline-samples .type4-generator-sample-card {
+            border: 0;
+            padding: 0;
+            background: transparent;
+            font-size: 0.72rem;
+            line-height: 1.4;
+            color: var(--p-ink-muted, #667085);
+            overflow-wrap: anywhere;
+        }
+
+        .type4-generator-inline-samples code {
+            font-size: inherit;
+        }
+
+        .short-expanded-popover:has(.type4-generator-inline) {
+            max-height: calc(100dvh - 120px);
+            overflow-y: auto;
+            overscroll-behavior: contain;
         }
 
         .type4-generator-sample-card {
@@ -3098,8 +2986,23 @@
             gap: 0.36rem;
         }
 
+        .kid-card-manage-page .printed-question-shortage {
+            color: #d97706;
+        }
+
         .kid-card-manage-page .cards-title-worksheet-btn {
             color: #22a45a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            width: auto;
+            min-width: 0;
+            padding: 0 0.6rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-variant-numeric: tabular-nums;
         }
 
         .kid-card-manage-page .cards-section > .paradigm-panel-title + .queue-actions-layout {

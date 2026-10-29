@@ -18,7 +18,7 @@ def delete_session_with_recompute(conn, session_id, *, kid_audio_dir=None):
     session_id_int = int(session_id)
 
     type_row = conn.execute(
-        "SELECT type FROM sessions WHERE id = ?",
+        "SELECT type, delivery_mode FROM sessions WHERE id = ?",
         [session_id_int],
     ).fetchone()
     if type_row is None:
@@ -73,6 +73,17 @@ def delete_session_with_recompute(conn, session_id, *, kid_audio_dir=None):
         """,
         [session_id_int],
     )
+    sheet_refs = conn.execute(
+        'SELECT DISTINCT sheet_kind, sheet_id FROM sheet_session_items WHERE session_id = ?',
+        [session_id_int],
+    ).fetchall()
+    conn.execute('DELETE FROM sheet_session_items WHERE session_id = ?', [session_id_int])
+    for kind, sheet_id in sheet_refs:
+        table = 'type4_print_sheets' if kind == 'type4' else 'type2_chinese_print_sheets'
+        conn.execute(
+            f"UPDATE {table} SET status = 'pending', completed_at = NULL WHERE id = ? AND status = 'done'",
+            [sheet_id],
+        )
     conn.execute(
         "DELETE FROM session_results WHERE session_id = ?",
         [session_id_int],

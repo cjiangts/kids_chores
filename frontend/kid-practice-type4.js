@@ -35,21 +35,21 @@ async function loadType4ReadyState() {
 
     if (!state.readyIsContinueSession && !state.readyIsRetrySession && state.configuredSessionCount <= 0) {
         practiceSection.classList.add('hidden');
-        showError(`${getCurrentCategoryDisplayName()} practice is off. Ask your parent to set deck counts in Manage ${getCurrentCategoryDisplayName()}.`);
+        showError(`${getCurrentCategoryDisplayName()} practice is off. Ask your parent to set Daily Targets in Manage ${getCurrentCategoryDisplayName()}.`);
         return;
     }
 
     if (targetCount <= 0) {
         practiceSection.classList.add('hidden');
         if (state.readyIsContinueSession) {
-            showError('Continue session has no available questions right now. Ask your parent to check deck counts.');
+            showError('Continue session has no available questions right now. Ask your parent to check the available cards and Daily Targets.');
             return;
         }
         if (state.readyIsRetrySession) {
-            showError('Retry session has no available questions right now. Ask your parent to check deck counts.');
+            showError('Retry session has no available questions right now. Ask your parent to check the available cards and Daily Targets.');
             return;
         }
-        showError(`No ${getCurrentCategoryDisplayName()} questions available for current deck counts.`);
+        showError(`No ${getCurrentCategoryDisplayName()} questions available for the current Daily Targets.`);
         return;
     }
 

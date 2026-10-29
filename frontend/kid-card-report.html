@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="audio-history-common.css">
     <link rel="stylesheet" href="report-hero-action.css">
+    <link rel="stylesheet" href="report-hero-preview.css">
     <link rel="stylesheet" href="report-hero-meta.css">
     <link rel="stylesheet" href="report-grading-common.css">
     <style>
@@ -42,52 +43,6 @@
         .card-report-hero-empty {
             color: #666;
             font-size: 0.88rem;
-        }
-
-        .card-report-hero-icon {
-            width: 96px;
-            align-self: stretch;
-            background: #f3f5fb;
-            border-radius: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-
-        .card-report-hero-icon-link {
-            box-sizing: border-box;
-            border: 3px solid #aebcff;
-            color: inherit;
-            text-decoration: none;
-            cursor: pointer;
-            box-shadow: 0 1px 3px rgba(72, 87, 161, 0.1);
-            transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
-        }
-
-        .card-report-hero-icon-link:hover {
-            border-color: #7f90fb;
-            box-shadow: 0 3px 8px rgba(72, 87, 161, 0.18);
-            transform: translateY(-1px);
-        }
-
-        .card-report-hero-icon-link:focus-visible {
-            outline: 2px solid #5b6acf;
-            outline-offset: 2px;
-        }
-
-        .card-report-hero-icon-text {
-            color: #2f3c7e;
-            font-weight: 600;
-            text-align: center;
-            line-height: 1.15;
-            padding: 0 0.3rem;
-            max-width: 100%;
-            max-height: 100%;
-            overflow: hidden;
-            word-break: break-word;
-            overflow-wrap: anywhere;
         }
 
         .card-report-hero-icon-text.chinese-specific {
@@ -756,6 +711,12 @@
         .history-detail-group.submitted-group {
             flex-wrap: wrap;
             row-gap: 0.25rem;
+        }
+
+        .history-question-prompt {
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            color: #33406f;
         }
 
         .history-time-group {

@@ -69,6 +69,7 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
+          AND s.delivery_mode = 'online'
           AND s.completed_at IS NOT NULL
           AND s.completed_at >= ?
           AND s.completed_at < ?
@@ -126,6 +127,7 @@ def get_latest_unfinished_session_for_today(conn, kid, session_type):
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
+          AND s.delivery_mode = 'online'
           AND COALESCE(s.planned_count, 0) > 0
           AND COALESCE(s.completed_at, s.started_at) >= ?
           AND COALESCE(s.completed_at, s.started_at) < ?

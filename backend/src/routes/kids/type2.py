@@ -36,6 +36,7 @@ from src.routes.kids import (
     synthesize_shared_writing_audio,
 )
 from src.services.card_stats import delete_card_from_deck_internal
+from src.services.sheet_tasks import enumerate_sheet_items
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.kid_category_resolve import (
@@ -653,7 +654,7 @@ def create_chinese_print_sheet(kid_id):
             sheet_id = conn.execute(
                 """
                 INSERT INTO type2_chinese_print_sheets (category_key, layout_json, status)
-                VALUES (?, ?, 'pending')
+                VALUES (?, ?, 'preview')
                 RETURNING id
                 """,
                 [category_key, layout_json],
@@ -694,7 +695,9 @@ def list_chinese_print_sheets(kid_id):
             conn = get_kid_connection_for(kid, read_only=True)
             rows = conn.execute(
                 """
-                SELECT id, category_key, layout_json, status, created_at, completed_at
+                SELECT id, category_key, layout_json, status, created_at, completed_at,
+                       EXISTS(SELECT 1 FROM sheet_session_items i WHERE i.sheet_kind = 'type2' AND i.sheet_id = type2_chinese_print_sheets.id),
+                       (SELECT COUNT(*) FROM sheet_session_items i WHERE i.sheet_kind = 'type2' AND i.sheet_id = type2_chinese_print_sheets.id AND i.result_id IS NOT NULL)
                 FROM type2_chinese_print_sheets
                 WHERE category_key = ?
                 ORDER BY created_at DESC, id DESC
@@ -724,6 +727,9 @@ def list_chinese_print_sheets(kid_id):
                 'status': str(row[3] or 'pending'),
                 'created_at': row[4].isoformat() if row[4] else None,
                 'completed_at': row[5].isoformat() if row[5] else None,
+                'task_started': bool(row[6]),
+                'total_question_count': sum(1 for _ in enumerate_sheet_items('type2', int(row[0]), layout)),
+                'completed_question_count': int(row[7] or 0),
                 'paper_size': str(layout.get('paper_size') or 'us-letter'),
                 'row_count': len(layout_rows),
                 'card_labels': card_labels,
@@ -786,6 +792,24 @@ def get_chinese_print_sheet_detail(kid_id, sheet_id):
         return jsonify({'error': str(e)}), 500
 
 
+@kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets/<int:sheet_id>/finalize', methods=['POST'])
+def finalize_chinese_print_sheet(kid_id, sheet_id):
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return jsonify({'error': 'Kid not found'}), 404
+    conn = get_kid_connection_for(kid)
+    try:
+        row = conn.execute('SELECT status FROM type2_chinese_print_sheets WHERE id = ?', [sheet_id]).fetchone()
+        if not row:
+            return jsonify({'error': 'Sheet not found'}), 404
+        if row[0] != 'preview':
+            return jsonify({'error': 'Only preview sheets can be finalized'}), 409
+        conn.execute("UPDATE type2_chinese_print_sheets SET status = 'pending' WHERE id = ?", [sheet_id])
+        return jsonify({'sheet_id': sheet_id, 'status': 'pending'})
+    finally:
+        conn.close()
+
+
 @kids_bp.route('/kids/<kid_id>/type2/chinese-print-sheets/<int:sheet_id>/complete', methods=['POST'])
 def complete_chinese_print_sheet(kid_id, sheet_id):
     """Mark one Chinese print sheet as done."""
@@ -804,14 +828,7 @@ def complete_chinese_print_sheet(kid_id, sheet_id):
             if not row:
                 return jsonify({'error': 'Sheet not found'}), 404
             if str(row[1] or '').strip().lower() != 'done':
-                conn.execute(
-                    """
-                    UPDATE type2_chinese_print_sheets
-                    SET status = 'done', completed_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                    """,
-                    [sheet_id],
-                )
+                return jsonify({'error': 'Complete this sheet through a child task and parent review'}), 409
         finally:
             if conn is not None:
                 conn.close()
@@ -843,6 +860,8 @@ def withdraw_chinese_print_sheet(kid_id, sheet_id):
             status = str(row[1] or '').strip().lower()
             if status == 'done':
                 return jsonify({'error': 'Completed sheets cannot be withdrawn'}), 400
+            if conn.execute("SELECT 1 FROM sheet_session_items WHERE sheet_kind = 'type2' AND sheet_id = ? LIMIT 1", [sheet_id]).fetchone():
+                return jsonify({'error': 'This sheet is assigned to a task and cannot be deleted'}), 409
             conn.execute("DELETE FROM type2_chinese_print_sheets WHERE id = ?", [sheet_id])
         finally:
             if conn is not None:

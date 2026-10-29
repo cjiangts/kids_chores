@@ -202,23 +202,7 @@
     min-width: 0;
 }
 
-.practice-home-redesign .practice-row-chevron {
-    flex: 0 0 136px;
-    display: inline-flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    width: 136px;
-    min-width: 136px;
-    padding: 8px 12px;
-    box-sizing: border-box;
-    border: 1px solid #7057d9;
-    border-radius: 10px;
-    background: #fff;
-    color: #7057d9;
-    box-shadow: none;
-}
+
 
 .practice-home-redesign .practice-row-action-label {
     font-size: 0.86rem;
@@ -443,7 +427,7 @@
     font-weight: 500;
 }
 
-.practice-home-redesign .off-app-task-action {
+.practice-home-redesign .practice-task-action {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -463,20 +447,14 @@
     box-sizing: border-box;
 }
 
-.practice-home-redesign .off-app-task-row.is-checked .off-app-task-action {
-    border-color: #d8def0;
-    background: #f4f6ff;
-    color: #50608f;
-}
-
-.practice-home-redesign .off-app-task-row.is-pending-review .off-app-task-action {
+.practice-home-redesign .is-pending-review .practice-task-action {
     border-color: #f3c77b;
     background: #fff7e6;
     color: #9b5a05;
 }
 
-.practice-home-redesign .off-app-task-row.is-pending-review:hover .off-app-task-action,
-.practice-home-redesign .off-app-task-row.is-pending-review:focus-visible .off-app-task-action {
+.practice-home-redesign .is-pending-review:hover .practice-task-action,
+.practice-home-redesign .is-pending-review:focus-visible .practice-task-action {
     background: #fff7e6;
     border-color: #e0a94c;
     color: #8a4d04;
@@ -670,14 +648,7 @@
         font-size: 1.7rem;
     }
 
-    .practice-home-redesign .practice-row-chevron {
-        width: 136px;
-        min-width: 136px;
-        flex-basis: 136px;
-        padding: 8px 12px;
-        border-radius: 10px;
-        gap: 7px;
-    }
+
 
     .practice-home-redesign .practice-row-chevron .icon {
         width: 18px;
@@ -744,7 +715,7 @@
         font-size: 1.35rem;
     }
 
-    .practice-home-redesign .off-app-task-action {
+    .practice-home-redesign .practice-task-action {
         width: 104px;
         min-width: 104px;
         flex-basis: 104px;
@@ -762,14 +733,7 @@
         font-size: 1.35rem;
     }
 
-    .practice-home-redesign .practice-row-chevron {
-        width: 104px;
-        min-width: 104px;
-        flex-basis: 104px;
-        padding: 7px 8px;
-        border-radius: 10px;
-        gap: 5px;
-    }
+
 
     .practice-home-redesign .practice-row-chevron .icon {
         width: 18px;

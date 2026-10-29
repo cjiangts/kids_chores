@@ -81,8 +81,7 @@ from src.services.session_grading import (
     insert_type1_result_item,
 )
 from src.services.type4_session import (
-    build_type_iv_continue_count_by_source_key,
-    build_type_iv_initial_count_by_source_key,
+    distribute_type_iv_count_across_sources,
     build_type_iv_pending_items_for_sources,
     get_type_iv_retry_source_result_rows,
     map_type_iv_pending_item_to_response_card,
@@ -425,7 +424,7 @@ def start_type4_practice_session(kid_id):
                     0,
                     int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
                 )
-                count_by_source_key = build_type_iv_continue_count_by_source_key(
+                count_by_source_key = distribute_type_iv_count_across_sources(
                     practice_sources,
                     missing_count,
                 )
@@ -477,7 +476,9 @@ def start_type4_practice_session(kid_id):
                         for item in pending_items
                     ]
                 else:
-                    count_by_source_key = build_type_iv_initial_count_by_source_key(practice_sources)
+                    count_by_source_key = distribute_type_iv_count_across_sources(
+                        practice_sources, get_category_session_card_count_for_kid(kid, category_key)
+                    )
                     pending_items, response_cards = build_type_iv_pending_items_for_sources(
                         practice_sources,
                         count_by_source_key,

@@ -156,7 +156,7 @@ def get_pending_writing_card_ids(conn):
     return pending_card_ids
 
 
-def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('preview', 'pending')):
+def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('preview',)):
     """Remove selected cards from saved in-progress Chinese print sheets."""
     normalized_card_ids = normalize_positive_int_list(card_ids)
     normalized_statuses = normalize_lowercase_string_list(statuses)

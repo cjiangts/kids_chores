@@ -16,7 +16,6 @@ Layout:
   3. Count distribution + initial/continue allocation
   4. Retry source result rows (per-kid DB read)
 """
-import math
 import random
 import time
 
@@ -142,156 +141,23 @@ def build_type_iv_pending_items_for_sources(
 # === 3. Count distribution + initial/continue allocation
 # =====================================================================
 
-def distribute_type_iv_random_count_across_sources(source_keys, total_count, rng):
-    """Spread one generator count randomly across source keys with minimal repetition."""
-    normalized_keys = normalize_positive_int_list(source_keys)
-    if total_count <= 0 or not normalized_keys:
+def distribute_type_iv_count_across_sources(practice_sources, target_count):
+    """Split the subject total evenly; assign the remainder to the last cards."""
+    source_keys = list(dict.fromkeys(
+        int(source.get('source_key') or source.get('representative_card_id') or 0)
+        for source in list(practice_sources or [])
+        if int(source.get('local_deck_id') or 0) > 0
+        and int(source.get('source_key') or source.get('representative_card_id') or 0) > 0
+    ))
+    total = max(0, int(target_count or 0))
+    if not source_keys or total == 0:
         return {}
-
-    allocations = {key: 0 for key in normalized_keys}
-    shuffled_keys = list(normalized_keys)
-    rng.shuffle(shuffled_keys)
-    full_cycles, remainder = divmod(int(total_count), len(shuffled_keys))
-    if full_cycles > 0:
-        for key in shuffled_keys:
-            allocations[key] += full_cycles
-    if remainder > 0:
-        rng.shuffle(shuffled_keys)
-        for key in shuffled_keys[:remainder]:
-            allocations[key] += 1
+    base, remainder = divmod(total, len(source_keys))
     return {
-        int(key): int(count)
-        for key, count in allocations.items()
-        if int(count or 0) > 0
+        key: count
+        for index, key in enumerate(source_keys)
+        if (count := base + int(remainder > 0 and index >= len(source_keys) - remainder)) > 0
     }
-
-
-def build_type_iv_initial_count_by_source_key(practice_sources):
-    """Build one configured per-source count map for a fresh generator session."""
-    allocations = {}
-    orphan_source_keys_by_deck_id = {}
-    orphan_daily_target_by_deck_id = {}
-
-    for source in list(practice_sources or []):
-        local_deck_id = int(source.get('local_deck_id') or 0)
-        source_key = int(source.get('source_key') or source.get('representative_card_id') or 0)
-        daily_target_count = max(0, int(source.get('daily_target_count') or 0))
-        if local_deck_id <= 0 or source_key <= 0 or daily_target_count <= 0:
-            continue
-        if bool(source.get('is_orphan')):
-            orphan_source_keys_by_deck_id.setdefault(local_deck_id, []).append(source_key)
-            orphan_daily_target_by_deck_id[local_deck_id] = daily_target_count
-            continue
-        allocations[source_key] = daily_target_count
-
-    rng = random.Random(int(time.time_ns() % 2_000_000_000))
-    for local_deck_id, source_keys in orphan_source_keys_by_deck_id.items():
-        orphan_allocations = distribute_type_iv_random_count_across_sources(
-            source_keys,
-            int(orphan_daily_target_by_deck_id.get(local_deck_id) or 0),
-            rng,
-        )
-        for source_key, count in orphan_allocations.items():
-            allocations[int(source_key)] = int(count)
-
-    return allocations
-
-
-def build_type_iv_continue_count_by_source_key(practice_sources, target_count):
-    """Redistribute unfinished generator questions across current generator sources."""
-    remaining_count = max(0, int(target_count or 0))
-    if remaining_count <= 0:
-        return {}
-
-    grouped_entries_by_key = {}
-    for source in list(practice_sources or []):
-        local_deck_id = int(source.get('local_deck_id') or 0)
-        source_key = int(source.get('source_key') or source.get('representative_card_id') or 0)
-        if local_deck_id <= 0 or source_key <= 0:
-            continue
-        is_orphan = bool(source.get('is_orphan'))
-        group_key = f"orphan_{local_deck_id}" if is_orphan else f"source_{source_key}"
-        entry = grouped_entries_by_key.get(group_key)
-        if entry is None:
-            entry = {
-                'group_key': group_key,
-                'weight': max(0, int(source.get('daily_target_count') or 0)),
-                'source_keys': [],
-                'is_orphan': is_orphan,
-            }
-            grouped_entries_by_key[group_key] = entry
-        entry['weight'] = max(entry['weight'], max(0, int(source.get('daily_target_count') or 0)))
-        entry['source_keys'].append(source_key)
-
-    all_entries = [
-        entry for entry in grouped_entries_by_key.values()
-        if list(entry.get('source_keys') or [])
-    ]
-    if not all_entries:
-        return {}
-
-    weighted_entries = [
-        entry for entry in all_entries
-        if int(entry.get('weight') or 0) > 0
-    ]
-    if not weighted_entries:
-        weighted_entries = list(all_entries)
-
-    source_entries = [{
-        'group_key': str(entry.get('group_key') or ''),
-        'weight': max(1, int(entry.get('weight') or 0)),
-        'source_keys': [int(key) for key in list(entry.get('source_keys') or []) if int(key) > 0],
-        'is_orphan': bool(entry.get('is_orphan')),
-    } for entry in weighted_entries]
-    if not source_entries:
-        return {}
-
-    total_weight = sum(entry['weight'] for entry in source_entries)
-    allocations = {entry['group_key']: 0 for entry in source_entries}
-    fractional_entries = []
-    allocated_count = 0
-    for entry in source_entries:
-        exact_share = (remaining_count * entry['weight']) / float(max(1, total_weight))
-        base_share = int(math.floor(exact_share))
-        allocations[entry['group_key']] = base_share
-        allocated_count += base_share
-        fractional_entries.append({
-            'group_key': entry['group_key'],
-            'weight': entry['weight'],
-            'fractional': exact_share - float(base_share),
-        })
-
-    remainder = max(0, remaining_count - allocated_count)
-    fractional_entries.sort(
-        key=lambda entry: (-entry['fractional'], -entry['weight'], entry['group_key'])
-    )
-    while remainder > 0 and fractional_entries:
-        for entry in fractional_entries:
-            allocations[entry['group_key']] += 1
-            remainder -= 1
-            if remainder <= 0:
-                break
-
-    rng = random.Random(int(time.time_ns() % 2_000_000_000))
-    expanded_allocations = {}
-    for entry in source_entries:
-        allocated = int(allocations.get(entry['group_key']) or 0)
-        if allocated <= 0:
-            continue
-        if bool(entry.get('is_orphan')):
-            orphan_allocations = distribute_type_iv_random_count_across_sources(
-                entry.get('source_keys') or [],
-                allocated,
-                rng,
-            )
-            for source_key, count in orphan_allocations.items():
-                expanded_allocations[int(source_key)] = int(count)
-            continue
-        first_source_key = int((entry.get('source_keys') or [0])[0] or 0)
-        if first_source_key > 0:
-            expanded_allocations[first_source_key] = allocated
-
-    return expanded_allocations
 
 
 # =====================================================================

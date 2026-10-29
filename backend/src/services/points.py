@@ -869,13 +869,13 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
           AND s.completed_at IS NOT NULL
           AND s.completed_at >= ?
           AND s.completed_at < ?
-        GROUP BY s.id, s.planned_count, s.completed_at
+        GROUP BY s.id, s.planned_count, s.completed_at, s.delivery_mode
         HAVING COUNT(sr.id) > 0
            AND (
              COALESCE(s.planned_count, 0) <= 0
              OR COUNT(sr.id) >= COALESCE(s.planned_count, 0)
            )
-           AND SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END) = 0
+           AND (s.delivery_mode = 'sheet' OR SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END) = 0)
         ORDER BY s.completed_at ASC, s.id ASC
         {limit_clause}
         """,
@@ -892,7 +892,7 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
     ]
 
 
-def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trigger_keys=None, at_utc=None):
+def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trigger_keys=None, at_utc=None, manage_transaction=True):
     rules = list_family_rules(
         shared_conn,
         family_id,
@@ -908,7 +908,8 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
         }
     awarded = []
     skipped_count = 0
-    kid_conn.execute('BEGIN TRANSACTION')
+    if manage_transaction:
+        kid_conn.execute('BEGIN TRANSACTION')
     try:
         for rule in rules:
             if rule.get('maxPoint') is None:
@@ -941,9 +942,11 @@ def pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id, *, trig
                 event['sessionId'] = session['sessionId']
                 event['completedCardCount'] = completed_card_count
                 awarded.append(event)
-        kid_conn.execute('COMMIT')
+        if manage_transaction:
+            kid_conn.execute('COMMIT')
     except Exception:
-        kid_conn.execute('ROLLBACK')
+        if manage_transaction:
+            kid_conn.execute('ROLLBACK')
         raise
     return {
         'awarded': awarded,

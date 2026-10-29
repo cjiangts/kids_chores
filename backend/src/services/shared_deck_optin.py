@@ -27,7 +27,6 @@ Layout (search for `# === N. ` banner markers to jump between sections):
        session_results, lesson-reading audio, type-II chinese print sheets)
 """
 from src.db.shared_deck_db import get_shared_decks_connection
-from src.routes.kids_constants import DEFAULT_TYPE_IV_DAILY_TARGET_COUNT
 from src.services.family_auth import get_kid_connection_for
 from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.kid_category_config import (
@@ -406,14 +405,13 @@ def opt_in_type_iv_shared_decks(kid, category_key, deck_ids):
             materialized_tags = build_materialized_shared_deck_tags(src_deck['tags'])
             inserted = kid_conn.execute(
                 """
-                INSERT INTO decks (name, tags, daily_target_count)
-                VALUES (?, ?, ?)
+                INSERT INTO decks (name, tags)
+                VALUES (?, ?)
                 RETURNING id
                 """,
                 [
                     materialized_name,
                     materialized_tags,
-                    DEFAULT_TYPE_IV_DAILY_TARGET_COUNT,
                 ]
             ).fetchone()
             local_deck_id = int(inserted[0])

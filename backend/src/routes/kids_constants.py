@@ -100,7 +100,6 @@ for _type_iv_paper_spec in TYPE_IV_PRINT_SHEET_PAPER_SPECS.values():
     _type_iv_paper_spec['safe_grid_height'] = (
         _type_iv_paper_spec['content_height'] - TYPE_IV_PRINT_SHEET_FIT_SAFETY_PX
     )
-DEFAULT_TYPE_IV_DAILY_TARGET_COUNT = 10
 MAX_TYPE_IV_DAILY_TARGET_COUNT = 1000
 TYPE_IV_PREVIEW_SAMPLE_COUNT = 1
 TYPE_IV_DEFAULT_PRACTICE_MODE = 'input'

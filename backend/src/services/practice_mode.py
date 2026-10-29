@@ -70,7 +70,7 @@ def get_latest_session_practice_mode(conn, session_type):
         """
         SELECT practice_mode
         FROM sessions
-        WHERE type = ?
+        WHERE type = ? AND delivery_mode = 'online'
         ORDER BY COALESCE(completed_at, started_at) DESC, id DESC
         LIMIT 1
         """,

@@ -1,0 +1,38 @@
+.sheet-task-embedded,
+.sheet-task-embedded body { background: #fff; width: 100%; height: 100%; min-height: 0; padding: 0; margin: 0; overflow: hidden; }
+.sheet-task-embedded .page-header-with-back,
+.sheet-task-embedded .kid-app-navigation { display: none !important; }
+.sheet-task-embedded .sheet-preview-wrap { width: 100%; margin: 0; padding: 0; gap: 0; }
+.sheet-task-embedded .sheet-page { max-width: 100%; border: 0; box-shadow: none; margin: 0 auto; }
+.sheet-task-embedded .sheet-preview-wrap { overflow: hidden; }
+.sheet-task-overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.sheet-task-question { position: absolute; pointer-events: auto; padding: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; color: #0369a1; font-size: clamp(14px, 4vw, 40px); cursor: pointer; }
+.sheet-task-question-muted { position: absolute; background: rgba(203,213,225,.7); pointer-events: none; }
+.sheet-task-question:focus-visible { outline: 2px solid var(--p-accent); outline-offset: -2px; }
+.sheet-task-question:disabled { cursor: default; }
+.sheet-task-question.is-report-link:hover { outline: 2px solid #64748b; outline-offset: -2px; }
+.sheet-task-question.is-correct { background: rgba(125,205,158,.27); color: #198253; box-shadow: none; }
+.sheet-task-question.is-incorrect { background: rgba(235,145,145,.28); color: #b93838; box-shadow: none; }
+.sheet-task-region { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.sheet-task-region polygon { fill: rgba(255,220,100,.24); stroke: rgba(220,164,35,.7); stroke-width: 1.5; stroke-linejoin: round; vector-effect: non-scaling-stroke; pointer-events: all; cursor: pointer; }
+.sheet-task-region.is-completed polygon { fill: rgba(125,205,158,.27); stroke: #198253; }
+.sheet-task-region[aria-disabled="true"] polygon { cursor: default; }
+.sheet-task-region:focus-visible polygon { stroke: var(--p-accent); stroke-width: 3; }
+.sheet-task-block-check { position: absolute; display: flex; align-items: center; justify-content: center; pointer-events: none; color: #198253; font-size: clamp(24px, 12vw, 100px); font-weight: 800; }
+.sheet-task-view { width: 100%; max-width: 850px; margin: 0 auto; }
+.sheet-task-status { padding: .75rem; margin-bottom: .75rem; border-radius: 12px; color: #fff; }
+.sheet-task-status.is-error { background: #fff; color: #b93838; }
+.sheet-task-pages { width: 100%; }
+.sheet-task-frame { display: block; width: 100%; height: 0; min-height: 0; border: 0; background: #fff; border-radius: 12px; margin: 0 auto; }
+.sheet-task-pager { display: flex; align-items: center; justify-content: center; gap: .75rem; padding-top: .5rem; }
+.sheet-task-actions { display: flex; align-items: center; gap: .75rem; margin: 0 auto; padding: 0 0 .75rem; color: #fff; }
+.sheet-task-actions > span { white-space: nowrap; }
+.sheet-task-actions .paradigm-submit-confirm { flex: 1; }
+.sheet-task-actions .sheet-review-count { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; padding: .15rem .35rem; border-radius: 5px; font-variant-numeric: tabular-nums; }
+.sheet-review-count.is-correct { color: #198253; background: #dcefe5; }
+.sheet-review-count.is-wrong { color: #b93838; background: #f9e0e0; }
+.sheet-task-mode { display: flex; flex: 0 0 auto; align-items: center; margin: 0; }
+.practice-page:has(.sheet-task-view) .practice-container { max-width: 900px; }
+.practice-page:has(.sheet-task-view) #practiceSection { width: 100%; }
+.sheet-task-embedded .kid-app-nav { display: none !important; }
+.sheet-task-embedded body.has-kid-app-nav { padding: 0 !important; }

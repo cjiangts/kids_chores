@@ -350,12 +350,13 @@ function buildCardMarkup(card, options = {}) {
                         ${rankMetaHtml}
                         ${deckRowExtraHtml}
                     </div>
+                    ${String(options.mainExtraHtml || '')}
                 </div>
                 ${heroAsideHtml}
             </div>
             ${extraSectionHtml}
             ${supportsSkipControl && card.skip_practice ? '<div class="skipped-note">Skipped from practice</div>' : ''}
-            ${heroAsideHtml ? '' : `<div class="card-actions">
+            ${heroAsideHtml || options.showActions === false ? '' : `<div class="card-actions">
                 <a class="paradigm-btn" href="${buildCardReportHref(card)}">${icon('history', { size: 16 })}<span>History</span></a>
                 ${supportsSkipControl ? `<a
                     class="paradigm-btn"
@@ -370,28 +371,20 @@ function buildCardMarkup(card, options = {}) {
     `;
 }
 
-function buildType4RepresentativeCardMarkup(card) {
-    const cardIdAttr = escapeHtml(String(card && card.id ? card.id : ''));
+function buildType4RepresentativeCardMarkup(card, options = {}) {
     const isMultichoiceOnly = Boolean(card && card.type4_is_multichoice_only);
     const multichoiceChipHtml = isMultichoiceOnly
         ? '<span class="type4-multichoice-chip" title="This card is generated as multiple choice only">Multi-choice only</span>'
         : '';
-    const generatorBtnHtml = `
-        <button
-            type="button"
-            class="card-report-link type4-generator-trigger"
-            data-action="open-type4-generator"
-            data-card-id="${cardIdAttr}"
-        >${icon('sparkles', { size: 16 })}<span>Generator</span></button>
-    `;
     return buildCardMarkup(card, {
-        cardClassNames: ['type4-card'],
-        primaryText: String(card && card.front ? card.front : ''),
-        showPrimary: true,
+        ...options,
+        showPrimary: false,
         showSecondary: false,
-        showPreviewPill: false,
         deckRowExtraHtml: multichoiceChipHtml,
-        trailingActionHtml: generatorBtnHtml,
+        showActions: false,
+        trailingActionHtml: '',
+        mainExtraHtml: '<div class="type4-generator-inline-samples"></div>',
+        extraSectionHtml: '<div class="type4-generator-inline"></div>',
     });
 }
 
@@ -538,7 +531,7 @@ function buildExpandedCardHeroActionsMarkup(card, supportsSkipControl, trailingA
 
 function buildLongCardMarkup(card, options = {}) {
     if (isType4Behavior()) {
-        return buildType4RepresentativeCardMarkup(card);
+        return buildType4RepresentativeCardMarkup(card, options);
     }
     if (isType2Behavior()) {
         return buildType2CardMarkup(card, options);
@@ -583,6 +576,10 @@ function renderCompactCardPopover(card, queueHighlight) {
             })}
         </div>
     `);
+    if (isType4Behavior()) {
+        const host = cardsGrid.querySelector('.short-expanded-popover .type4-generator-inline');
+        mountType4GeneratorInline(card, host);
+    }
     const placePopover = () => {
         const popover = cardsGrid.querySelector(`.short-expanded-popover[data-expanded-card-id="${CSS.escape(cardId)}"]`);
         const trigger = cardsGrid.querySelector(`.card-compact-pill[data-card-id="${CSS.escape(cardId)}"]`);
@@ -702,6 +699,7 @@ function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook, options =
 }
 
 function displayCards(cards) {
+    restoreType4GeneratorPanel();
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
     updateCardsQueueLegendVisibility(sortedCards.length);
@@ -1813,9 +1811,6 @@ function ensureSharedDeckCardsLoaded() {
 }
 
 async function saveQueueSettings(saveKind = 'session') {
-    if (isType4Behavior()) {
-        return;
-    }
     showError('');
 
     const total = normalizeSessionCountInputValue();

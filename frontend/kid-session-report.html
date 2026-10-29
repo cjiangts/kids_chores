@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="report-hero-action.css">
     <link rel="stylesheet" href="report-hero-meta.css">
     <link rel="stylesheet" href="report-grading-common.css">
+    <link rel="stylesheet" href="sheet-tasks.css">
     <style>
         * { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
 
@@ -1112,6 +1113,10 @@
         <div id="errorMessage" class="error hidden"></div>
         <section class="paradigm-settings-panel paradigm-settings-panel--content-first section-stack" id="summaryCard"></section>
 
+        <section id="sheetTaskSection" class="hidden">
+            <div id="sheetTaskRoot"></div>
+        </section>
+
         <div class="detail-grid">
             <section class="paradigm-settings-panel" id="wrongSection">
                 <h2 class="paradigm-panel-title"><span class="paradigm-panel-title-icon"><span class="icon" data-icon="circle-x" data-icon-size="22"></span></span><span class="paradigm-panel-heading">Wrong Cards</span></h2>
@@ -1152,6 +1157,7 @@
     <script src="report-hero-action-common.js"></script>
     <script src="report-grading-common.js"></script>
     <script src="practice-ui-common.js"></script>
+    <script src="sheet-task-view.js"></script>
     <script src="kid-session-report.js"></script>
 </body>
 </html>

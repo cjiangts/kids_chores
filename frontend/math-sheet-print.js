@@ -39,10 +39,10 @@ const initialRepeatCount = Number.parseInt(params.get('repeatCount') || '', 10);
 let currentSheetStatus = '';
 let currentSheetData = null;
 let currentRepeatCount = Number.isInteger(initialRepeatCount) && initialRepeatCount > 0 ? initialRepeatCount : 1;
-let showAnswers = false;
+let showAnswers = params.get('taskRole') === 'review';
+let previewPageIndex = 0;
 const DEFAULT_PAPER_SIZE = 'letter';
-const HEADER_FONT_SIZE = 12;
-const DECK_INFO_FONT_SIZE = 11;
+const HEADER_FONT_SIZE = 22;
 const CONTENT_TOP = 34;
 const MATH_FONT_FAMILY = "'Courier New', Courier, 'Nimbus Mono PS', 'Liberation Mono', monospace";
 const HEADER_FONT_FAMILY = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
@@ -216,6 +216,14 @@ function setRepeatCountValue(value) {
         repeatCountInput.value = String(currentRepeatCount);
     }
     syncRepeatCountUrl();
+    syncRepeatStepperButtons();
+}
+
+function syncRepeatStepperButtons() {
+    repeatControl?.querySelectorAll('[data-repeat-step]').forEach((button) => {
+        button.disabled = !repeatCountInput || repeatCountInput.disabled
+            || (Number(button.dataset.repeatStep) < 0 && currentRepeatCount <= 1);
+    });
 }
 
 // =====================================================================
@@ -238,16 +246,18 @@ function updateToolbarButtons(status) {
     if (printBtn) printBtn.style.display = isPreview ? 'none' : '';
     if (repeatControl) repeatControl.style.display = isPreview ? '' : 'none';
     if (repeatCountInput) repeatCountInput.disabled = !isPreview;
+    syncRepeatStepperButtons();
 }
 
 // =====================================================================
 // === 5. Sheet canvas + render image + handlePrint
 // =====================================================================
 
-function createSheetCanvas(sheet, withAnswers, showDebugBorder = true) {
+function createSheetCanvas(sheet, withAnswers, showDebugBorder = true, fullPaper = Boolean(params.get('taskSession'))) {
     const dpr = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
-    const pageWidth = currentPaperSpec.safeWidthPx;
-    const pageHeight = currentPaperSpec.safeHeightPx;
+    const pageInset = fullPaper ? PAPER_MARGIN_PX : 0;
+    const pageWidth = fullPaper ? currentPaperSpec.pageWidthPx : currentPaperSpec.safeWidthPx;
+    const pageHeight = fullPaper ? currentPaperSpec.pageHeightPx : currentPaperSpec.safeHeightPx;
     const canvas = document.createElement('canvas');
     canvas.className = 'sheet-render-canvas';
     canvas.width = pageWidth * dpr;
@@ -260,9 +270,13 @@ function createSheetCanvas(sheet, withAnswers, showDebugBorder = true) {
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, pageWidth, pageHeight);
     ctx.save();
-    ctx.translate(PAPER_EXTRA_SAFE_MARGIN_X_PX, PAPER_EXTRA_SAFE_MARGIN_TOP_PX);
+    ctx.translate(pageInset + PAPER_EXTRA_SAFE_MARGIN_X_PX, pageInset + PAPER_EXTRA_SAFE_MARGIN_TOP_PX);
     drawSheetHeader(ctx, sheet);
+    sheet.task_rects = [];
     drawSheetRows(ctx, sheet, withAnswers);
+    if (fullPaper) {
+        sheet.task_rects = sheet.task_rects.map((rect) => ({ ...rect, x: rect.x + pageInset, y: rect.y + pageInset }));
+    }
     if (showDebugBorder) {
         drawPrintableAreaDebugBorder(ctx);
     }
@@ -271,11 +285,13 @@ function createSheetCanvas(sheet, withAnswers, showDebugBorder = true) {
 }
 
 function createSheetRenderImage(sheet, withAnswers, showDebugBorder = true) {
-    const canvas = createSheetCanvas(sheet, withAnswers, showDebugBorder);
+    const canvas = createSheetCanvas(sheet, withAnswers, showDebugBorder, true);
     const image = document.createElement('img');
     image.className = 'sheet-render-image';
     image.alt = `Sheet #${String((sheet && (sheet.display_sheet_number || sheet.id || '')) || '').trim() || ''}`;
     image.decoding = 'sync';
+    image.width = canvas.width;
+    image.height = canvas.height;
     image.src = canvas.toDataURL('image/png');
     return image;
 }
@@ -342,36 +358,11 @@ function handlePrint() {
 // === 6. Canvas drawing — header / row layout / rows
 // =====================================================================
 
-function buildDeckSummaryText(layoutRows) {
-    if (!Array.isArray(layoutRows) || layoutRows.length === 0) return '';
-    const names = [];
-    const seen = new Set();
-    layoutRows.forEach((row) => {
-        const name = String((row && row.deck_name) || '').trim();
-        if (!name || seen.has(name)) return;
-        seen.add(name);
-        names.push(name);
-    });
-    return names.join(' · ');
-}
-
-function fitCanvasText(ctx, text, maxWidth) {
-    const raw = String(text || '').trim();
-    if (!raw || maxWidth <= 0) return '';
-    if (ctx.measureText(raw).width <= maxWidth) return raw;
-    const ellipsis = '...';
-    let trimmed = raw;
-    while (trimmed.length > 0 && ctx.measureText(`${trimmed}${ellipsis}`).width > maxWidth) {
-        trimmed = trimmed.slice(0, -1).trimEnd();
-    }
-    return trimmed ? `${trimmed}${ellipsis}` : '';
-}
-
 function drawSheetHeader(ctx, sheet) {
     const pageBoxWidth = currentPaperSpec.boxWidthPx;
     ctx.save();
     ctx.fillStyle = '#333';
-    ctx.font = `600 ${HEADER_FONT_SIZE}px ${HEADER_FONT_FAMILY}`;
+    ctx.font = `700 ${HEADER_FONT_SIZE}px ${HEADER_FONT_FAMILY}`;
     ctx.textBaseline = 'alphabetic';
     const kidName = String((sheet && sheet.kid_name) || '').trim();
     const displaySheetNumber = String(
@@ -385,19 +376,6 @@ function drawSheetHeader(ctx, sheet) {
     ctx.textAlign = 'right';
     ctx.fillText(sheetText, pageBoxWidth - 2, headerBaseline);
 
-    const deckSummary = buildDeckSummaryText(sheet && sheet.layout_rows);
-    if (deckSummary) {
-        const leftWidth = ctx.measureText(nameText).width;
-        const rightWidth = ctx.measureText(sheetText).width;
-        const gap = 12;
-        const maxCenterWidth = Math.max(0, pageBoxWidth - leftWidth - rightWidth - (gap * 2) - 4);
-        if (maxCenterWidth > 24) {
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#5a6478';
-            ctx.font = `${DECK_INFO_FONT_SIZE}px ${HEADER_FONT_FAMILY}`;
-            ctx.fillText(fitCanvasText(ctx, deckSummary, maxCenterWidth), pageBoxWidth / 2, headerBaseline);
-        }
-    }
     ctx.restore();
 }
 
@@ -451,6 +429,7 @@ function drawSheetRows(ctx, sheet, withAnswers) {
         for (let cellIndex = 0; cellIndex < item.colCount; cellIndex += 1) {
             const problem = problems[cellIndex] || { prompt: '', answer: '' };
             const cellX = cellIndex * (cellWidth + gap);
+            sheet.task_rects.push({ x: PAPER_EXTRA_SAFE_MARGIN_X_PX + cellX, y: PAPER_EXTRA_SAFE_MARGIN_TOP_PX + currentY, width: cellWidth, height: cellHeight });
             drawSheetCell(ctx, problem, item.row, cellX, currentY, cellWidth, cellHeight, finalScale, withAnswers);
         }
         currentY += cellHeight;
@@ -480,6 +459,7 @@ function drawInlineSheetRows(ctx, sheet, withAnswers) {
         for (let i = 0; i < colCount; i++) {
             const problem = problems[i] || { prompt: '', answer: '' };
             const cellX = i * cellWidth;
+            sheet.task_rects.push({ x: PAPER_EXTRA_SAFE_MARGIN_X_PX + cellX, y: PAPER_EXTRA_SAFE_MARGIN_TOP_PX + currentY, width: cellWidth, height: cellHeight });
             const textX = cellX + cellPad;
             const textY = currentY + cellHeight - 4;
 
@@ -677,9 +657,11 @@ function drawAnswer(ctx, problem, cellX, cellY, cellWidth, cellHeight, scale) {
 
 function renderSheetPreview(sheet) {
     if (!sheetPreviewWrap) return;
-    const pages = Array.isArray(sheet && sheet.pages) && sheet.pages.length > 0
+    const allPages = Array.isArray(sheet && sheet.pages) && sheet.pages.length > 0
         ? sheet.pages
         : (sheet ? [sheet] : []);
+    const taskPage = Number(params.get('taskPage'));
+    const pages = taskPage ? allPages.filter((page) => Number(page.page_index || 1) === taskPage) : allPages;
     if (pages.length === 0) {
         sheetPreviewWrap.innerHTML = '<p class="error">Sheet has no pages to render.</p>';
         return;
@@ -690,11 +672,79 @@ function renderSheetPreview(sheet) {
         pageEl.className = 'sheet-page';
         const contentEl = document.createElement('div');
         contentEl.className = 'sheet-content';
-        const previewImage = createSheetRenderImage(page, showAnswers);
+        const embeddedTask = Boolean(params.get('taskSession'));
+        const previewImage = createSheetRenderImage(page, showAnswers, !embeddedTask);
+        if (params.get('taskSession')) {
+            pageEl.style.width = '100%';
+            pageEl.style.height = 'auto';
+            contentEl.style.height = 'auto';
+            previewImage.style.height = 'auto';
+        }
         contentEl.appendChild(previewImage);
         pageEl.appendChild(contentEl);
         sheetPreviewWrap.appendChild(pageEl);
+        window.SheetTaskOverlay?.attach(contentEl, page, page.task_rects || [], embeddedTask ? currentPaperSpec.pageWidthPx : currentPaperSpec.safeWidthPx, embeddedTask ? currentPaperSpec.pageHeightPx : currentPaperSpec.safeHeightPx, 'type4');
     });
+    if (!params.get('taskSession')) {
+        renderPreviewPager(pages.length);
+        showPreviewPage(previewPageIndex);
+    }
+}
+
+function renderPreviewPager(pageCount) {
+    let pager = document.getElementById('mathSheetPager');
+    if (!pager) {
+        pager = document.createElement('div');
+        pager.id = 'mathSheetPager';
+        pager.className = 'sheet-task-pager';
+        sheetPreviewWrap.after(pager);
+    }
+    pager.replaceChildren();
+    pager.classList.toggle('hidden', pageCount <= 1);
+    const previous = document.createElement('button');
+    previous.type = 'button';
+    previous.className = 'paradigm-btn paradigm-compact-control';
+    previous.textContent = '←';
+    previous.setAttribute('aria-label', 'Previous sheet page');
+    previous.addEventListener('click', () => showPreviewPage(previewPageIndex - 1));
+    const label = document.createElement('span');
+    label.dataset.pageLabel = '';
+    const next = document.createElement('button');
+    next.type = 'button';
+    next.className = 'paradigm-btn paradigm-compact-control';
+    next.textContent = '→';
+    next.setAttribute('aria-label', 'Next sheet page');
+    next.addEventListener('click', () => showPreviewPage(previewPageIndex + 1));
+    pager.append(previous, label, next);
+}
+
+function showPreviewPage(index) {
+    const pages = [...sheetPreviewWrap.querySelectorAll('.sheet-page')];
+    previewPageIndex = Math.max(0, Math.min(pages.length - 1, index));
+    pages.forEach((page, position) => page.classList.toggle('hidden', position !== previewPageIndex));
+    const pager = document.getElementById('mathSheetPager');
+    if (pager) {
+        pager.querySelector('[data-page-label]').textContent = `${previewPageIndex + 1} / ${pages.length}`;
+        pager.firstElementChild.disabled = previewPageIndex === 0;
+        pager.lastElementChild.disabled = previewPageIndex === pages.length - 1;
+    }
+    fitSheetPreview();
+}
+
+function fitSheetPreview() {
+    if (params.get('taskSession')) return;
+    const page = sheetPreviewWrap?.querySelector('.sheet-page:not(.hidden)');
+    if (!page) return;
+    const pagerHeight = document.getElementById('mathSheetPager')?.getBoundingClientRect().height || 0;
+    const navigation = document.querySelector('.kid-app-nav');
+    const navHeight = navigation && window.matchMedia('(max-width: 899px)').matches
+        && getComputedStyle(navigation).position === 'fixed' ? navigation.getBoundingClientRect().height : 0;
+    const availableHeight = Math.max(1, window.innerHeight - sheetPreviewWrap.getBoundingClientRect().top - pagerHeight - navHeight - 24);
+    const ratio = currentPaperSpec.pageHeightPx / currentPaperSpec.pageWidthPx;
+    const width = Math.min(sheetPreviewWrap.clientWidth - 2, availableHeight / ratio);
+    page.style.width = `${Math.max(1, width)}px`;
+    page.style.height = `${Math.max(1, width) * ratio}px`;
+    page.style.aspectRatio = `${currentPaperSpec.pageWidthPx} / ${currentPaperSpec.pageHeightPx}`;
 }
 
 function rerenderCanvas() {
@@ -715,6 +765,7 @@ async function loadAndRender() {
     }
     if (printBtn) printBtn.disabled = true;
     if (repeatCountInput) repeatCountInput.disabled = true;
+    syncRepeatStepperButtons();
     if (sheetPreviewWrap) {
         sheetPreviewWrap.innerHTML = '<div class="app-spinner-block" role="status" aria-label="Loading"><span class="app-spinner" aria-hidden="true"></span></div>';
     }
@@ -730,7 +781,7 @@ async function loadAndRender() {
             || DEFAULT_PAPER_SIZE
         );
         currentSheetStatus = String(sheet.status || '').trim().toLowerCase();
-        if (currentSheetStatus === 'pending' && !showAnswers) {
+        if (currentSheetStatus === 'pending' && !showAnswers && !params.get('taskSession')) {
             showAnswers = true;
             if (showAnswersBtn) showAnswersBtn.textContent = 'Hide Answers';
         }
@@ -815,13 +866,21 @@ async function handleRepeatCountChange() {
 function updateSheetTitle(sheet) {
     if (!sheetTitle) return;
     const displaySheetNumber = String(
-        (sheet && (sheet.display_sheet_number || sheet.id || '')) || ''
+        sheet?.id || sheetId || ''
     ).trim();
     sheetTitle.textContent = `Sheet #${displaySheetNumber || '___'}`;
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    const backLink = document.getElementById('backToSheetManage');
+    if (backLink) {
+        const backParams = new URLSearchParams({ id: kidId });
+        if (categoryKey) backParams.set('categoryKey', categoryKey);
+        backLink.href = `/kid-writing-sheet-manage.html?${backParams}`;
+    }
     applyPaperSpec(DEFAULT_PAPER_SIZE);
+    window.addEventListener('resize', fitSheetPreview);
+    new ResizeObserver(fitSheetPreview).observe(document.querySelector('.page-header-with-back'));
     document.addEventListener('keydown', (event) => {
         const isPrintShortcut = (event.metaKey || event.ctrlKey) && String(event.key || '').toLowerCase() === 'p';
         if (!isPrintShortcut) return;
@@ -846,6 +905,13 @@ document.addEventListener('DOMContentLoaded', () => {
             void handleRepeatCountChange();
         });
     }
+    repeatControl?.querySelectorAll('[data-repeat-step]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (!repeatCountInput || repeatCountInput.disabled) return;
+            repeatCountInput.value = String(Math.max(1, currentRepeatCount + Number(button.dataset.repeatStep)));
+            void handleRepeatCountChange();
+        });
+    });
     if (regenerateBtn) {
         regenerateBtn.addEventListener('click', handleRegenerate);
     }

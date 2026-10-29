@@ -68,6 +68,8 @@ let currentSessionDrillSpeedTargetMs = 0;
 let liveDurationBackfillBound = false;
 let currentAnswers = [];
 let currentKidName = '';
+let currentSheetTask = null;
+let sheetTaskController = null;
 
 // =====================================================================
 // === 1. DOM refs + bootstrap
@@ -79,6 +81,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     bindDeleteSessionButton();
     bindLiveDurationBackfillUpdates();
+    document.getElementById('sheetTaskRoot')?.addEventListener('sheet-task-reviewed', () => {
+        void loadSessionDetail();
+    });
     try {
         await loadReportTimezone();
         await loadSessionDetail();
@@ -109,7 +114,8 @@ function getFinishHereState(session, answers) {
         answerCount,
         todoCount,
         unresolvedCount,
-        canFinish: !session?.parent_finalized
+        canFinish: session?.delivery_mode !== 'sheet'
+            && !session?.parent_finalized
             && answerCount > 0
             // Type-III is complete once its recordings are submitted; parent grades
             // are review metadata, not unfinished practice work.
@@ -169,7 +175,9 @@ async function handleDeleteSession(btn) {
                 method: 'DELETE',
                 headers: window.PracticeManageCommon.buildPasswordHeaders(password, false),
             }),
-            { warningMessage: 'This permanently removes the session and rebuilds card priority from the remaining attempts.' }
+            { warningMessage: currentSession?.delivery_mode === 'sheet'
+                ? 'This removes this practice session, its grades and awarded points. The printed questions become available again so your child can restart.'
+                : 'This permanently removes the session and rebuilds card priority from the remaining attempts.' }
         );
         if (result.cancelled) return;
         if (!result.ok) {
@@ -199,7 +207,7 @@ function resolveBackHref() {
         const ruleId = String(params.get('ruleId') || '').trim();
         return `/point-activity-report.html?ruleId=${encodeURIComponent(ruleId || '0')}`;
     }
-    return `/kid-practice-home.html?id=${encodeURIComponent(String(kidId))}`;
+    return '/admin.html';
 }
 
 async function loadReportTimezone() {
@@ -253,10 +261,22 @@ async function loadSessionDetail() {
         const answers = Array.isArray(data.answers) ? data.answers : [];
         currentAnswers = answers;
         currentSession = session;
+        currentSheetTask = data.sheet_task || null;
+        const isSheet = session.delivery_mode === 'sheet';
+        sheetTaskController?.destroy();
+        sheetTaskController = null;
         renderSummary(session, answers);
         bindFinishHereButton(session, answers);
-        renderAnswerSections(answers);
-        if (shouldShowSpeedDistribution()) {
+        document.getElementById('sheetTaskSection').classList.toggle('hidden', !isSheet);
+        wrongSection.closest('.detail-grid').classList.toggle('hidden', isSheet);
+        if (isSheet) {
+            if (!currentSheetTask) throw new Error('Printed task data is missing');
+            sheetTaskController = window.SheetTaskView.mount(document.getElementById('sheetTaskRoot'), kidId, currentSheetTask, true);
+            drillProgressSection.style.display = 'none';
+        } else {
+            renderAnswerSections(answers);
+        }
+        if (!isSheet && shouldShowSpeedDistribution()) {
             renderSpeedDistribution(answers);
         } else {
             hideSpeedDistribution();
@@ -279,13 +299,17 @@ function renderSummary(session, answers) {
     const counts = currentSessionIsDrill ? null : countAnswersByOutcome(answers);
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
     const finishHereState = getFinishHereState(session, answers);
-    const modeLabel = formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
-    const showModeMeta = currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III;
+    const isSheet = session.delivery_mode === 'sheet';
+    const modeLabel = isSheet ? 'Sheet' : formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
+    const showModeMeta = isSheet || (currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III);
     const metaItems = [];
     if (startedDate) metaItems.push({ icon: 'calendar', value: `Started ${startedDate}` });
     if (relativeDay) metaItems.push({ icon: 'history', value: relativeDay });
     if (showModeMeta && modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
-    metaItems.push(...buildSummaryOutcomeMetaItems({
+    if (isSheet && currentSheetTask?.status !== 'reviewed') {
+        metaItems.push({ icon: 'list-ordered', value: `${session.planned_count} assigned` });
+        metaItems.push({ icon: 'clock', value: currentSheetTask?.status === 'pending_review' ? 'Waiting for review' : 'In progress' });
+    } else metaItems.push(...buildSummaryOutcomeMetaItems({
         counts,
         drillCardCounts,
         totalActiveMs,
@@ -299,7 +323,7 @@ function renderSummary(session, answers) {
             value: `${awardedPoints >= 0 ? '+' : ''}${awardedPoints} pts`,
         });
     }
-    if (finishHereState.todoCount > 0) {
+    if (!isSheet && finishHereState.todoCount > 0) {
         metaItems.push({
             className: 'session-summary-meta-todo',
             ariaLabel: `${finishHereState.todoCount} cards left to do`,

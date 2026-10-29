@@ -42,6 +42,7 @@ from src.routes.kids_constants import *  # noqa: F401,F403
 
 kids_bp = Blueprint('kids', __name__)
 
+from src.services.type4_session import distribute_type_iv_count_across_sources
 from src.services.card_stats import (
     get_card_ids_practiced_for_category,
     get_cards_with_stats_for_card_ids,
@@ -119,7 +120,6 @@ from src.services.shared_deck_normalize import (
     normalize_shared_deck_fronts,
     normalize_shared_deck_ids,
     normalize_shared_deck_tag,
-    normalize_type_iv_daily_counts_payload,
     normalize_type_iv_display_label,
     normalize_type_iv_generator_code,
     normalize_type_iv_multichoice_only,
@@ -802,50 +802,19 @@ def get_decks_for_scope(kid_id, category):
             finally:
                 conn.close()
 
-            listing_payload = build_type_iv_shared_decks_payload(
-                kid,
-                scope_context['category_key'],
-                include_category_key=True,
-                include_orphan_in_queue_override=scope_context['include_orphan_in_queue'],
-            )
-            readiness_decks = []
-            for deck in list(listing_payload.get('decks') or []):
-                readiness_decks.append({
-                    'key': f"shared_{int(deck.get('deck_id') or 0)}",
-                    'label': str(deck.get('representative_front') or deck.get('name') or ''),
-                    'deck_id': int(deck.get('materialized_deck_id') or 0),
-                    'shared_deck_id': int(deck.get('deck_id') or 0),
-                    'total_cards': int(deck.get('card_count') or 0),
-                    'session_count': int(deck.get('daily_target_count') or 0) if bool(deck.get('opted_in')) else 0,
-                    'included_in_queue': bool(deck.get('opted_in')) and int(deck.get('daily_target_count') or 0) > 0,
-                    'is_orphan': False,
-                    'opted_in': bool(deck.get('opted_in')),
-                    'daily_target_count': int(deck.get('daily_target_count') or 0),
-                })
-            orphan_payload = listing_payload.get('orphan_deck') if isinstance(listing_payload, dict) else None
-            if isinstance(orphan_payload, dict) and int(orphan_payload.get('card_count') or 0) > 0:
-                orphan_active_card_count = int(orphan_payload.get('active_card_count') or 0)
-                orphan_daily_target_count = int(orphan_payload.get('daily_target_count') or 0)
-                orphan_included = bool(scope_context['include_orphan_in_queue'])
-                readiness_decks.append({
-                    'key': 'orphan',
-                    'label': str(orphan_payload.get('name') or scope_context['orphan_deck_name'] or 'Personal Deck'),
-                    'deck_id': int(orphan_payload.get('deck_id') or 0),
-                    'shared_deck_id': None,
-                    'total_cards': orphan_active_card_count,
-                    'session_count': (
-                        orphan_daily_target_count
-                        if orphan_included and orphan_active_card_count > 0
-                        else 0
-                    ),
-                    'included_in_queue': bool(
-                        orphan_included and orphan_active_card_count > 0 and orphan_daily_target_count > 0
-                    ),
-                    'is_orphan': True,
-                    'opted_in': bool(orphan_included),
-                    'daily_target_count': orphan_daily_target_count,
-                })
-            total_session_count = int(listing_payload.get('session_card_count') or 0)
+            total_session_count = get_category_session_card_count_for_kid(kid, scope_context['category_key'])
+            counts_by_source = distribute_type_iv_count_across_sources(practice_sources, total_session_count)
+            readiness_decks = [{
+                'key': f"source_{int(source['source_key'])}",
+                'label': str(source.get('representative_front') or source.get('local_name') or ''),
+                'deck_id': int(source['local_deck_id']),
+                'shared_deck_id': source.get('shared_deck_id'),
+                'total_cards': 1,
+                'session_count': counts_by_source.get(int(source['source_key']), 0),
+                'included_in_queue': True,
+                'is_orphan': bool(source.get('is_orphan')),
+                'opted_in': True,
+            } for source in practice_sources]
             return jsonify({
                 'category_key': scope_context['category_key'],
                 'decks': readiness_decks,
@@ -1265,3 +1234,5 @@ from . import type4  # noqa: E402,F401
 from . import lesson_reading  # noqa: E402,F401
 from . import practice  # noqa: E402,F401
 from . import chinese_bank  # noqa: E402,F401
+
+from . import sheet_tasks  # noqa: E402,F401

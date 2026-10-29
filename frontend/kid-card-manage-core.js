@@ -91,14 +91,6 @@ const openPersonalDeckModalBtn = document.getElementById('openPersonalDeckModalB
 const openPrintableSheetsBtn = document.getElementById('openPrintableSheetsBtn');
 const personalDeckModal = document.getElementById('personalDeckModal');
 const cancelPersonalDeckModalBtn = document.getElementById('cancelPersonalDeckModalBtn');
-const type4DeckCountsModal = document.getElementById('type4DeckCountsModal');
-const cancelType4DeckCountsModalBtn = document.getElementById('cancelType4DeckCountsModalBtn');
-const saveType4DeckCountsBtn = document.getElementById('saveType4DeckCountsBtn');
-const type4DeckCountsList = document.getElementById('type4DeckCountsList');
-const type4DeckCountsModalTotal = document.getElementById('type4DeckCountsModalTotal');
-const type4DeckCountsMessage = document.getElementById('type4DeckCountsMessage');
-const type4DeckCountsApplyAllInput = document.getElementById('type4DeckCountsApplyAllInput');
-const applyType4DeckCountsToAllBtn = document.getElementById('applyType4DeckCountsToAllBtn');
 const type4GeneratorModal = document.getElementById('type4GeneratorModal');
 const type4GeneratorHeading = document.getElementById('type4GeneratorHeading');
 const closeType4GeneratorModalBtn = document.getElementById('closeType4GeneratorModalBtn');
@@ -110,9 +102,6 @@ const type4GeneratorSamples = document.getElementById('type4GeneratorSamples');
 const type4GeneratorValidateTestContainer = document.getElementById('type4GeneratorValidateTestContainer');
 const type4GeneratorMessage = document.getElementById('type4GeneratorMessage');
 const queueSettingsSubgroup = document.getElementById('queueSettingsSubgroup');
-const type4DailyTargetBlock = document.getElementById('type4DailyTargetBlock');
-const type4DailyTargetTotalText = document.getElementById('type4DailyTargetTotalText');
-const openType4DeckCountsModalBtn = document.getElementById('openType4DeckCountsModalBtn');
 
 const personalDeckModalNote = document.getElementById('personalDeckModalNote');
 const addCardForm = document.getElementById('addCardForm');
@@ -210,7 +199,6 @@ let queueSettingsSavingKind = '';
 let queueSettingsSaveSuccessText = '';
 let previewQueueTimer = null;
 let hasLoadedSharedCardsOnce = false;
-let isType4DeckCountsSaving = false;
 let activeType4GeneratorCardId = null;
 let isType4GeneratorPreviewLoading = false;
 let type4GeneratorAceViewer = null;
@@ -401,7 +389,6 @@ function isModalOpen(modalEl) {
 function syncModalBodyLock() {
     const hasOpenModal = (
         isModalOpen(deckTreeModal)
-        || isModalOpen(type4DeckCountsModal)
         || isModalOpen(type4GeneratorModal)
         || isModalOpen(personalDeckModal)
     );
@@ -684,7 +671,7 @@ function updatePageTitle() {
 function applyCategoryUiText() {
     const displayName = getCurrentCategoryDisplayName();
     const showOrphanEditor = supportsPersonalDeckEditor();
-    const showType4DeckTargetBlock = isType4Behavior();
+    const useType4 = isType4Behavior();
     if (cardsSectionTitleText) {
         cardsSectionTitleText.textContent = displayName || 'Cards';
     }
@@ -705,16 +692,15 @@ function applyCategoryUiText() {
         sessionCardCountLabel.textContent = 'Daily Targets';
     }
     if (openDeckOptInModalBtn) {
-        openDeckOptInModalBtn.classList.toggle('hidden', showType4DeckTargetBlock);
+        openDeckOptInModalBtn.classList.remove('hidden');
     }
     if (openDeckOptInActionBtn) {
-        openDeckOptInActionBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
+        openDeckOptInActionBtn.classList.add('hidden');
     }
     if (queueSettingsSubgroup) {
-        queueSettingsSubgroup.classList.toggle('hidden', showType4DeckTargetBlock);
-    }
-    if (openType4DeckCountsModalBtn) {
-        openType4DeckCountsModalBtn.classList.toggle('hidden', !showType4DeckTargetBlock);
+        queueSettingsSubgroup.classList.remove('hidden');
+        sessionCardCountInput?.closest('.queue-stepper')?.classList.remove('hidden');
+        queueSettingsSaveBtn?.classList.remove('hidden');
     }
     if (openPersonalDeckModalBtn) {
         openPersonalDeckModalBtn.classList.toggle('hidden', !showOrphanEditor);

@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS decks (
   id INTEGER PRIMARY KEY DEFAULT nextval('decks_id_seq'),
   name VARCHAR NOT NULL,
   tags VARCHAR[],
-  daily_target_count INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -41,6 +40,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   retry_total_response_ms BIGINT NOT NULL DEFAULT 0,
   retry_best_rety_correct_count INTEGER NOT NULL DEFAULT 0,
   practice_mode VARCHAR NOT NULL DEFAULT 'na',
+  delivery_mode VARCHAR NOT NULL DEFAULT 'online' CHECK (delivery_mode IN ('online', 'sheet')),
   started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   completed_at TIMESTAMP
 );
@@ -111,8 +111,23 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   is_opted_in BOOLEAN NOT NULL DEFAULT FALSE,
   session_card_count INTEGER NOT NULL DEFAULT 0,
   include_orphan BOOLEAN NOT NULL DEFAULT TRUE,
-  drill_speed_cutoff_ms INTEGER
+  drill_speed_cutoff_ms INTEGER,
+  task_delivery_mode VARCHAR NOT NULL DEFAULT 'online' CHECK (task_delivery_mode IN ('online', 'sheet'))
 );
+
+CREATE SEQUENCE IF NOT EXISTS sheet_session_items_id_seq;
+CREATE TABLE IF NOT EXISTS sheet_session_items (
+  id BIGINT PRIMARY KEY DEFAULT nextval('sheet_session_items_id_seq'),
+  session_id INTEGER NOT NULL,
+  sheet_kind VARCHAR NOT NULL CHECK (sheet_kind IN ('type2', 'type4')),
+  sheet_id INTEGER NOT NULL,
+  page_index INTEGER NOT NULL CHECK (page_index > 0),
+  item_index INTEGER NOT NULL CHECK (item_index > 0),
+  result_id INTEGER,
+  UNIQUE (session_id, sheet_kind, sheet_id, page_index, item_index),
+  UNIQUE (sheet_kind, sheet_id, page_index, item_index)
+);
+CREATE INDEX IF NOT EXISTS idx_sheet_items_session ON sheet_session_items(session_id);
 
 CREATE TABLE IF NOT EXISTS kid_off_app_chore (
   rule_id INTEGER PRIMARY KEY

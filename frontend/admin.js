@@ -1576,9 +1576,9 @@ function buildTodayStatusCell(row, kid) {
     };
     const mistakeCount = Math.max(0, Number.parseInt(statusInfo.mistakeCount ?? statusInfo.mistake_count, 10) || 0);
     const ungradedCount = Math.max(0, Number.parseInt(statusInfo.ungradedCount ?? statusInfo.ungraded_count, 10) || 0);
-    const needsReview = status === 'done' && row.behaviorType === 'type_iii' && ungradedCount > 0;
+    const needsReview = Boolean(statusInfo.pendingReview) || (status === 'done' && row.behaviorType === 'type_iii' && ungradedCount > 0);
     const earnedPoints = Number.parseInt(statusInfo.earnedPoints ?? statusInfo.earned_points, 10) || 0;
-    const label = status === 'done'
+    const label = statusInfo.pendingReview ? 'Review' : status === 'done'
         ? `+${earnedPoints}`
         : (labelByStatus[status] || labelByStatus.not_started);
     const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
@@ -1592,7 +1592,7 @@ function buildTodayStatusCell(row, kid) {
         ? window.icon(leadingIconName, { size: 15, strokeWidth: 2.8 })
         : '';
     const hasMistakes = status === 'done' && !needsReview && mistakeCount > 0;
-    const resultPhrase = needsReview ? 'review' : (hasMistakes ? `${mistakeCount} wrong` : '');
+    const resultPhrase = needsReview ? (statusInfo.pendingReview ? '' : 'review') : (hasMistakes ? `${mistakeCount} wrong` : '');
     const resultClassName = needsReview
         ? 'admin-today-pill-review'
         : 'admin-today-pill-wrong';
@@ -1668,13 +1668,16 @@ function buildMatrixCell(row, kid) {
 
     if (!editMode) {
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);
-        const cardsPerDay = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
+        const sheetStatus = kid?.todaySessionStatusByDeckCategory?.[row.categoryKey] || {};
+        const configuredCount = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
+        const cardsPerDay = sheetStatus.taskDeliveryMode === 'sheet' ? sheetStatus.sheetAvailableCount : configuredCount;
+        const shortageMark = sheetStatus.taskDeliveryMode === 'sheet' && sheetStatus.sheetShortage ? ' ⚠' : '';
         const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey, view: 'queue' });
         const href = `/kid-card-manage.html?${params.toString()}`;
         const editIconHtml = (typeof window.icon === 'function') ? window.icon('pencil', { size: 12, strokeWidth: 2.5 }) : '';
         const valueClass = `admin-matrix-value admin-matrix-value--link${baselineOptedIn ? '' : ' is-off'}`;
         const kidLabel = String(kid?.name || kidId || 'this kid');
-        return `<td class="admin-matrix-target-cell admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="${valueClass}" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}" aria-label="Configure ${escapeHtml(row.displayName)} for ${escapeHtml(kidLabel)}"><span class="admin-matrix-value-num">${cardsPerDay}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td><td class="admin-matrix-opt-cell admin-matrix-cell">${rowCheckboxHtml}</td>`;
+        return `<td class="admin-matrix-target-cell admin-matrix-cell"><div class="admin-matrix-value-wrap"><a class="${valueClass}" href="${escapeHtml(href)}" data-cell-link data-kid-id="${escapeHtml(kidId)}" aria-label="Configure ${escapeHtml(row.displayName)} for ${escapeHtml(kidLabel)}"><span class="admin-matrix-value-num" title="Daily target: ${configuredCount}">${cardsPerDay}${shortageMark}</span><span class="admin-matrix-value-chev" aria-hidden="true">${editIconHtml}</span></a></div></td><td class="admin-matrix-opt-cell admin-matrix-cell">${rowCheckboxHtml}</td>`;
     }
 
     const valueClass = optedIn ? 'admin-matrix-value' : 'admin-matrix-value is-off';

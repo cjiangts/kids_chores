@@ -2,14 +2,14 @@
  * kid-card-manage.js — residual page init for kid-card-manage.html
  *
  * The 5,957-line page controller was split across kid-card-manage-{core, type4-generator,
- * type4-counts, deck-setup, cards-priority, and cards}.js; what remains here is the
+ * type4-ui, deck-setup, cards-priority, and cards}.js; what remains here is the
  * single DOMContentLoaded handler that wires their exported handlers to DOM events
  * and kicks off the initial async load.
  *
  * Layout (all inside the DOMContentLoaded callback):
  *   1. Page guards + type-IV generator viewer init
  *   2. Deck-tree opt-in modal wiring (open/cancel/apply/clear/info/search/expand)
- *   3. Type-IV deck-counts + generator preview modal wiring
+ *   3. Type-IV generator preview modal wiring
  *   4. Personal-deck modal + add-card status dismiss
  *   5. Modal backdrop + Escape key + initial-hidden state
  *   6. Kid-manage tab visibility + cards-grid + font-reflow listeners
@@ -17,8 +17,7 @@
  *   8. View-order / sort-menu / source-deck-filter / sort-direction / view-mode buttons
  *   9. Card search + cards-selection toolbar
  *  10. Add-card form + Chinese-char input + session-card-count stepper
- *  11. Type-IV deck-counts modal input listeners
- *  12. Latest-response tracker + initial async load
+ *  11. Latest-response tracker + initial async load
  */
 document.addEventListener('DOMContentLoaded', async () => {
     // === 1. Page guards + type-IV generator viewer init ===
@@ -63,55 +62,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
-    // === 3. Type-IV deck-counts + generator preview modal wiring ===
-    if (openType4DeckCountsModalBtn) {
-        openType4DeckCountsModalBtn.addEventListener('click', () => {
-            if (!isType4Behavior() || hasPendingDeckChanges()) {
-                return;
-            }
-            renderType4DeckCountsModal();
-            showType4DeckCountsMessage('');
-            setManageModalOpen(type4DeckCountsModal, true);
-        });
-    }
-    if (cancelType4DeckCountsModalBtn) {
-        cancelType4DeckCountsModalBtn.addEventListener('click', () => {
-            setManageModalOpen(type4DeckCountsModal, false);
-        });
-    }
-    if (applyType4DeckCountsToAllBtn) {
-        applyType4DeckCountsToAllBtn.addEventListener('click', () => {
-            applyType4DeckCountToAllRows(type4DeckCountsApplyAllInput ? type4DeckCountsApplyAllInput.value : 0);
-        });
-    }
-    if (type4DeckCountsApplyAllInput) {
-        type4DeckCountsApplyAllInput.addEventListener('input', () => {
-            type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(type4DeckCountsApplyAllInput.value));
-        });
-        type4DeckCountsApplyAllInput.addEventListener('change', () => {
-            type4DeckCountsApplyAllInput.value = String(getType4DeckCountDraftValue(type4DeckCountsApplyAllInput.value));
-        });
-        type4DeckCountsApplyAllInput.addEventListener('keydown', (event) => {
-            if (event.key !== 'Enter') {
-                return;
-            }
-            event.preventDefault();
-            applyType4DeckCountToAllRows(type4DeckCountsApplyAllInput.value);
-        });
-    }
+    // === 3. Type-IV generator preview modal wiring ===
     if (closeType4GeneratorModalBtn) {
         closeType4GeneratorModalBtn.addEventListener('click', () => {
             setManageModalOpen(type4GeneratorModal, false);
-        });
-    }
-    if (saveType4DeckCountsBtn) {
-        saveType4DeckCountsBtn.addEventListener('click', async () => {
-            try {
-                await saveType4DeckCounts();
-            } catch (error) {
-                console.error('Error saving generator deck counts:', error);
-                showType4DeckCountsMessage(error.message || 'Failed to save deck counts.', true);
-            }
         });
     }
     if (runType4GeneratorPreviewBtn) {
@@ -160,9 +114,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckTreeModal) {
         deckTreeModal.addEventListener('click', handleModalBackdropClick);
     }
-    if (type4DeckCountsModal) {
-        type4DeckCountsModal.addEventListener('click', handleModalBackdropClick);
-    }
     if (type4GeneratorModal) {
         type4GeneratorModal.addEventListener('click', handleModalBackdropClick);
     }
@@ -177,10 +128,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             setManageModalOpen(type4GeneratorModal, false);
             return;
         }
-        if (isModalOpen(type4DeckCountsModal)) {
-            setManageModalOpen(type4DeckCountsModal, false);
-            return;
-        }
         if (isModalOpen(personalDeckModal)) {
             closePersonalDeckModal();
             return;
@@ -192,10 +139,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (deckTreeModal) {
         deckTreeModal.classList.add('hidden');
         deckTreeModal.setAttribute('aria-hidden', 'true');
-    }
-    if (type4DeckCountsModal) {
-        type4DeckCountsModal.classList.add('hidden');
-        type4DeckCountsModal.setAttribute('aria-hidden', 'true');
     }
     if (type4GeneratorModal) {
         type4GeneratorModal.classList.add('hidden');
@@ -225,6 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             event.preventDefault();
             try {
                 await saveQueueSettings(event.submitter?.dataset.queueSaveKind || 'session');
+                await window.SheetTaskMode.load(kidId, categoryKey);
             } catch (error) {
                 console.error('Error saving shared category settings:', error);
                 showError(error.message || 'Failed to save practice settings.');
@@ -423,27 +367,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sessionCardCountInput.dispatchEvent(new Event('change', { bubbles: true }));
         });
     });
-    // === 11. Type-IV deck-counts modal input listeners ===
-    if (type4DeckCountsList) {
-        type4DeckCountsList.addEventListener('input', (event) => {
-            const target = event.target;
-            if (!(target instanceof HTMLInputElement) || !target.classList.contains('type4-deck-count-input')) {
-                return;
-            }
-            target.value = String(getType4DeckCountDraftValue(target.value));
-            updateType4DeckCountsModalTotal();
-        });
-        type4DeckCountsList.addEventListener('change', (event) => {
-            const target = event.target;
-            if (!(target instanceof HTMLInputElement) || !target.classList.contains('type4-deck-count-input')) {
-                return;
-            }
-            target.value = String(getType4DeckCountDraftValue(target.value));
-            updateType4DeckCountsModalTotal();
-        });
-    }
-
-    // === 12. Latest-response tracker + initial async load ===
+    // === 11. Latest-response tracker + initial async load ===
     sharedDeckCardsResponseTracker = window.PracticeManageCommon.createLatestResponseTracker();
 
     try {
@@ -451,6 +375,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showSuccess('');
         await loadManageFamilyCapabilities();
         await loadKidsAndApplyKidInfo();
+        await window.SheetTaskMode.load(kidId, categoryKey);
         updateQueueMixLegend();
         updateQueueSettingsSaveButtonState();
         if (isType4Behavior()) {

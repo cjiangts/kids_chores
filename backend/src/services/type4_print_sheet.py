@@ -13,6 +13,7 @@ from src.services.type4_print_layout import (
     build_type_iv_print_sheet_layout,
     build_type_iv_print_sheet_row_seed,
     get_type_iv_print_sheet_paper_spec,
+    build_type_iv_print_sheet_display_number,
 )
 
 
@@ -84,6 +85,26 @@ def build_type_iv_print_sheet_rendered_rows(layout_rows, definitions_by_id, seed
             'problems': problems,
         })
     return rendered_rows
+
+
+def build_type_iv_print_pages(sheet, definitions_by_id, repeat_count=None, kid_name=''):
+    layout = sheet['layout']
+    paper_size = layout.get('paper_size') or DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE
+    layout_format = layout.get('layout_format') or 'vertical'
+    count = int(repeat_count if repeat_count is not None else layout.get('repeat_count') or 1)
+    batches = []
+    for index in range(count):
+        seed = int(sheet['seed_base']) + index
+        rows = build_type_iv_print_sheet_rendered_rows(layout.get('rows') or [], definitions_by_id, seed)
+        for page_rows in paginate_type_iv_print_sheet_rendered_rows(rows, paper_size=paper_size, layout_format=layout_format):
+            batches.append((seed, page_rows))
+    return [{
+        'id': sheet['id'], 'sheet_id': sheet['id'], 'page_index': index + 1,
+        'display_sheet_number': build_type_iv_print_sheet_display_number(sheet['id'], page_index=index, total_pages=len(batches)),
+        'seed_base': seed, 'row_count': len(rows),
+        'problem_count': sum(int(row.get('col_count') or 0) for row in rows),
+        'kid_name': kid_name, 'layout_rows': rows, 'layout_format': layout_format, 'paper_size': paper_size,
+    } for index, (seed, rows) in enumerate(batches)]
 
 
 def get_type_iv_print_sheet_record(conn, sheet_id):

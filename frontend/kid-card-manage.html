@@ -17,6 +17,7 @@
     <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="deck-tree-view.css">
     <link rel="stylesheet" href="kid-card-manage.css">
+    <link rel="stylesheet" href="sheet-tasks.css">
 </head>
 <body class="practice-page manage-page kid-card-manage-page">
     <div class="container">
@@ -41,7 +42,8 @@
                 <span id="cardsSectionTitleText" class="paradigm-panel-heading">Cards</span>
                 <span class="cards-title-actions">
                     <button id="openDeckDictionaryBtn" type="button" class="paradigm-icon-btn paradigm-panel-action--circle hidden" aria-label="Manage dictionary" title="Manage dictionary"><span data-icon="book-text" data-icon-size="17" data-icon-stroke="2.3"></span></button>
-                    <a id="openPrintableSheetsBtn" class="paradigm-icon-btn paradigm-panel-action--circle cards-title-worksheet-btn hidden" aria-label="Manage worksheets" title="Manage worksheets" href="#"><span data-icon="printer" data-icon-size="17" data-icon-stroke="2.3"></span></a>
+                    <a id="openPrintableSheetsBtn" class="paradigm-btn paradigm-compact-control cards-title-worksheet-btn hidden" aria-label="Manage worksheets" title="Manage worksheets" href="#"><span data-icon="printer" data-icon-size="17" data-icon-stroke="2.3"></span><span id="printedQuestionStock">—</span><span id="printedQuestionShortage" class="printed-question-shortage hidden" aria-hidden="true">&#9888;&#65038;</span></a>
+                    <div id="sheetTaskMode" class="sheet-task-mode hidden"></div>
                 </span>
             </h2>
             <div class="queue-actions-layout">
@@ -86,16 +88,6 @@
                             </span>
                             <span class="manage-popup-btn-title">Decks</span>
                             <span class="manage-popup-btn-meta">0 decks opted in</span>
-                        </span>
-                        <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
-                    </button>
-                    <button id="openType4DeckCountsModalBtn" type="button" class="settings-save-btn manage-popup-btn manage-popup-card-btn hidden">
-                        <span class="manage-popup-btn-text">
-                            <span class="manage-popup-btn-emoji" aria-hidden="true">
-                                <span class="icon" data-icon="target" data-icon-size="24"></span>
-                            </span>
-                            <span class="manage-popup-btn-title">Counts</span>
-                            <span class="manage-popup-btn-meta">Cards per day per deck</span>
                         </span>
                         <span class="manage-popup-btn-chevron" aria-hidden="true">›</span>
                     </button>
@@ -208,37 +200,6 @@
         </div>
     </div>
 
-            <div id="type4DeckCountsModal" class="modal hidden manage-popup-modal" aria-hidden="true">
-        <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4DeckCountsHeading">
-            <div class="manage-popup-title-row">
-                <h2 id="type4DeckCountsHeading"><span class="icon" data-icon="bar-chart-3" data-icon-size="22"></span> Deck Counts</h2>
-            </div>
-            <div class="manage-popup-modal-body type4-deck-counts-modal-body">
-                <div class="type4-deck-counts-toolbar">
-                    <div class="type4-deck-counts-toolbar-label">Apply same count to all</div>
-                    <div class="type4-deck-counts-toolbar-controls">
-                        <input id="type4DeckCountsApplyAllInput" type="number" class="type4-deck-count-input" min="0" max="1000" step="1" value="10">
-                        <button id="applyType4DeckCountsToAllBtn" type="button" class="paradigm-btn type4-deck-counts-apply-btn">Apply to all</button>
-                    </div>
-                </div>
-                <div class="type4-deck-counts-scroll">
-                    <div id="type4DeckCountsList" class="type4-deck-counts-list"></div>
-                </div>
-                <div class="type4-deck-count-summary">
-                    <span>Total cards/day</span>
-                    <strong id="type4DeckCountsModalTotal">0</strong>
-                </div>
-                <div class="deck-v2-actions">
-                    <div class="deck-v2-action-row">
-                        <button id="cancelType4DeckCountsModalBtn" type="button" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                        <button id="saveType4DeckCountsBtn" type="button" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Save" title="Save" disabled><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                    </div>
-                    <div id="type4DeckCountsMessage" class="success hidden"></div>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="type4GeneratorModal" class="modal hidden manage-popup-modal" aria-hidden="true">
         <div class="modal-content personal-modal" role="dialog" aria-modal="true" aria-labelledby="type4GeneratorHeading">
             <div class="manage-popup-title-row type4-generator-title-row">
@@ -252,16 +213,16 @@
             </div>
             <div class="manage-popup-modal-body">
                 <div class="type4-generator-modal-section">
-                    <pre id="type4GeneratorCodeText" class="type4-generator-code input-mono"></pre>
-                    <div id="type4GeneratorCodeEditor" class="type4-generator-code-editor hidden" aria-hidden="true"></div>
-                </div>
-                <div class="type4-generator-modal-section">
-                    <div class="type4-generator-modal-head">
-                        <button id="runType4GeneratorPreviewBtn" type="button" class="settings-save-btn manage-popup-btn"><span data-icon="refresh-cw" data-icon-size="16" data-icon-stroke="2.2"></span><span class="run-example-label">Rerun Code</span></button>
-                    </div>
                     <div id="type4GeneratorSamples" class="type4-generator-samples"></div>
                     <div id="type4GeneratorValidateTestContainer" class="hidden"></div>
                     <div id="type4GeneratorMessage" class="success hidden" style="margin-top:0.55rem;"></div>
+                </div>
+                <div class="type4-generator-modal-section">
+                    <div class="type4-generator-modal-head">
+                        <button id="runType4GeneratorPreviewBtn" type="button" class="paradigm-icon-btn type4-generator-rerun" aria-label="Rerun Code" title="Rerun Code"><span data-icon="refresh-cw" data-icon-size="13" data-icon-stroke="2.2"></span></button>
+                    </div>
+                    <pre id="type4GeneratorCodeText" class="type4-generator-code input-mono"></pre>
+                    <div id="type4GeneratorCodeEditor" class="type4-generator-code-editor hidden" aria-hidden="true"></div>
                 </div>
             </div>
         </div>
@@ -358,9 +319,11 @@
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/mode-python.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/ace-builds@1.39.0/src-min-noconflict/theme-github_light_default.js"></script>
     <script src="deck-tree-view.js"></script>
+    <script src="sheet-task-view.js"></script>
+    <script src="sheet-task-mode.js"></script>
     <script src="kid-card-manage-core.js"></script>
     <script src="kid-card-manage-type4-generator.js"></script>
-    <script src="kid-card-manage-type4-counts.js"></script>
+    <script src="kid-card-manage-type4-ui.js"></script>
     <script src="kid-card-manage-deck-setup.js"></script>
     <script src="kid-card-manage-cards-priority.js"></script>
     <script src="kid-card-manage-cards.js"></script>

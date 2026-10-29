@@ -36,6 +36,7 @@ from src.routes.kids import (
     time,
 )
 from src.services.kid_category_resolve import resolve_kid_type_iv_category_with_mode
+from src.services.sheet_tasks import enumerate_sheet_items
 from src.services.family_auth import (
     current_family_id,
     get_kid_connection_for,
@@ -46,9 +47,8 @@ from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definitions_by_deck_ids,
 )
 from src.services.type4_print_sheet import (
-    build_type_iv_print_sheet_rendered_rows,
+    build_type_iv_print_pages,
     get_type_iv_print_sheet_record,
-    paginate_type_iv_print_sheet_rendered_rows,
 )
 from src.services.practice_mode import normalize_session_practice_mode
 from src.services.kid_today_sessions import normalize_logged_response_time_ms
@@ -265,7 +265,9 @@ def list_type4_print_sheets(kid_id):
             conn = get_kid_connection_for(kid, read_only=True)
             rows = conn.execute(
                 """
-                SELECT id, category_key, layout_json, seed_base, status, incorrect_count, created_at, completed_at
+                SELECT id, category_key, layout_json, seed_base, status, incorrect_count, created_at, completed_at,
+                       EXISTS(SELECT 1 FROM sheet_session_items i WHERE i.sheet_kind = 'type4' AND i.sheet_id = type4_print_sheets.id),
+                       (SELECT COUNT(*) FROM sheet_session_items i WHERE i.sheet_kind = 'type4' AND i.sheet_id = type4_print_sheets.id AND i.result_id IS NOT NULL)
                 FROM type4_print_sheets
                 WHERE category_key = ?
                 ORDER BY created_at DESC, id DESC
@@ -287,6 +289,7 @@ def list_type4_print_sheets(kid_id):
                 'incorrect_count': int(row[5]) if row[5] is not None else None,
                 'created_at': row[6].isoformat() if row[6] else None,
                 'completed_at': row[7].isoformat() if row[7] else None,
+                'task_started': bool(row[8]),
             }
             sheet_layout = sheet.get('layout') or {}
             layout_rows = list(sheet_layout.get('rows') or [])
@@ -299,6 +302,9 @@ def list_type4_print_sheets(kid_id):
                 'incorrect_count': sheet['incorrect_count'],
                 'created_at': sheet['created_at'],
                 'completed_at': sheet['completed_at'],
+                'task_started': sheet['task_started'],
+                'total_question_count': sum(1 for _ in enumerate_sheet_items('type4', sheet['id'], sheet_layout)),
+                'completed_question_count': int(row[9] or 0),
                 'paper_size': str(sheet_layout.get('paper_size') or DEFAULT_TYPE_IV_PRINT_SHEET_PAPER_SIZE),
                 'repeat_count': int(sheet_layout.get('repeat_count') or 1),
                 'page_count': int(sheet_layout.get('repeat_count') or 1),
@@ -369,61 +375,11 @@ def get_type4_print_sheet_details(kid_id, sheet_id):
             if shared_conn is not None:
                 shared_conn.close()
 
-        layout_format = str((sheet.get('layout') or {}).get('layout_format') or 'vertical')
-        kid_name = str(kid.get('name') or '')
-        rendered_page_batches = []
         try:
-            for repeat_index in range(repeat_count):
-                page_seed_base = int(sheet['seed_base']) + repeat_index
-                rendered_rows = build_type_iv_print_sheet_rendered_rows(
-                    layout_rows,
-                    definitions_by_id,
-                    page_seed_base,
-                )
-                rendered_page_batches.append({
-                    'seed_base': page_seed_base,
-                    'pages': paginate_type_iv_print_sheet_rendered_rows(
-                        rendered_rows,
-                        paper_size=paper_size,
-                        layout_format=layout_format,
-                    ),
-                })
+            kid_name = str(kid.get('name') or '')
+            pages = build_type_iv_print_pages(sheet, definitions_by_id, repeat_count, kid_name)
         except LookupError as exc:
             return jsonify({'error': str(exc)}), 404
-
-        total_page_count = sum(
-            len(batch.get('pages') or [])
-            for batch in rendered_page_batches
-        )
-        pages = []
-        for page_number, batch in enumerate(
-            [
-                {
-                    'seed_base': batch['seed_base'],
-                    'layout_rows': layout_rows_page,
-                }
-                for batch in rendered_page_batches
-                for layout_rows_page in list(batch.get('pages') or [])
-            ]
-        ):
-            page_rows = list(batch.get('layout_rows') or [])
-            pages.append({
-                'id': sheet['id'],
-                'sheet_id': sheet['id'],
-                'page_index': page_number + 1,
-                'display_sheet_number': build_type_iv_print_sheet_display_number(
-                    sheet['id'],
-                    page_index=page_number,
-                    total_pages=total_page_count,
-                ),
-                'seed_base': batch['seed_base'],
-                'row_count': len(page_rows),
-                'problem_count': sum(int(row.get('col_count') or 0) for row in page_rows),
-                'kid_name': kid_name,
-                'layout_rows': page_rows,
-                'layout_format': layout_format,
-                'paper_size': paper_size,
-            })
 
         first_page = pages[0] if pages else {
             'display_sheet_number': build_type_iv_print_sheet_display_number(sheet['id']),
@@ -489,14 +445,7 @@ def complete_type4_print_sheet(kid_id, sheet_id):
             if not row:
                 return jsonify({'error': 'Sheet not found'}), 404
             if str(row[1] or '').strip().lower() != 'done':
-                conn.execute(
-                    """
-                    UPDATE type4_print_sheets
-                    SET status = 'done', incorrect_count = ?, completed_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                    """,
-                    [incorrect_count, sheet_id],
-                )
+                return jsonify({'error': 'Complete this sheet through a child task and parent review'}), 409
         finally:
             if conn is not None:
                 conn.close()
@@ -528,6 +477,8 @@ def withdraw_type4_print_sheet(kid_id, sheet_id):
             status = str(row[1] or '').strip().lower()
             if status not in ('preview', 'pending'):
                 return jsonify({'error': 'Only preview or pending sheets can be withdrawn'}), 400
+            if conn.execute("SELECT 1 FROM sheet_session_items WHERE sheet_kind = 'type4' AND sheet_id = ? LIMIT 1", [sheet_id]).fetchone():
+                return jsonify({'error': 'This sheet is assigned to a task and cannot be deleted'}), 409
             conn.execute("DELETE FROM type4_print_sheets WHERE id = ?", [sheet_id])
         finally:
             if conn is not None:
