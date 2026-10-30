@@ -88,6 +88,14 @@ async function loadType1ReadyState() {
         applyType1DisplayMode();
         configureJudgeModePickerForType();
     }
+    state.speedDrillEnabled = false;
+    if (isDrillEligibleType()) {
+        const modeResponse = await fetch(buildType1ApiUrl('speed-drill-mode'));
+        const modeData = await modeResponse.json();
+        if (!modeResponse.ok) throw new Error(modeData.error || 'Could not load Speed Drill settings');
+        state.speedDrillEnabled = Boolean(modeData.speed_drill_enabled);
+        decksData.drill_speed_target_ms = modeData.drill_speed_target_ms;
+    }
     state.configuredSessionCount = Number.parseInt(decksData.total_session_count, 10) || 0;
     const readyDrillTargetMs = Number.parseInt(decksData.drill_speed_target_ms, 10);
     state.readyDrillSpeedTargetMs = (
@@ -149,7 +157,7 @@ async function startType1Session() {
         applyServerPracticeMode(serverPracticeMode);
         state.activePendingSessionId = started.pendingSessionId;
         state.activeIsRetrySession = Boolean(started?.data?.is_retry_session);
-        const isDrillConfirmed = wantDrill && parseServerPracticeMode(serverPracticeMode).drill;
+        const isDrillConfirmed = parseServerPracticeMode(serverPracticeMode).drill;
         // In drill mode, keep priority order from the backend (top-N first)
         // instead of using the shuffled list returned by startShuffledSession.
         state.sessionCards = isDrillConfirmed
@@ -639,7 +647,7 @@ function revealType1Answer() {
 }
 
 function togglePauseFromCard() {
-    if (!isType(BEHAVIOR_TYPE_I)) {
+    if (!isParentAssistPracticeMode()) {
         return;
     }
     if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {

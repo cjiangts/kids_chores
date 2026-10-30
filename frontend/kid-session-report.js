@@ -71,6 +71,10 @@ let currentKidName = '';
 let currentSheetTask = null;
 let sheetTaskController = null;
 
+function isParentReviewSession() {
+    return currentSessionBehaviorType === BEHAVIOR_TYPE_II && currentSessionPracticeMode === 'parent_review';
+}
+
 // =====================================================================
 // === 1. DOM refs + bootstrap
 // =====================================================================
@@ -115,6 +119,7 @@ function getFinishHereState(session, answers) {
         todoCount,
         unresolvedCount,
         canFinish: session?.delivery_mode !== 'sheet'
+            && session?.practice_mode !== 'parent_review'
             && !session?.parent_finalized
             && answerCount > 0
             // Type-III is complete once its recordings are submitted; parent grades
@@ -276,7 +281,7 @@ async function loadSessionDetail() {
         } else {
             renderAnswerSections(answers);
         }
-        if (!isSheet && shouldShowSpeedDistribution()) {
+        if (!isSheet && !isParentReviewSession() && shouldShowSpeedDistribution()) {
             renderSpeedDistribution(answers);
         } else {
             hideSpeedDistribution();
@@ -300,12 +305,14 @@ function renderSummary(session, answers) {
     const drillCardCounts = currentSessionIsDrill ? countDrillCardOutcomes(answers) : null;
     const finishHereState = getFinishHereState(session, answers);
     const isSheet = session.delivery_mode === 'sheet';
-    const modeLabel = isSheet ? 'Sheet' : formatPracticeMode(session?.practice_mode) || currentSessionCategoryDisplayName || '';
-    const showModeMeta = isSheet || (currentSessionBehaviorType !== BEHAVIOR_TYPE_II && currentSessionBehaviorType !== BEHAVIOR_TYPE_III);
+    const modeLabel = isSheet ? 'Sheet' : formatPracticeMode(session?.practice_mode);
     const metaItems = [];
+    if (isParentReviewSession() && answers.some((answer) => Number(answer.correct_score) === 0)) {
+        metaItems.push({ icon: 'clock', value: 'Waiting for parent review' });
+    }
     if (startedDate) metaItems.push({ icon: 'calendar', value: `Started ${startedDate}` });
     if (relativeDay) metaItems.push({ icon: 'history', value: relativeDay });
-    if (showModeMeta && modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
+    if (modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
     if (isSheet && currentSheetTask?.status !== 'reviewed') {
         metaItems.push({ icon: 'list-ordered', value: `${session.planned_count} assigned` });
         metaItems.push({ icon: 'clock', value: currentSheetTask?.status === 'pending_review' ? 'Waiting for review' : 'In progress' });
@@ -536,6 +543,12 @@ function countAnswersByOutcome(answers) {
 function renderAnswerSections(answers) {
     wrongSection.style.display = 'none';
     rightSection.style.display = '';
+    rightSection.querySelector('.parent-review-actions')?.remove();
+    rightList.classList.toggle('parent-review-list', isParentReviewSession());
+    if (isParentReviewSession()) {
+        renderParentReview(answers);
+        return;
+    }
     if (currentSessionIsDrill) {
         rightSectionTitle.textContent = 'Drilled Cards';
         if (rightSectionIconHost) rightSectionIconHost.innerHTML = window.icon('layers', { size: 22 });
@@ -560,6 +573,65 @@ function renderAnswerSections(answers) {
         keepSingleGroupOrder: false,
         sortCorrectBySpeed: !isTypeIIIReviewSession(),
     });
+}
+
+function renderParentReview(answers) {
+    rightSectionTitle.textContent = 'Cards Practiced';
+    if (rightSectionIconHost) rightSectionIconHost.innerHTML = window.icon('layers', { size: 22 });
+    if (drillProgressSection) drillProgressSection.style.display = 'none';
+    const pending = answers.some((answer) => Number(answer.correct_score) === 0);
+    if (rightSectionHint) {
+        rightSectionHint.style.display = pending ? '' : 'none';
+        rightSectionHint.textContent = 'Tap to mark correct, wrong, or unmarked.';
+    }
+    const draft = answers.map((answer) => ({
+        ...answer,
+        correct_score: pending && Number(answer.correct_score) <= -2 ? -1 : Number(answer.correct_score),
+    }));
+    renderAnswerList(rightList, draft, { compact: true, parentReview: pending });
+    if (!pending) return;
+    const actions = document.createElement('div');
+    actions.className = 'parent-review-actions';
+    const save = document.createElement('button');
+    save.type = 'button';
+    save.className = 'paradigm-btn paradigm-submit-confirm paradigm-compact-control';
+    actions.appendChild(save);
+    rightList.before(actions);
+    let busy = false;
+    function refresh() {
+        const remaining = draft.filter((answer) => Number(answer.correct_score) === 0).length;
+        save.disabled = busy || remaining > 0;
+        save.textContent = busy ? 'Saving…' : remaining > 0 ? `${remaining} to review` : 'Save review';
+    }
+    rightList.querySelectorAll('[data-review-result-id]').forEach((button) => {
+        button.addEventListener('click', () => {
+            if (busy) return;
+            const answer = draft.find((item) => String(item.result_id) === button.dataset.reviewResultId);
+            if (!answer) return;
+            const grade = Number(answer.correct_score);
+            answer.correct_score = grade === 0 ? 1 : grade === 1 ? -1 : 0;
+            button.classList.remove('pending', 'right', 'wrong');
+            button.classList.add(getAnswerBarClassByScore(answer.correct_score));
+            button.setAttribute('aria-label', `${getAnswerPrimaryLabel(answer)}: ${answer.correct_score === 1 ? 'Correct' : answer.correct_score === -1 ? 'Wrong' : 'To review'}`);
+            refresh();
+        });
+    });
+    save.addEventListener('click', async () => {
+        if (save.disabled) return;
+        busy = true;
+        refresh();
+        try {
+            const response = await fetch(`${API_BASE}/kids/${encodeURIComponent(kidId)}/report/sessions/${encodeURIComponent(sessionId)}/parent-review`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ grades: draft.map((answer) => ({ result_id: answer.result_id, correct: Number(answer.correct_score) })) }),
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Failed to save review');
+            await loadSessionDetail();
+        } catch (error) { showError(error.message); }
+        finally { busy = false; refresh(); }
+    });
+    refresh();
 }
 
 function groupAnswersByCard(answers) {
@@ -872,6 +944,7 @@ function formatPracticeMode(raw) {
     }
     let baseLabel = '';
     if (text === 'self') baseLabel = 'Self';
+    else if (text === 'parent_review') baseLabel = 'Parent review';
     else if (text === 'parent') baseLabel = 'Parent';
     else if (text === 'multi') baseLabel = 'Multi';
     else if (text === 'input') baseLabel = 'Input';
@@ -930,6 +1003,7 @@ function renderAnswerList(container, cards, options = {}) {
     const sortCorrectBySpeed = !!options.sortCorrectBySpeed && !typeIII;
     const reportFrom = getCardReportFromSession();
     const sorted = [...cards].sort((a, b) => {
+        if (isParentReviewSession()) return Number(a.result_id) - Number(b.result_id);
         if (sortCorrectBySpeed) {
             return sortStandardAnswersByOutcomeAndSpeed(a, b);
         }
@@ -961,8 +1035,8 @@ function renderAnswerList(container, cards, options = {}) {
                 ? `<a class="answer-type3-title-tile" href="${escapeHtml(reportHref)}" aria-label="Open history for ${escapeHtml(displayLabel)}" title="${escapeHtml(displayLabel)}"><span class="answer-type3-title-tile-text ${typeIIITitleSizeClass}">${escapeHtml(displayLabel)}</span></a>`
                 : `<span class="answer-type3-title-tile" title="${escapeHtml(displayLabel)}" aria-label="${escapeHtml(displayLabel)}"><span class="answer-type3-title-tile-text ${typeIIITitleSizeClass}">${escapeHtml(displayLabel)}</span></span>`)
             : `<div class="answer-label${currentSessionHasChineseSpecificLogic ? ' chinese-specific' : ''}">${renderMathHtml(displayLabel)}</div>`;
-        const useCompactLink = compact && !!reportHref;
-        const tagName = useCompactLink ? 'a' : 'div';
+        const useCompactLink = compact && !!reportHref && !options.parentReview;
+        const tagName = options.parentReview ? 'button' : useCompactLink ? 'a' : 'div';
         const retryLabel = `${retryCount} ${retryCount === 1 ? 'retry' : 'retries'}`;
         const linkTitleBase = secondaryLabel
             ? `Open records for ${displayLabel} • ${secondaryLabel} • ${retryLabel}`
@@ -1011,6 +1085,7 @@ function renderAnswerList(container, cards, options = {}) {
         }
         return `
             <${tagName}
+                ${options.parentReview ? `type="button" data-review-result-id="${resultId}" aria-label="${escapeHtml(displayLabel)}: To review"` : ''}
                 class="answer-item ${answerClass}${usedPromptAudio ? ' has-audio-assist' : ''}${typeIII ? ' answer-item--type3' : ''}"
                 ${useCompactLink ? `href="${reportHref}"` : ''}
                 ${useCompactLink ? `title="${escapeHtml(linkTitle)}"` : ''}

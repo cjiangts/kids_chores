@@ -70,6 +70,7 @@ def get_latest_retry_source_session_for_today(conn, kid, session_type):
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
           AND s.delivery_mode = 'online'
+          AND s.practice_mode <> 'parent_review'
           AND s.completed_at IS NOT NULL
           AND s.completed_at >= ?
           AND s.completed_at < ?

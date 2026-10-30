@@ -1236,3 +1236,4 @@ from . import practice  # noqa: E402,F401
 from . import chinese_bank  # noqa: E402,F401
 
 from . import sheet_tasks  # noqa: E402,F401
+from . import parent_review  # noqa: E402,F401

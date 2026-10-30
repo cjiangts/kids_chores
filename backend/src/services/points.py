@@ -866,6 +866,7 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
         WHERE s.type = ?
+          AND NOT (s.practice_mode = 'parent_review' AND EXISTS (SELECT 1 FROM session_results pending_grade WHERE pending_grade.session_id = s.id AND pending_grade.correct = 0))
           AND s.completed_at IS NOT NULL
           AND s.completed_at >= ?
           AND s.completed_at < ?

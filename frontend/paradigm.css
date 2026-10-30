@@ -1234,6 +1234,12 @@ input.paradigm-compact-stepper-value {
     line-height: var(--paradigm-compact-stepper-button-size);
 }
 
+input.paradigm-compact-stepper-value::-webkit-inner-spin-button,
+input.paradigm-compact-stepper-value::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
 .paradigm-status-column {
     min-width: var(--paradigm-status-column-width);
     padding-left: var(--paradigm-status-column-padding-left);

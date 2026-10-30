@@ -163,6 +163,7 @@ def get_kid_dashboard_stats(
                     type,
                     planned_count,
                     delivery_mode,
+                    practice_mode,
                     completed_at,
                     started_at,
                     CASE
@@ -194,6 +195,7 @@ def get_kid_dashboard_stats(
                 JOIN todays_sessions ts ON ts.id = sr.session_id
                 WHERE sr.card_id IS NOT NULL
                   AND ts.delivery_mode <> 'sheet'
+                  AND ts.practice_mode <> 'parent_review'
                   AND (sr.correct = -1 OR sr.correct = 2)
                 GROUP BY sr.session_id
             )
@@ -510,7 +512,8 @@ def get_kid_today_session_status_by_deck_category(
                 COUNT(sr.id) AS answer_count,
                 COALESCE(SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS wrong_count,
                 COALESCE(SUM(CASE WHEN sr.correct < 0 OR sr.correct = ? THEN 1 ELSE 0 END), 0) AS mistake_count,
-                COALESCE(SUM(CASE WHEN sr.correct = 0 THEN 1 ELSE 0 END), 0) AS ungraded_count
+                COALESCE(SUM(CASE WHEN sr.correct = 0 THEN 1 ELSE 0 END), 0) AS ungraded_count,
+                s.practice_mode
             FROM sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             WHERE s.type IN ({placeholders})
@@ -530,7 +533,8 @@ def get_kid_today_session_status_by_deck_category(
                 s.type,
                 s.planned_count,
                 s.completed_at,
-                s.started_at
+                s.started_at,
+                s.practice_mode
             ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
             """,
             [
@@ -567,7 +571,7 @@ def get_kid_today_session_status_by_deck_category(
             parent_finalized = has_session_finalization_point_event(local_conn, completed_at)
             if parent_finalized:
                 done = True
-            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III:
+            elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III or row[9] == 'parent_review':
                 done = has_completed_all_planned
             else:
                 done = has_completed_all_planned and wrong_count <= 0
@@ -580,7 +584,8 @@ def get_kid_today_session_status_by_deck_category(
                 'earnedPoints': points_by_key.get(category_key, 0),
             }
         from src.services.sheet_tasks import apply_sheet_statuses
-        return apply_sheet_statuses(local_conn, kid, status_by_key)
+        from src.services.parent_review import apply_parent_review_statuses
+        return apply_parent_review_statuses(local_conn, apply_sheet_statuses(local_conn, kid, status_by_key))
     except Exception:
         return status_by_key
     finally:
@@ -849,6 +854,7 @@ def build_kid_daily_progress_section(kid, category_key, *, conn=None):
             FROM session_results sr
             JOIN sessions s ON s.id = sr.session_id
             WHERE LOWER(TRIM(s.type)) = ?
+              AND NOT (s.practice_mode = 'parent_review' AND EXISTS (SELECT 1 FROM session_results pending_grade WHERE pending_grade.session_id = s.id AND pending_grade.correct = 0))
               AND sr.card_id IS NOT NULL
               AND sr.timestamp IS NOT NULL
             ORDER BY sr.timestamp ASC

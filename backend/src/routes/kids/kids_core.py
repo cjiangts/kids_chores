@@ -1075,9 +1075,11 @@ def finish_kid_report_session_here(kid_id, session_id):
 
         conn = get_kid_connection_for(kid)
         try:
-            mode_row = conn.execute('SELECT delivery_mode FROM sessions WHERE id = ?', [session_id_int]).fetchone()
+            mode_row = conn.execute('SELECT delivery_mode, practice_mode FROM sessions WHERE id = ?', [session_id_int]).fetchone()
             if mode_row and mode_row[0] == 'sheet':
                 return jsonify({'error': 'Use printed-work review to complete a sheet task'}), 409
+            if mode_row and mode_row[1] == 'parent_review':
+                return jsonify({'error': 'Use parent review to grade this session'}), 409
             conn.execute('BEGIN TRANSACTION')
             row = conn.execute(
                 """

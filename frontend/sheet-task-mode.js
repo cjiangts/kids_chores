@@ -4,6 +4,7 @@ window.SheetTaskMode = (() => {
         if (!root) return;
         const url = `/api/kids/${encodeURIComponent(kidId)}/sheet-tasks?${new URLSearchParams({ categoryKey })}`;
         let data = await window.SheetTaskView.request(url);
+        await window.ParentReviewMode?.load(kidId, categoryKey, data.mode);
         root.classList.toggle('hidden', !data.supported);
         if (!data.supported) return;
         root.replaceChildren();
@@ -46,6 +47,7 @@ window.SheetTaskMode = (() => {
                         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ categoryKey, mode }),
                     });
                     render();
+                    await window.ParentReviewMode?.load(kidId, categoryKey, data.mode);
                 } catch (error) { render(); showError(error.message); }
             });
             buttons.push(button);

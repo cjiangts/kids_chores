@@ -90,7 +90,7 @@ function showCurrentPrompt() {
 
     const card = state.sessionCards[state.currentIndex];
     renderPracticeProgress(progress, progressFill, state.currentIndex + 1, state.sessionCards.length, 'Card');
-    cardAnswer.textContent = card.front || '';
+    cardAnswer.textContent = state.type2ParentReview ? '' : (card.front || '');
     cardAnswer.classList.add('hidden');
     flashcard.classList.remove('revealed');
 
@@ -150,6 +150,13 @@ function revealType2Answer() {
     if (!isType(BEHAVIOR_TYPE_II)) {
         return;
     }
+    if (state.type2ParentReview) {
+        if (!window.PracticeSession.hasActiveSession(state.activePendingSessionId) || doneBtn.disabled) return;
+        state.answerRevealed = true;
+        doneBtn.disabled = true;
+        answerType2Card(true);
+        return;
+    }
     if (state.answerRevealed || !window.PracticeSession.hasActiveSession(state.activePendingSessionId) || state.sessionCards.length === 0) {
         return;
     }
@@ -175,10 +182,9 @@ function answerType2Card(correct) {
     });
     updateFinishEarlyButtonState();
 
-    if (correct) {
-        state.rightCount += 1;
-    } else {
-        state.wrongCount += 1;
+    if (!state.type2ParentReview) {
+        if (correct) state.rightCount += 1;
+        else state.wrongCount += 1;
     }
 
     if (state.currentIndex >= state.sessionCards.length - 1) {
@@ -285,7 +291,9 @@ async function endType2Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        resultSummary.textContent = endedEarly
+        resultSummary.textContent = state.type2ParentReview
+            ? `${state.sessionAnswers.length} completed · Waiting for parent review. Give your answer sheet to a parent to check.`
+            : endedEarly
             ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
             : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);

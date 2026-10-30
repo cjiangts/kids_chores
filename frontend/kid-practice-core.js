@@ -86,8 +86,6 @@ const resultSummary = document.getElementById('resultSummary');
 const sessionActionSlot = document.querySelector('.session-action-slot');
 const judgeModeRow = document.getElementById('judgeModeRow');
 const judgeModeToggleStart = document.getElementById('judgeModeToggleStart');
-const drillModeRow = document.getElementById('drillModeRow');
-const drillModeToggle = document.getElementById('drillModeToggle');
 const knewRow = document.getElementById('knewRow');
 const knewBtn = document.getElementById('knewBtn');
 const doneRow = document.getElementById('doneRow');
@@ -155,6 +153,7 @@ const state = {
     sessionCards: [],
     activePendingSessionId: null,
     activeIsRetrySession: false,
+    type2ParentReview: false,
     currentIndex: 0,
     rightCount: 0,
     wrongCount: 0,
@@ -195,6 +194,7 @@ const state = {
     pendingResultEndedEarly: false,
     drillEligible: false,
     drillRequested: false,
+    speedDrillEnabled: false,
     drillActive: false,
     drillTargetAttempts: 0,
     drillAttemptsDone: 0,
@@ -246,6 +246,20 @@ const recordingVisualizer = window.RecordingVisualizer
     : null;
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
     button: finishEarlyBtn,
+    getCanGiveUp: () => state.drillActive && isSessionInProgress(),
+    onRequestGiveUp: () => {
+        if (!window.confirm('Give up this Speed Drill?\n\nAll progress from this attempt will be lost. Nothing will be saved.')) return;
+        window.PracticeSession.clearSessionStart(state.activePendingSessionId);
+        state.activePendingSessionId = '';
+        state.sessionAnswers = [];
+        state.sessionCards = [];
+        state.wrongCardsInSession = [];
+        state.rightCount = 0;
+        state.wrongCount = 0;
+        resetDrillSessionState();
+        stopAudioPlayback();
+        window.location.href = getPracticeHomeUrl();
+    },
     getHasActiveSession: () => {
         if (!isSessionInProgress()) {
             return false;
@@ -405,6 +419,10 @@ function usesPracticeModePicker() {
     return isType(BEHAVIOR_TYPE_I) || isType(BEHAVIOR_TYPE_IV);
 }
 
+function isParentAssistPracticeMode() {
+    return isType(BEHAVIOR_TYPE_I) && state.judgeMode === 'parent';
+}
+
 function getJudgeModeButton(mode) {
     return judgeModeToggleStart
         ? judgeModeToggleStart.querySelector(`[data-judge-mode="${mode}"]`)
@@ -496,26 +514,6 @@ function shouldOfferDrillMode() {
     return target >= DRILL_MIN_DAILY_TARGET;
 }
 
-function setDrillRequested(nextValue) {
-    const next = Boolean(nextValue);
-    state.drillRequested = next;
-    syncDrillModeToggleUi();
-    applyDrillModeUiSideEffects();
-}
-
-function syncDrillModeToggleUi() {
-    if (!drillModeToggle) {
-        return;
-    }
-    const buttons = drillModeToggle.querySelectorAll('[data-drill-mode]');
-    buttons.forEach((btn) => {
-        const isDrill = btn.getAttribute('data-drill-mode') === 'drill';
-        const pressed = isDrill ? state.drillRequested : !state.drillRequested;
-        btn.classList.toggle('active', pressed);
-        btn.setAttribute('aria-pressed', pressed ? 'true' : 'false');
-    });
-}
-
 function applyDrillModeUiSideEffects() {
     updateSessionInfoText();
 }
@@ -546,30 +544,9 @@ function updateSessionInfoText() {
     sessionInfo.innerHTML = `Session: <span class="session-info-count">${target}</span> ${unit}`;
 }
 
-function bindDrillModeToggle() {
-    if (!drillModeToggle) {
-        return;
-    }
-    drillModeToggle.addEventListener('click', (event) => {
-        const btn = event.target.closest('[data-drill-mode]');
-        if (!btn) {
-            return;
-        }
-        const next = btn.getAttribute('data-drill-mode') === 'drill';
-        setDrillRequested(next);
-    });
-}
-
 function refreshDrillModeRow() {
     state.drillEligible = shouldOfferDrillMode();
-    if (!drillModeRow) {
-        return;
-    }
-    drillModeRow.classList.toggle('hidden', !state.drillEligible);
-    if (!state.drillEligible) {
-        state.drillRequested = false;
-    }
-    syncDrillModeToggleUi();
+    state.drillRequested = state.drillEligible && state.speedDrillEnabled;
     applyDrillModeUiSideEffects();
 }
 function configureTypeUi() {
@@ -817,9 +794,12 @@ function parseServerPracticeMode(rawMode) {
 
 function applyServerPracticeMode(serverMode) {
     const { base, drill } = parseServerPracticeMode(serverMode);
+    if (isType(BEHAVIOR_TYPE_II)) {
+        state.type2ParentReview = base === 'parent_review';
+        return;
+    }
     if (drill) {
         state.drillRequested = true;
-        syncDrillModeToggleUi();
         applyDrillModeUiSideEffects();
     }
     if (!base || base === 'na') return;
@@ -1043,6 +1023,7 @@ function answerCurrentCard(correct) {
     }
 }
 function applyJudgeModeUi() {
+    flashcard.classList.toggle('can-pause', isParentAssistPracticeMode());
     if (isType(BEHAVIOR_TYPE_IV)) {
         const isMultiMode = shouldUseType4MultipleChoiceUi();
         knewRow.classList.add('hidden');
@@ -1204,7 +1185,6 @@ function showError(message) {
 // === 8. Event bindings + DOMContentLoaded
 // =====================================================================
 function bindEventHandlers() {
-    bindDrillModeToggle();
     startBtn.addEventListener('click', () => {
         void startSession();
     });

@@ -404,6 +404,28 @@
             color: #8b5f08;
         }
 
+        .parent-review-actions {
+            display: flex;
+            margin: 0.6rem 0 1rem;
+        }
+
+        .parent-review-list .answer-grid.compact .answer-item.pending {
+            background: #fff;
+            border-color: var(--p-border);
+            color: var(--p-ink-title);
+        }
+
+        .parent-review-list button.answer-item {
+            font: inherit;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        .parent-review-list button.answer-item:focus-visible {
+            outline: 2px solid var(--p-accent);
+            outline-offset: 2px;
+        }
+
         .answer-bar-track {
             width: 100%;
             height: 8px;

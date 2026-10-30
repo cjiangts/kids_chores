@@ -66,7 +66,14 @@ def get_cards_with_stats_for_deck_ids(conn, deck_ids):
             ) AS last_result_correct,
             COALESCE(c.thumb_down_count, 0) AS thumb_down_count
         FROM cards c
-        LEFT JOIN session_results sr ON c.id = sr.card_id
+        LEFT JOIN (
+            SELECT result.* FROM session_results result
+            WHERE result.session_id NOT IN (
+                SELECT pending_session.id FROM sessions pending_session
+                JOIN session_results pending_grade ON pending_grade.session_id = pending_session.id
+                WHERE pending_session.practice_mode = 'parent_review' AND pending_grade.correct = 0
+            )
+        ) sr ON c.id = sr.card_id
         WHERE c.deck_id IN ({placeholders})
         GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at, c.thumb_down_count
         ORDER BY c.deck_id ASC, c.id ASC
@@ -122,7 +129,14 @@ def get_cards_with_stats_for_card_ids(conn, card_ids):
             ) AS last_result_correct,
             COALESCE(c.thumb_down_count, 0) AS thumb_down_count
         FROM cards c
-        LEFT JOIN session_results sr ON c.id = sr.card_id
+        LEFT JOIN (
+            SELECT result.* FROM session_results result
+            WHERE result.session_id NOT IN (
+                SELECT pending_session.id FROM sessions pending_session
+                JOIN session_results pending_grade ON pending_grade.session_id = pending_session.id
+                WHERE pending_session.practice_mode = 'parent_review' AND pending_grade.correct = 0
+            )
+        ) sr ON c.id = sr.card_id
         WHERE c.id IN ({placeholders})
         GROUP BY c.id, c.deck_id, c.front, c.back, c.skip_practice, c.created_at, c.thumb_down_count
         ORDER BY c.id ASC

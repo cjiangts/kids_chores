@@ -10,7 +10,7 @@ from src.routes.kids_constants import (
 )
 
 SESSION_PRACTICE_MODE_NA = 'na'
-SESSION_PRACTICE_MODE_BASE_VALID = {'self', 'parent', 'multi', 'input', 'na'}
+SESSION_PRACTICE_MODE_BASE_VALID = {'self', 'parent', 'multi', 'input', 'na', 'parent_review'}
 SESSION_PRACTICE_MODE_DRILL_SUFFIX = '+drill'
 
 

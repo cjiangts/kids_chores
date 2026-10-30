@@ -361,7 +361,7 @@ function buildCategoryProgressModel({
         : 'Not started';
     const unseenPercent = Math.max(0, 100 - seenPercent);
 
-    return {
+    const model = {
         actionLabel,
         subText,
         percentValue: percentValueRaw,
@@ -384,6 +384,22 @@ function buildCategoryProgressModel({
         pendingReview: Boolean(sheetStatus.pendingReview),
         isDoneToday: starsModel.isDoneToday,
     };
+    // Online parent review and printed work share the same waiting presentation.
+    if (model.pendingReview) {
+        Object.assign(model, {
+            actionLabel: 'Waiting for review',
+            subText: 'Waiting for parent review',
+            fillPercent: 100,
+            masteredPercent: 100,
+            redoPercent: 0,
+            unseenPercent: 0,
+            redoCount: 0,
+            unseenCount: 0,
+            isFullyComplete: false,
+            isReview: true,
+        });
+    }
+    return model;
 }
 
 function buildCategoryCardInnerHtml({
@@ -412,10 +428,14 @@ function buildCategoryCardInnerHtml({
         : `<div class="practice-row-sub">${escapeHtmlLocal(progressModel.subText)}</div>`;
 
     const tileHtml = window.DeckCategoryCommon.renderCategorySubjectIcon(categoryKey);
-    const actionLabel = progressModel.isFullyComplete
+    const actionLabel = progressModel.pendingReview
+        ? 'Waiting'
+        : progressModel.isFullyComplete
         ? formatDonePointsStatus(progressModel.earnedPoints)
         : progressModel.actionLabel;
-    const actionIconName = progressModel.isFullyComplete
+    const actionIconName = progressModel.pendingReview
+        ? 'clock'
+        : progressModel.isFullyComplete
         ? 'check'
         : ({ Start: 'play', Review: 'refresh-cw', Resume: 'circle-arrow-right', 'Waiting for review': 'clock' }[progressModel.actionLabel] || 'play');
     const actionIconHtml = (typeof window.icon === 'function') ? window.icon(actionIconName, { size: 18, strokeWidth: 2.4 }) : '';
@@ -437,7 +457,7 @@ function buildCategoryCardInnerHtml({
         </div>
         <span class="practice-task-action practice-row-chevron${progressModel.isFullyComplete ? ' is-done' : ''}" title="${escapeHtmlLocal(actionLabel)}" aria-hidden="true">
             ${actionIconHtml}
-            <span class="practice-row-action-label">${escapeHtmlLocal(progressModel.pendingReview ? 'Waiting' : actionLabel)}</span>
+            <span class="practice-row-action-label">${escapeHtmlLocal(actionLabel)}</span>
         </span>
     `;
 }
@@ -766,8 +786,10 @@ function renderPracticeOptionButtons({
             todaySessionStatusByCategory,
             practiceTargetByCategory,
         });
-        button.disabled = Boolean(model?.isFullyComplete);
-        if (model?.isFullyComplete) {
+        const waitingForOnlineReview = model?.pendingReview
+            && todaySessionStatusByCategory?.[key]?.deliveryMode !== 'sheet';
+        button.disabled = Boolean(model?.isFullyComplete || waitingForOnlineReview);
+        if (button.disabled) {
             button.setAttribute('aria-disabled', 'true');
         } else {
             button.addEventListener('click', () => {

@@ -132,6 +132,7 @@ def build_practice_priority_preview_for_decks(
             JOIN sessions s ON s.id = sr.session_id
             JOIN subject_cards c ON c.card_id = sr.card_id
             WHERE s.type = ?
+              AND NOT (s.practice_mode = 'parent_review' AND EXISTS (SELECT 1 FROM session_results pending_grade WHERE pending_grade.session_id = s.id AND pending_grade.correct = 0))
         ),
         recent_correct_ranked AS (
             SELECT

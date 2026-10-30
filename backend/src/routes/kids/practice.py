@@ -102,6 +102,8 @@ from src.services.pending_sessions import (
     parse_client_started_at,
     pop_pending_session,
 )
+from src.services.parent_review import review_required
+from src.services.kid_category_config import get_category_speed_drill_enabled
 from src.services.practice_mode import (
     compose_session_practice_mode,
     get_session_practice_mode,
@@ -121,6 +123,37 @@ from src.routes.kids.type4 import complete_type_iv_session_internal
 # 1. Session start routes — per-behavior-type entry points
 # ============================================================================
 
+@kids_bp.route('/kids/<kid_id>/cards/speed-drill-mode', methods=['GET', 'PUT'])
+def speed_drill_mode(kid_id):
+    kid = get_kid_for_family(kid_id)
+    if not kid:
+        return jsonify({'error': 'Kid not found'}), 404
+    payload = request.get_json(silent=True) or {}
+    conn = None
+    try:
+        conn = get_kid_connection_for(kid)
+        category_key, chinese = resolve_kid_type_i_category_with_mode(
+            kid, payload.get('categoryKey') or request.args.get('categoryKey'), conn=conn, require_opt_in=False,
+        )
+        supported = get_session_behavior_type(category_key) == DECK_CATEGORY_BEHAVIOR_TYPE_I and not chinese
+        if request.method == 'PUT':
+            enabled = payload.get('speed_drill_enabled')
+            if not supported or not isinstance(enabled, bool):
+                raise ValueError('Speed Drill requires a non-Chinese Type-I subject and a boolean setting')
+            updated = conn.execute('UPDATE deck_category_opt_in SET speed_drill_enabled = ? WHERE category_key = ? RETURNING category_key',
+                                   [enabled, category_key]).fetchone()
+            if not updated:
+                raise ValueError('Subject settings not found')
+        return jsonify({'supported': supported,
+                        'speed_drill_enabled': supported and get_category_speed_drill_enabled(conn, category_key),
+                        'drill_speed_target_ms': get_category_drill_speed_cutoff_ms_for_kid(conn, category_key),
+                        'minimum_daily_target': 20})
+    except ValueError as exc:
+        return jsonify({'error': str(exc)}), 400
+    finally:
+        if conn is not None:
+            conn.close()
+
 @kids_bp.route('/kids/<kid_id>/type2/practice/start', methods=['POST'])
 def start_writing_practice_session(kid_id):
     """Start a type-II practice session."""
@@ -136,6 +169,7 @@ def start_writing_practice_session(kid_id):
         )
         practice_mode = normalize_session_practice_mode(payload.get('practiceMode'))
         conn = get_kid_connection_for(kid)
+        practice_mode = 'parent_review' if review_required(conn, category_key) else 'self'
         source_decks = get_shared_merged_source_decks_for_kid(
             conn,
             kid,
@@ -342,7 +376,11 @@ def start_type1_practice_session(kid_id):
         )
         parsed_mode = parse_session_practice_mode(payload.get('practiceMode'))
         practice_base = parsed_mode['base']
-        drill_requested = parsed_mode['drill']
+        mode_conn = get_kid_connection_for(kid, read_only=True)
+        try:
+            drill_requested = get_category_speed_drill_enabled(mode_conn, category_key)
+        finally:
+            mode_conn.close()
         session_card_count_override = None
         drill_speed_target_ms = None
         drill_planned_count = None
@@ -1185,6 +1223,7 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
     conn = get_kid_connection_for(kid)
     planned_count = int(pending.get('planned_count') or 0)
     uses_type_iii_audio = is_type_iii_session_type(session_type)
+    parent_review = pending.get('practice_mode') == 'parent_review'
     try:
         category_meta_by_key = get_shared_deck_category_meta_by_key()
     except Exception:
@@ -1321,6 +1360,8 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
     # Validate answers before starting transaction
     for answer in answers:
         card_id = answer.get('cardId')
+        if parent_review:
+            answer['known'] = True  # The server owns the grade; a child's score is ignored.
         known = answer.get('known')
         if not card_id or not isinstance(known, bool):
             conn.close()
@@ -1561,7 +1602,7 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                     answer.get('responseTimeMs'),
                     session_behavior_type=session_behavior_type,
                 )
-                if uses_type_iii_audio:
+                if uses_type_iii_audio or parent_review:
                     correct_value = 0
                 else:
                     correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
@@ -1616,7 +1657,7 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                 total_correct_percentage = (
                     float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
                 )
-            elif uses_type_iii_audio and (updated_right_count + updated_wrong_count) <= 0:
+            elif (uses_type_iii_audio or parent_review) and (updated_right_count + updated_wrong_count) <= 0:
                 total_correct_percentage = (
                     float(updated_answer_count) * 100.0 / float(max(1, target_answer_count))
                 )
@@ -1676,7 +1717,7 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
                 answer.get('responseTimeMs'),
                 session_behavior_type=session_behavior_type,
             )
-            if uses_type_iii_audio:
+            if uses_type_iii_audio or parent_review:
                 correct_value = 0
             else:
                 correct_value = SESSION_RESULT_CORRECT if bool(known) else SESSION_RESULT_WRONG_UNRESOLVED
@@ -1712,7 +1753,7 @@ def _complete_session_and_save(kid, kid_id, session_type, data):
     is_incomplete = planned_count > 0 and len(answers) < planned_count
     if is_incomplete:
         total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
-    elif uses_type_iii_audio and (right_count + wrong_count) <= 0:
+    elif (uses_type_iii_audio or parent_review) and (right_count + wrong_count) <= 0:
         total_correct_percentage = float(len(answers)) * 100.0 / float(max(1, target_answer_count))
     else:
         total_correct_percentage = float(right_count) * 100.0 / float(max(1, target_answer_count))

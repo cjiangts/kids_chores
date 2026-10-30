@@ -277,6 +277,12 @@ def get_category_drill_speed_cutoff_ms_for_kid(conn, category_key):
         return DEFAULT_DRILL_SPEED_CUTOFF_MS
 
 
+def get_category_speed_drill_enabled(conn, category_key):
+    row = conn.execute('SELECT speed_drill_enabled FROM deck_category_opt_in WHERE category_key = ?',
+                       [normalize_shared_deck_tag(category_key)]).fetchone()
+    return bool(row and row[0])
+
+
 def get_category_orphan_deck(conn, category_key):
     """Look up orphan deck id for one category key (read-only, no auto-create)."""
     key = normalize_shared_deck_tag(category_key)

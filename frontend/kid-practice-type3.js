@@ -124,7 +124,7 @@ function updatePauseSessionButtonState() {
     if (!pauseSessionBtn || !isType(BEHAVIOR_TYPE_III)) {
         return;
     }
-    const shouldShow = hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
+    const shouldShow = isParentAssistPracticeMode() && hasActiveSessionScreen() && (state.isRecording || state.isRecordingPaused || state.isSessionPaused);
     pauseSessionBtn.classList.toggle('hidden', !shouldShow);
     const pauseIcon = window.icon('pause', { size: 20 });
     const playIcon = window.icon('play', { size: 20 });
@@ -501,7 +501,7 @@ function mediaRecorderSupportsPauseResume() {
     );
 }
 async function pauseSession() {
-    if (!isType(BEHAVIOR_TYPE_III)) {
+    if (!isType(BEHAVIOR_TYPE_III) || !isParentAssistPracticeMode()) {
         return;
     }
     if (!hasActiveSessionScreen() || state.isSessionPaused || state.isUploadingRecording || !state.isRecording) {
@@ -571,7 +571,7 @@ function resumeSession() {
 }
 
 function toggleSessionPause() {
-    if (!isType(BEHAVIOR_TYPE_III)) {
+    if (!isType(BEHAVIOR_TYPE_III) || !isParentAssistPracticeMode()) {
         return;
     }
     if (state.isSessionPaused) {

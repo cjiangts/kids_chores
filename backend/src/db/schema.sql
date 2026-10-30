@@ -112,8 +112,13 @@ CREATE TABLE IF NOT EXISTS deck_category_opt_in (
   session_card_count INTEGER NOT NULL DEFAULT 0,
   include_orphan BOOLEAN NOT NULL DEFAULT TRUE,
   drill_speed_cutoff_ms INTEGER,
-  task_delivery_mode VARCHAR NOT NULL DEFAULT 'online' CHECK (task_delivery_mode IN ('online', 'sheet'))
+  task_delivery_mode VARCHAR NOT NULL DEFAULT 'online' CHECK (task_delivery_mode IN ('online', 'sheet')),
+  parent_review_required BOOLEAN NOT NULL DEFAULT FALSE,
+  speed_drill_enabled BOOLEAN NOT NULL DEFAULT FALSE
 );
+
+ALTER TABLE deck_category_opt_in ADD COLUMN IF NOT EXISTS parent_review_required BOOLEAN DEFAULT FALSE;
+ALTER TABLE deck_category_opt_in ADD COLUMN IF NOT EXISTS speed_drill_enabled BOOLEAN DEFAULT FALSE;
 
 CREATE SEQUENCE IF NOT EXISTS sheet_session_items_id_seq;
 CREATE TABLE IF NOT EXISTS sheet_session_items (

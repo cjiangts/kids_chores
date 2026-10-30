@@ -123,14 +123,17 @@ window.PracticeUiCommon = {
         showError,
         onConfirmFinish,
         onCancelBeforeFirstAnswer,
+        getCanGiveUp,
+        onRequestGiveUp,
     }) {
         const FINISH_HTML = '<span class="icon" data-icon="flag" data-icon-size="18"></span> Finish Early';
         const CANCEL_HTML = '<span class="icon" data-icon="arrow-left" data-icon-size="18"></span> Cancel';
+        const GIVE_UP_HTML = '<span class="icon" data-icon="x" data-icon-size="18"></span> Give up';
         let currentMode = 'finish';
         const renderMode = (mode) => {
             if (!button || mode === currentMode) return;
             currentMode = mode;
-            button.innerHTML = mode === 'cancel' ? CANCEL_HTML : FINISH_HTML;
+            button.innerHTML = mode === 'give-up' ? GIVE_UP_HTML : mode === 'cancel' ? CANCEL_HTML : FINISH_HTML;
             if (window.hydrateIcons) {
                 window.hydrateIcons(button);
             }
@@ -141,6 +144,7 @@ window.PracticeUiCommon = {
                     return;
                 }
                 const hasActiveSession = Boolean(getHasActiveSession && getHasActiveSession());
+                const canGiveUp = Boolean(getCanGiveUp && getCanGiveUp());
                 const sessionScreen = document.getElementById('sessionScreen');
                 const shouldShow = sessionScreen
                     ? !sessionScreen.classList.contains('hidden')
@@ -148,11 +152,15 @@ window.PracticeUiCommon = {
                 button.classList.toggle('hidden', !shouldShow);
                 const recordedCount = Math.max(0, Number.parseInt(getRecordedCount && getRecordedCount(), 10) || 0);
                 const cancelMode = hasActiveSession && recordedCount <= 0 && typeof onCancelBeforeFirstAnswer === 'function';
-                renderMode(cancelMode ? 'cancel' : 'finish');
-                button.disabled = !hasActiveSession || (recordedCount <= 0 && !cancelMode);
+                renderMode(canGiveUp ? 'give-up' : cancelMode ? 'cancel' : 'finish');
+                button.disabled = !canGiveUp && (!hasActiveSession || (recordedCount <= 0 && !cancelMode));
             },
 
             requestFinish() {
+                if (getCanGiveUp && getCanGiveUp()) {
+                    if (onRequestGiveUp) onRequestGiveUp();
+                    return;
+                }
                 if (!(getHasActiveSession && getHasActiveSession())) {
                     return;
                 }
