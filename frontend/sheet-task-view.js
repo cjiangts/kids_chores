@@ -60,6 +60,15 @@ window.SheetTaskView = (() => {
             save.appendChild(badge);
             return { ...entry, badge, value };
         });
+        const markAllCorrect = review && !completionReview
+            ? window.ReportGradingCommon.createMarkAllCorrectButton({
+                getItems: () => task.items,
+                markCorrect: (item) => { grades[item.id] = true; },
+                canEdit: () => !busy && task.status === 'pending_review',
+                onChange: refresh,
+            })
+            : null;
+        if (markAllCorrect) actions.appendChild(markAllCorrect);
         actions.appendChild(save);
         actions.classList.toggle('hidden', !review || task.status === 'reviewed');
         root.insertBefore(actions, pages);
@@ -100,6 +109,7 @@ window.SheetTaskView = (() => {
         layoutObserver.observe(root);
         window.addEventListener('resize', fitPage);
         function refresh() {
+            if (markAllCorrect) markAllCorrect.disabled = busy || task.status !== 'pending_review';
             const count = task.items.filter((item) => typeof grades[item.id] === 'boolean').length;
             const correct = task.items.filter((item) => grades[item.id] === true).length;
             const counts = { pending: task.items.length - count, correct, wrong: count - correct };

@@ -48,5 +48,19 @@
         });
     }
 
-    global.ReportGradingCommon = { render, attach };
+    function createMarkAllCorrectButton({ getItems, markCorrect, canEdit, onChange }) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'paradigm-btn paradigm-compact-control';
+        button.setAttribute('aria-label', 'Mark all questions correct');
+        button.innerHTML = `${global.icon ? global.icon('check', { size: 16 }) : '✓'}<span>All correct</span>`;
+        button.addEventListener('click', () => {
+            if (button.disabled || !canEdit()) return;
+            getItems().forEach(markCorrect);
+            onChange();
+        });
+        return button;
+    }
+
+    global.ReportGradingCommon = { render, attach, createMarkAllCorrectButton };
 })(window);

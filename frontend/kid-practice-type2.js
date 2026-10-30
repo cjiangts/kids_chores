@@ -291,8 +291,12 @@ async function endType2Session(endedEarly = false) {
         if (!response.ok) {
             throw new Error(payload.error || `HTTP ${response.status}`);
         }
+        const submittedCount = Number(payload.answer_count) || state.sessionAnswers.length;
+        const hasRemaining = submittedCount < Number(payload.planned_count);
         resultSummary.textContent = state.type2ParentReview
-            ? `${state.sessionAnswers.length} completed · Waiting for parent review. Give your answer sheet to a parent to check.`
+            ? (hasRemaining
+                ? `Ended early · ${submittedCount} completed. You can resume this session from the practice page.`
+                : `${submittedCount} completed · Waiting for parent review. Give your answer sheet to a parent to check.`)
             : endedEarly
             ? `Ended early · Right: ${state.rightCount} · Wrong: ${state.wrongCount}`
             : `Right: ${state.rightCount} · Wrong: ${state.wrongCount}`;

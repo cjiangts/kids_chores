@@ -65,19 +65,23 @@ def save_session_review(conn, session_id, grades):
 
 def apply_parent_review_statuses(conn, statuses):
     rows = conn.execute("""
-        SELECT s.id, s.type, COUNT(r.id) FROM sessions s
+        SELECT s.id, s.type, COUNT(r.id), COALESCE(s.planned_count, 0),
+               COUNT(*) FILTER (WHERE r.correct = 0)
+        FROM sessions s
         JOIN session_results r ON r.session_id = s.id
         WHERE s.practice_mode = 'parent_review' AND s.delivery_mode = 'online'
           AND s.completed_at IS NOT NULL
-        GROUP BY s.id, s.type
+        GROUP BY s.id, s.type, s.planned_count
         HAVING COUNT(*) FILTER (WHERE r.correct = 0) > 0
         ORDER BY s.id ASC
     """).fetchall()
     seen = set()
-    for session_id, key, count in rows:
+    for session_id, key, count, planned, ungraded in rows:
         if key not in statuses or key in seen or statuses[key].get('pendingReview'):
             continue
         seen.add(key)
-        statuses[key].update({'status': 'done', 'sessionId': session_id, 'pendingReview': True,
-                              'deliveryMode': 'online', 'ungradedCount': count})
+        complete = planned <= 0 or count >= planned
+        statuses[key].update({'status': 'done' if complete else 'in_progress',
+                              'sessionId': session_id, 'pendingReview': True,
+                              'deliveryMode': 'online', 'ungradedCount': ungraded})
     return statuses

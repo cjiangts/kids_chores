@@ -598,7 +598,25 @@ function renderParentReview(answers) {
     actions.appendChild(save);
     rightList.before(actions);
     let busy = false;
+    const markAllCorrect = window.ReportGradingCommon.createMarkAllCorrectButton({
+        getItems: () => draft,
+        markCorrect: (answer) => {
+            answer.correct_score = 1;
+            updateReviewPill(answer);
+        },
+        canEdit: () => !busy,
+        onChange: refresh,
+    });
+    actions.prepend(markAllCorrect);
+    function updateReviewPill(answer) {
+        const button = rightList.querySelector(`[data-review-result-id="${answer.result_id}"]`);
+        if (!button) return;
+        button.classList.remove('pending', 'right', 'wrong');
+        button.classList.add(getAnswerBarClassByScore(answer.correct_score));
+        button.setAttribute('aria-label', `${getAnswerPrimaryLabel(answer)}: ${answer.correct_score === 1 ? 'Correct' : answer.correct_score === -1 ? 'Wrong' : 'To review'}`);
+    }
     function refresh() {
+        markAllCorrect.disabled = busy;
         const remaining = draft.filter((answer) => Number(answer.correct_score) === 0).length;
         save.disabled = busy || remaining > 0;
         save.textContent = busy ? 'Saving…' : remaining > 0 ? `${remaining} to review` : 'Save review';
@@ -610,9 +628,7 @@ function renderParentReview(answers) {
             if (!answer) return;
             const grade = Number(answer.correct_score);
             answer.correct_score = grade === 0 ? 1 : grade === 1 ? -1 : 0;
-            button.classList.remove('pending', 'right', 'wrong');
-            button.classList.add(getAnswerBarClassByScore(answer.correct_score));
-            button.setAttribute('aria-label', `${getAnswerPrimaryLabel(answer)}: ${answer.correct_score === 1 ? 'Correct' : answer.correct_score === -1 ? 'Wrong' : 'To review'}`);
+            updateReviewPill(answer);
             refresh();
         });
     });
