@@ -34,7 +34,6 @@ let _cellDesignDeckId = 0;
 let _cellDesignDeckName = '';
 let _cellDesignSample = null;
 const DEFAULT_MATH_PAPER_SIZE = 'letter';
-const PRINTABLE_AREA_DEBUG_BORDER_INSET = 2;
 const PAPER_MARGIN = 19;
 const PAPER_EXTRA_SAFE_MARGIN_X = 34;
 const PAPER_EXTRA_SAFE_MARGIN_TOP = 42;
@@ -710,8 +709,6 @@ function renderSheetBuilderContent(scale) {
     const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
-    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
-    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
     const headerFontPx = Math.max(10, Math.round(12 * scale));
     const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
     const deckSummaryText = buildBuilderDeckSummaryText(sheetRows);
@@ -725,7 +722,6 @@ function renderSheetBuilderContent(scale) {
     html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
-    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
     html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
     html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
@@ -747,10 +743,10 @@ function renderSheetBuilderContent(scale) {
         ]);
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewHeight}px;z-index:${sheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="-1" data-row-idx="${idx}" title="Make row smaller (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row smaller" ${canScaleDown ? '' : 'disabled'}>-</button>
-            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="1" data-row-idx="${idx}" title="Make row larger (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row larger" ${canScaleUp ? '' : 'disabled'}>+</button>
+            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="-1" data-row-idx="${idx}" title="Make row smaller (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row smaller" ${canScaleDown ? '' : 'disabled'}>${window.icon('minus', { size: 16 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="1" data-row-idx="${idx}" title="Make row larger (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row larger" ${canScaleUp ? '' : 'disabled'}>${window.icon('plus', { size: 16 })}</button>
             <button type="button" class="sb-row-tool-btn duplicate" data-sb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below" ${canDuplicate ? '' : 'disabled'}>⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-sb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">x</button>
+            <button type="button" class="sb-row-tool-btn delete" data-sb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 16 })}</button>
         </div>`;
         html += `<div class="sb-row" style="height:${previewHeight}px;">`;
         for (let cellIndex = 0; cellIndex < metrics.colCount; cellIndex += 1) {
@@ -1192,8 +1188,6 @@ function renderInlineSheetBuilderContent(scale) {
     const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
-    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
-    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
     const headerFontPx = Math.max(10, Math.round(12 * scale));
     const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
     const deckSummaryText = buildBuilderDeckSummaryText(inlineSheetRows);
@@ -1207,7 +1201,6 @@ function renderInlineSheetBuilderContent(scale) {
     html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
-    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
     html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
     html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
@@ -1226,10 +1219,10 @@ function renderInlineSheetBuilderContent(scale) {
         const canFontGrow = testGrow.fontScale > metrics.fontScale;
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewTotalH}px;z-index:${inlineSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>-</button>
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>+</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>${window.icon('minus', { size: 16 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>${window.icon('plus', { size: 16 })}</button>
             <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below">⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">x</button>
+            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 16 })}</button>
         </div>`;
         const rawPrompt = String(row.sampleProblem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
         const compactPrompt = rawPrompt.replace(/\s*([+\-×x*÷\/])\s*/g, ' $1 ').replace(/\s{2,}/g, ' ').trim();
@@ -1564,8 +1557,6 @@ function renderChineseSheetBuilderContent(scale) {
     const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
-    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
-    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
     const headerFontPx = Math.max(10, Math.round(12 * scale));
     let html = '';
     /* margins & border — reuse same visual frame as math builder */
@@ -1577,7 +1568,6 @@ function renderChineseSheetBuilderContent(scale) {
     html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
-    html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
     /* header */
     html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
@@ -1606,7 +1596,7 @@ function renderChineseSheetBuilderContent(scale) {
         html += `<div class="sb-row-wrap" data-cwb-row-idx="${idx}" style="height:${rowHeightPx}px;z-index:${chineseSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
             <button type="button" class="sb-row-tool-btn duplicate" data-cwb-row-duplicate="${idx}" title="Duplicate this row" aria-label="Duplicate" ${canDuplicate ? '' : 'disabled'}>⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-cwb-row-delete="1" data-row-idx="${idx}" title="Remove this card" aria-label="Remove row">x</button>
+            <button type="button" class="sb-row-tool-btn delete" data-cwb-row-delete="1" data-row-idx="${idx}" title="Remove this card" aria-label="Remove row">${window.icon('trash', { size: 16 })}</button>
         </div>`;
 
         const cells = buildChineseRowCells(row);

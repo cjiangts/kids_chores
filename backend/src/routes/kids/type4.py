@@ -278,6 +278,17 @@ def list_type4_print_sheets(kid_id):
             if conn is not None:
                 conn.close()
 
+        shared_conn = None
+        try:
+            shared_conn = get_shared_decks_connection(read_only=True)
+            deck_names = {
+                int(deck['deck_id']): str(deck.get('name') or '').strip()
+                for deck in get_shared_type_iv_deck_rows(shared_conn, category_key)
+            }
+        finally:
+            if shared_conn is not None:
+                shared_conn.close()
+
         sheets = []
         for row in rows:
             sheet = {
@@ -315,6 +326,7 @@ def list_type4_print_sheets(kid_id):
                     {
                         'shared_deck_id': int(item.get('shared_deck_id') or 0),
                         'deck_name': str(item.get('deck_name') or ''),
+                        'source_deck_name': deck_names.get(int(item.get('shared_deck_id') or 0)) or f"Deck {int(item.get('shared_deck_id') or 0)}",
                         'scale': float(item.get('scale') or 1),
                         'col_count': int(item.get('col_count') or 0),
                     }

@@ -118,11 +118,11 @@ class SheetTasksTest(TestCase):
         self.assertTrue(statuses['math']['pendingReview'])
         self.assertEqual(statuses['math']['sessionId'], first['id'])
 
-    def test_mode_cannot_start_without_inventory_but_existing_mode_is_retained(self):
+    def test_mode_can_switch_without_inventory_and_existing_mode_is_retained(self):
         self.conn.execute("UPDATE type4_print_sheets SET status = 'preview'")
         sheet_tasks.set_delivery_mode(self.conn, self.kid, 'math', 'online')
-        with self.assertRaises(ValueError):
-            sheet_tasks.set_delivery_mode(self.conn, self.kid, 'math', 'sheet')
+        sheet_tasks.set_delivery_mode(self.conn, self.kid, 'math', 'sheet')
+        self.assertEqual(sheet_tasks.sheet_summary(self.conn, self.kid, 'math')['mode'], 'sheet')
         self.conn.execute("UPDATE type4_print_sheets SET status = 'pending'")
         sheet_tasks.set_delivery_mode(self.conn, self.kid, 'math', 'sheet')
         self.conn.execute("UPDATE type4_print_sheets SET status = 'done'")

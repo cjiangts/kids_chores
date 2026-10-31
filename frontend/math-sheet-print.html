@@ -47,14 +47,40 @@
         .sheet-title-controls {
             display: flex;
             align-items: center;
-            flex-wrap: wrap;
+            flex-wrap: nowrap;
             gap: 0.6rem;
-            flex: 1 1 auto;
-            min-width: 0;
+            flex: 0 0 auto;
         }
 
-        .page-header-row .sheet-title-controls h1 {
+        .print-sheet-page .page-header-row .sheet-title-controls h1 {
+            flex: 0 0 auto;
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        .sheet-title-controls .repeat-control {
+            flex: 0 0 auto;
+        }
+
+        .print-sheet-page .page-header-with-back.page-header-with-actions .page-header-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+        }
+
+        .print-sheet-page #backToSheetManage {
+            grid-column: 2;
+            grid-row: 1;
+            justify-self: end;
+        }
+
+        .print-sheet-page .page-header-with-back.page-header-with-actions .page-header-actions {
+            grid-column: 1 / -1;
+            grid-row: 2;
             flex: 0 1 auto;
+            max-width: 100%;
+            margin-left: auto;
+            flex-wrap: wrap;
         }
 
         #mathSheetPager [data-page-label] {
@@ -328,12 +354,12 @@
                     </div>
                 </div>
             </div>
+            <a id="backToSheetManage" class="paradigm-btn paradigm-btn--pill page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets"><span data-icon="arrow-left" data-icon-size="16"></span><span>Back</span></a>
             <div class="page-header-actions">
-                <a id="backToSheetManage" class="paradigm-btn page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets"><span data-icon="arrow-left" data-icon-size="16"></span><span>Back</span></a>
-                <button id="showAnswersBtn" type="button" class="paradigm-btn">Show Answers</button>
-                <button id="regenerateBtn" type="button" class="paradigm-btn">Regenerate</button>
-                <button id="finalizeBtn" type="button" class="paradigm-btn">Finalize</button>
-                <button id="printBtn" type="button" class="paradigm-btn">Print</button>
+                <button id="showAnswersBtn" type="button" class="paradigm-btn paradigm-btn--pill"><span data-icon="eye"></span><span data-button-label>Show Answers</span></button>
+                <button id="regenerateBtn" type="button" class="paradigm-btn paradigm-btn--pill"><span data-icon="refresh-cw"></span><span data-button-label>Regenerate</span></button>
+                <button id="finalizeBtn" type="button" class="paradigm-btn paradigm-btn--pill"><span data-icon="check"></span><span data-button-label>Finalize</span></button>
+                <button id="printBtn" type="button" class="paradigm-btn paradigm-btn--pill"><span data-icon="printer"></span><span>Print</span></button>
             </div>
         </div>
     </header>
@@ -344,6 +370,6 @@
     <script src="kid-app-navigation.js"></script>
     <script src="math-rendering-common.js"></script>
     <script src="sheet-task-overlay.js"></script>
-    <script src="math-sheet-print.js"></script>
+    <script src="math-sheet-print.js?v=sheet-title-label"></script>
 </body>
 </html>

@@ -39,7 +39,6 @@ const CW_DEFAULT_EMPTY_COUNT = 1;
 const CW_DEFAULT_SCALE = 1.3;
 const CW_ROW_GAP = 4;
 const DEFAULT_PAPER_SIZE = 'letter';
-const PRINTABLE_AREA_DEBUG_BORDER_INSET = 2;
 const PAPER_MARGIN = 19;
 const PAPER_EXTRA_SAFE_MARGIN_X = 34;
 const PAPER_EXTRA_SAFE_MARGIN_TOP = 42;
@@ -170,7 +169,7 @@ function buildRowCells(character, emptyCount, colCount) {
     return cells;
 }
 
-function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
+function buildSheetPageMarkup(sheet, scale) {
     const paperSpec = currentPaperSpec;
     const layoutRows = Array.isArray(sheet?.layout?.rows) ? sheet.layout.rows : [];
     const marginPx = Math.round(paperSpec.margin * scale);
@@ -183,8 +182,6 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
     const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
-    const printableHeightPx = Math.round(paperSpec.safeBoxHeight * scale);
-    const borderInsetPx = Math.round(PRINTABLE_AREA_DEBUG_BORDER_INSET * scale);
     const headerFontPx = Math.max(10, Math.round(20 * scale));
     const pageWidthPx = paperSpec.pageWidth * scale;
     const pageHeightPx = paperSpec.pageHeight * scale;
@@ -208,9 +205,6 @@ function buildSheetPageMarkup(sheet, scale, { showDebugBorder }) {
     html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
-    if (showDebugBorder) {
-        html += `<div class="sb-printable-border" style="top:${contentTopPx + borderInsetPx}px;left:${contentLeftPx + borderInsetPx}px;width:${Math.max(1, gridWidthPx - (2 * borderInsetPx))}px;height:${Math.max(1, printableHeightPx - (2 * borderInsetPx))}px;"></div>`;
-    }
     html += `<div class="sb-header-row" style="top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     const kidName = String(sheet?.kid_name || '').trim();
     const displaySheetNumber = String(sheet?.id || '').trim();
@@ -256,7 +250,7 @@ function renderSheetPreview(sheet) {
     if (!sheetPreviewWrap) return;
     const paperSize = normalizePaperSize(sheet?.layout?.paper_size || DEFAULT_PAPER_SIZE);
     const previewScale = computeSheetPreviewScale(paperSize);
-    sheetPreviewWrap.innerHTML = buildSheetPageMarkup(sheet, previewScale, { showDebugBorder: !params.get('taskSession') });
+    sheetPreviewWrap.innerHTML = buildSheetPageMarkup(sheet, previewScale);
     const page = sheetPreviewWrap.querySelector('.sheet-page');
     const bounds = page.getBoundingClientRect();
     const rects = Array.from(page.querySelectorAll('.cw-grid-cell')).filter((cell) => !cell.querySelector('.cw-grid-char')).map((cell) => {
@@ -279,7 +273,7 @@ async function handlePrint() {
         printBtn.textContent = 'Generating PDF...';
     }
     try {
-        const pageMarkup = buildSheetPageMarkup(currentSheetData, 1, { showDebugBorder: false });
+        const pageMarkup = buildSheetPageMarkup(currentSheetData, 1);
         const offscreen = document.createElement('div');
         offscreen.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1;';
         offscreen.innerHTML = pageMarkup;

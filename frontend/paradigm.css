@@ -1740,6 +1740,15 @@ svg.cards-view-toggle-btn-icon,
     white-space: nowrap;
 }
 
+.paradigm-btn.paradigm-btn--pill {
+    height: var(--paradigm-chip-toggle-height);
+    min-height: var(--paradigm-chip-toggle-height);
+    padding: 0 var(--paradigm-chip-toggle-padding-x);
+    border-radius: 999px;
+    font-size: var(--paradigm-chip-toggle-font-size);
+    font-weight: var(--paradigm-chip-toggle-font-weight);
+}
+
 .paradigm-btn :is(.icon, [data-icon], svg) {
     width: var(--paradigm-btn-icon-size);
     height: var(--paradigm-btn-icon-size);

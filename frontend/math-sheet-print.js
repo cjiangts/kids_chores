@@ -53,8 +53,6 @@ const INLINE_LINE_HEIGHT = 1.4;
 const INLINE_MIN_FONT_SCALE = 0.8;
 const INLINE_MAX_FONT_SCALE = 3.0;
 const INLINE_CELL_PAD = 6;
-const PRINTABLE_AREA_DEBUG_BORDER_COLOR = '#d11f1f';
-const PRINTABLE_AREA_DEBUG_BORDER_INSET = 2;
 const PAPER_MARGIN_PX = 19;
 const PAPER_EXTRA_SAFE_MARGIN_X_PX = 34;
 const PAPER_EXTRA_SAFE_MARGIN_TOP_PX = 42;
@@ -253,7 +251,7 @@ function updateToolbarButtons(status) {
 // === 5. Sheet canvas + render image + handlePrint
 // =====================================================================
 
-function createSheetCanvas(sheet, withAnswers, showDebugBorder = true, fullPaper = Boolean(params.get('taskSession'))) {
+function createSheetCanvas(sheet, withAnswers, fullPaper = Boolean(params.get('taskSession'))) {
     const dpr = Math.max(2, Math.ceil(window.devicePixelRatio || 1));
     const pageInset = fullPaper ? PAPER_MARGIN_PX : 0;
     const pageWidth = fullPaper ? currentPaperSpec.pageWidthPx : currentPaperSpec.safeWidthPx;
@@ -277,15 +275,12 @@ function createSheetCanvas(sheet, withAnswers, showDebugBorder = true, fullPaper
     if (fullPaper) {
         sheet.task_rects = sheet.task_rects.map((rect) => ({ ...rect, x: rect.x + pageInset, y: rect.y + pageInset }));
     }
-    if (showDebugBorder) {
-        drawPrintableAreaDebugBorder(ctx);
-    }
     ctx.restore();
     return canvas;
 }
 
-function createSheetRenderImage(sheet, withAnswers, showDebugBorder = true) {
-    const canvas = createSheetCanvas(sheet, withAnswers, showDebugBorder, true);
+function createSheetRenderImage(sheet, withAnswers) {
+    const canvas = createSheetCanvas(sheet, withAnswers, true);
     const image = document.createElement('img');
     image.className = 'sheet-render-image';
     image.alt = `Sheet #${String((sheet && (sheet.display_sheet_number || sheet.id || '')) || '').trim() || ''}`;
@@ -294,23 +289,6 @@ function createSheetRenderImage(sheet, withAnswers, showDebugBorder = true) {
     image.height = canvas.height;
     image.src = canvas.toDataURL('image/png');
     return image;
-}
-
-function drawPrintableAreaDebugBorder(ctx) {
-    const pageBoxWidth = currentPaperSpec.boxWidthPx;
-    const pageBoxHeight = currentPaperSpec.boxHeightPx;
-    const inset = PRINTABLE_AREA_DEBUG_BORDER_INSET;
-    ctx.save();
-    ctx.strokeStyle = PRINTABLE_AREA_DEBUG_BORDER_COLOR;
-    ctx.lineWidth = 1.5;
-    ctx.setLineDash([6, 4]);
-    ctx.strokeRect(
-        inset,
-        inset,
-        Math.max(1, pageBoxWidth - (2 * inset)),
-        Math.max(1, pageBoxHeight - (2 * inset)),
-    );
-    ctx.restore();
 }
 
 function getPrintablePages(sheet) {
@@ -341,7 +319,7 @@ function handlePrint() {
         format: [pageWidthMm, pageHeightMm],
         compress: true,
     });
-    const canvases = pages.map((page) => createSheetCanvas(page, showAnswers, false));
+    const canvases = pages.map((page) => createSheetCanvas(page, showAnswers));
     canvases.forEach((canvas, i) => {
         if (i > 0) {
             doc.addPage([pageWidthMm, pageHeightMm], orientation);
@@ -673,7 +651,7 @@ function renderSheetPreview(sheet) {
         const contentEl = document.createElement('div');
         contentEl.className = 'sheet-content';
         const embeddedTask = Boolean(params.get('taskSession'));
-        const previewImage = createSheetRenderImage(page, showAnswers, !embeddedTask);
+        const previewImage = createSheetRenderImage(page, showAnswers);
         if (params.get('taskSession')) {
             pageEl.style.width = '100%';
             pageEl.style.height = 'auto';
@@ -783,7 +761,7 @@ async function loadAndRender() {
         currentSheetStatus = String(sheet.status || '').trim().toLowerCase();
         if (currentSheetStatus === 'pending' && !showAnswers && !params.get('taskSession')) {
             showAnswers = true;
-            if (showAnswersBtn) showAnswersBtn.textContent = 'Hide Answers';
+            if (showAnswersBtn) showAnswersBtn.querySelector('[data-button-label]').textContent = 'Hide Answers';
         }
         updateToolbarButtons(currentSheetStatus);
         setRepeatCountValue(sheet.repeat_count);
@@ -807,7 +785,7 @@ async function handleRegenerate() {
     if (!kidId || !sheetId) return;
     if (regenerateBtn) {
         regenerateBtn.disabled = true;
-        regenerateBtn.textContent = 'Regenerating...';
+        regenerateBtn.querySelector('[data-button-label]').textContent = 'Regenerating...';
     }
     try {
         await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}/regenerate`), {
@@ -822,7 +800,7 @@ async function handleRegenerate() {
     } finally {
         if (regenerateBtn) {
             regenerateBtn.disabled = false;
-            regenerateBtn.textContent = 'Regenerate';
+            regenerateBtn.querySelector('[data-button-label]').textContent = 'Regenerate';
         }
     }
 }
@@ -831,7 +809,7 @@ async function handleFinalize() {
     if (!kidId || !sheetId) return;
     if (finalizeBtn) {
         finalizeBtn.disabled = true;
-        finalizeBtn.textContent = 'Finalizing...';
+        finalizeBtn.querySelector('[data-button-label]').textContent = 'Finalizing...';
     }
     try {
         await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}/finalize`), {
@@ -846,7 +824,7 @@ async function handleFinalize() {
     } finally {
         if (finalizeBtn) {
             finalizeBtn.disabled = false;
-            finalizeBtn.textContent = 'Finalize';
+            finalizeBtn.querySelector('[data-button-label]').textContent = 'Finalize';
         }
     }
 }
@@ -895,7 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (showAnswersBtn) {
         showAnswersBtn.addEventListener('click', () => {
             showAnswers = !showAnswers;
-            showAnswersBtn.textContent = showAnswers ? 'Hide Answers' : 'Show Answers';
+            showAnswersBtn.querySelector('[data-button-label]').textContent = showAnswers ? 'Hide Answers' : 'Show Answers';
             rerenderCanvas();
         });
     }

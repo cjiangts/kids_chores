@@ -21,6 +21,17 @@
             position: relative;
         }
 
+        .sheet-create-pill {
+            --paradigm-btn-icon-size: 17px;
+            height: var(--paradigm-compact-bar-height);
+            padding: 0 0.65rem;
+            border-radius: 999px;
+            gap: 0.35rem;
+            color: var(--p-accent);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
         #buildChineseSheetBtn[aria-disabled="true"] {
             cursor: help;
             opacity: 0.52;
@@ -67,15 +78,34 @@
         .sheet-builder-paper-control {
             display: inline-flex;
             align-items: center;
+            flex-wrap: wrap;
+            min-width: 0;
+            max-width: 100%;
             gap: 0.45rem;
             color: #47628f;
-            font-size: 0.92rem;
-            font-weight: 700;
+            font-size: var(--paradigm-list-item-sub-font-size);
+            font-weight: var(--paradigm-list-item-sub-font-weight);
         }
 
         .sheet-builder-paper-control .point-log-stepper-input { display: inline-flex; align-items: center; justify-content: center; }
-        .sheet-builder-paper-select { flex: 0 0 210px; }
-        .sheet-builder-paper-select .tz-dropdown-btn { appearance: none; -webkit-appearance: none; padding: 0 2rem 0 2.1rem; }
+        .sheet-builder-paper-select {
+            flex: 0 1 210px;
+            width: 210px;
+            max-width: 100%;
+            min-width: 0;
+        }
+        .sheet-builder-paper-select .tz-dropdown-btn {
+            box-sizing: border-box;
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            padding: 0 2rem 0 2.1rem;
+            font-size: var(--paradigm-list-item-sub-font-size);
+            font-weight: var(--paradigm-list-item-sub-font-weight);
+            text-overflow: ellipsis;
+        }
         .sheet-builder-paper-select :is(.tz-dropdown-btn-icon, .tz-dropdown-btn-caret) { position: absolute; pointer-events: none; z-index: 1; }
         .sheet-builder-paper-select .tz-dropdown-btn-icon { left: 0.7rem; }
         .sheet-builder-paper-select .tz-dropdown-btn-caret { right: 0.7rem; }
@@ -145,8 +175,16 @@
         }
 
         .sheet-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.6rem;
             padding: 0.23rem 0 0.46rem;
             border-top: 1px solid var(--p-border-soft);
+        }
+
+        .sheet-details {
+            flex: 1;
+            min-width: 0;
         }
 
         .sheet-head {
@@ -165,11 +203,22 @@
             flex-wrap: wrap;
         }
 
-        .sheet-head-main .sheet-preview-hero {
+        .sheet-item > .sheet-preview-hero {
             width: auto;
+            align-self: flex-start;
+            flex-direction: column;
+            gap: 0.3rem;
             min-height: 2.8rem;
             padding: 0.35rem 0.65rem;
             font-size: 1rem;
+        }
+
+        .sheet-hero-quantity {
+            color: #667085;
+            font-size: 0.75rem;
+            font-weight: 500;
+            line-height: 1.3;
+            white-space: nowrap;
         }
 
         .sheet-head-right {
@@ -194,13 +243,17 @@
             color: #206633;
         }
 
-        .sheet-layout-tag {
-            font-size: 0.82rem;
-            font-weight: 700;
-            border-radius: 999px;
-            padding: 0.2rem 0.55rem;
-            background: #edf2ff;
-            color: #2f59a7;
+        .sheet-layout-actions {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .sheet-item [data-sheet-action="clone"],
+        .sheet-item [data-sheet-action="delete"] {
+            border: none;
+            box-shadow: none;
+            background: transparent;
         }
 
         .sheet-problem-tag {
@@ -230,15 +283,6 @@
         }
 
         .sheet-progress-pill.is-done {
-            background: #e3f7ef;
-            color: #176746;
-        }
-
-        .sheet-repeat-tag {
-            font-size: 0.82rem;
-            font-weight: 700;
-            border-radius: 999px;
-            padding: 0.2rem 0.55rem;
             background: #e3f7ef;
             color: #176746;
         }
@@ -449,13 +493,6 @@
             position: absolute;
             background: rgba(176, 187, 208, 0.28);
             pointer-events: none;
-        }
-        .sb-printable-border {
-            position: absolute;
-            border: 2px dashed rgba(209, 31, 31, 0.65);
-            pointer-events: none;
-            box-sizing: border-box;
-            z-index: 0;
         }
         .sb-header-row {
             display: grid;

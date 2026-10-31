@@ -130,10 +130,6 @@ def set_delivery_mode(conn, kid, category_key, mode):
     row = conn.execute('SELECT is_opted_in FROM deck_category_opt_in WHERE category_key = ?', [category_key]).fetchone()
     if not row or not row[0] or not sheet_kind_for_category(category_key):
         raise ValueError('This subject does not support sheet tasks')
-    if mode == 'sheet' and delivery_mode(conn, category_key) != 'sheet' and not read_sheet_inventory(conn, category_key):
-        task = current_sheet_task(conn, kid, category_key)
-        if not task or task['status'] != 'in_progress':
-            raise ValueError('Finalize at least one unfinished sheet before choosing Sheet')
     conn.execute('UPDATE deck_category_opt_in SET task_delivery_mode = ? WHERE category_key = ?', [mode, category_key])
 
 

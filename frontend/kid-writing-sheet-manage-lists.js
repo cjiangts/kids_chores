@@ -52,11 +52,11 @@ function renderSheetProgress(sheet) {
     return `<span class="sheet-progress-pill ${done ? 'is-done' : 'is-progress'}" aria-label="${completed} of ${total} questions completed">${completed} / ${total} completed</span>`;
 }
 
-function renderSheetHero(sheetId, kind) {
+function renderSheetHero(sheetId, kind, quantityLabel = '') {
     const qs = new URLSearchParams({ id: String(kidId || ''), sheet: String(sheetId), from: 'worksheets' });
     if (activeCategoryKey) qs.set('categoryKey', activeCategoryKey);
     const page = kind === 'type4' ? 'math-sheet-print' : 'writing-sheet-print';
-    return `<a class="card-report-hero-icon card-report-hero-icon-link sheet-preview-hero" href="/${page}.html?${escapeHtml(qs.toString())}" aria-label="View Sheet #${sheetId}"><span class="card-report-hero-icon-text">Sheet #${sheetId}</span></a>`;
+    return `<a class="card-report-hero-icon card-report-hero-icon-link sheet-preview-hero" href="/${page}.html?${escapeHtml(qs.toString())}" aria-label="View Sheet #${sheetId}"><span class="card-report-hero-icon-text">Sheet #${sheetId}</span>${quantityLabel ? `<span class="sheet-hero-quantity">${escapeHtml(quantityLabel)}</span>` : ''}</a>`;
 }
 
 function renderChineseSheets(sheets) {
@@ -85,8 +85,11 @@ function renderChineseSheets(sheets) {
         ].join('');
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-main">${renderSheetHero(safeSheetId, 'type2')}<span class="sheet-meta">${escapeHtml(printedDay)}</span>${renderSheetProgress(sheet)}</div><div class="sheet-head-right"><div class="paradigm-row-action-group">${actionBtns}</div></div></div>
-                <div class="sheet-cards">${answersHtml}</div>
+                ${renderSheetHero(safeSheetId, 'type2')}
+                <div class="sheet-details">
+                    <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">${escapeHtml(printedDay)}</span>${renderSheetProgress(sheet)}</div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
+                    <div class="sheet-cards">${answersHtml}</div>
+                </div>
             </article>`;
     }).join('');
 }
@@ -176,12 +179,14 @@ function renderMathSheets(sheets) {
         const isPreview = status === 'preview';
         const isPending = status === 'pending';
         const isDone = status === 'done';
-        const layoutKey = String(sheet && sheet.layout_format || '').trim().toLowerCase() === 'inline' ? 'inline' : 'vertical';
-        const layoutLabel = layoutKey === 'inline' ? 'Inline' : 'Vertical';
         const layoutRows = Array.isArray(sheet && sheet.layout_rows) ? sheet.layout_rows : [];
         const cardTotals = new Map();
         layoutRows.forEach((row) => {
-            const name = String(row && row.deck_name || 'Deck');
+            const deckName = String(row && row.source_deck_name || `Deck ${Number(row && row.shared_deck_id) || ''}`).trim();
+            const subjectPrefix = activeCategoryKey ? `${activeCategoryKey}_` : '';
+            const name = subjectPrefix && deckName.toLowerCase().startsWith(subjectPrefix.toLowerCase())
+                ? deckName.slice(subjectPrefix.length)
+                : deckName;
             const count = Number.parseInt(row && row.col_count, 10) || 0;
             cardTotals.set(name, (cardTotals.get(name) || 0) + count);
         });
@@ -195,21 +200,15 @@ function renderMathSheets(sheets) {
             1,
             Number.parseInt(sheet && (sheet.repeat_count ?? sheet.page_count), 10) || 1,
         );
-        const cloneBtnHtml = sheetActionButton('clone', safeSheetId, 'copy-plus', 'Clone sheet', '');
+        const cloneBtnHtml = sheetActionButton('clone', safeSheetId, 'copy', 'Clone sheet', '');
         const incorrectCount = Number.isInteger(sheet && sheet.incorrect_count)
             ? Number(sheet.incorrect_count)
             : null;
         let actionBtns = '';
         if (isPreview) {
-            actionBtns = `
-                ${sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
-                ${cloneBtnHtml}`;
+            actionBtns = sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red');
         } else if (isPending) {
-            actionBtns = `
-                ${sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red')}
-                ${cloneBtnHtml}`;
-        } else if (isDone) {
-            actionBtns = cloneBtnHtml;
+            actionBtns = sheet.task_started ? '' : sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red');
         }
         const accuracyLine = (
             isDone
@@ -224,8 +223,11 @@ function renderMathSheets(sheets) {
             : escapeHtml(printedDay);
         return `
             <article class="sheet-item">
-                <div class="sheet-head"><div class="sheet-head-main">${renderSheetHero(safeSheetId, 'type4')}<span class="sheet-meta">${sheetMetaHtml}</span><span class="sheet-layout-tag">${layoutLabel}</span>${renderSheetProgress(sheet)}<span class="sheet-repeat-tag">${problemCount} × ${repeatCount}</span></div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
-                <div class="sheet-cards">${rowPillsHtml}</div>
+                ${renderSheetHero(safeSheetId, 'type4', `${problemCount} × ${repeatCount} ${repeatCount === 1 ? 'page' : 'pages'}`)}
+                <div class="sheet-details">
+                    <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">${sheetMetaHtml}</span><span class="sheet-layout-actions">${cloneBtnHtml}</span>${renderSheetProgress(sheet)}</div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
+                    <div class="sheet-cards">${rowPillsHtml}</div>
+                </div>
             </article>`;
     }).join('');
 }

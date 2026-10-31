@@ -38,14 +38,17 @@
                     <span class="paradigm-panel-title-icon"><span class="icon" data-icon="history" data-icon-size="18"></span></span>
                     <span id="sheetHistoryTitle" class="paradigm-panel-heading">Sheets</span>
                     <span class="paradigm-row-action-group paradigm-panel-action" aria-label="Build sheets">
-                        <button type="button" id="buildChineseSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle" title="Build vertical sheet" aria-label="Build vertical sheet" aria-disabled="true">
+                        <button type="button" id="buildChineseSheetBtn" class="paradigm-btn sheet-create-pill" title="Create default" aria-label="Create default" aria-disabled="true">
                             <span class="icon" data-icon="layout-grid" data-icon-size="16"></span>
+                            <span>Create default</span>
                         </button>
-                        <button type="button" id="buildSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle hidden" title="Build vertical sheet" aria-label="Build vertical sheet" disabled>
+                        <button type="button" id="buildSheetBtn" class="paradigm-btn sheet-create-pill hidden" title="Create default" aria-label="Create default" disabled>
                             <span class="icon" data-icon="layout-grid" data-icon-size="16"></span>
+                            <span>Create default</span>
                         </button>
-                        <button type="button" id="buildInlineSheetBtn" class="paradigm-icon-btn paradigm-panel-action--circle hidden" title="Build inline sheet" aria-label="Build inline sheet" disabled>
+                        <button type="button" id="buildInlineSheetBtn" class="paradigm-btn sheet-create-pill hidden" title="Create compact" aria-label="Create compact" disabled>
                             <span class="icon" data-icon="rows-3" data-icon-size="16"></span>
+                            <span>Create compact</span>
                         </button>
                     </span>
                 </h2>
@@ -175,10 +178,14 @@
             <div class="sheet-builder-head">
                 <label class="sheet-builder-paper-control" for="sheetBuilderPaperSize">
                     <span>Paper</span>
-                    <select id="sheetBuilderPaperSize">
-                        <option value="letter">8.5 x 11 (US Letter)</option>
-                        <option value="a4">8.27 x 11.69 (A4)</option>
-                    </select>
+                    <span class="tz-dropdown sheet-builder-paper-select">
+                        <span class="tz-dropdown-btn-icon" data-icon="printer" data-icon-stroke="2"></span>
+                        <select id="sheetBuilderPaperSize" class="tz-dropdown-btn">
+                            <option value="letter">8.5 x 11 (US Letter)</option>
+                            <option value="a4">8.27 x 11.69 (A4)</option>
+                        </select>
+                        <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
+                    </span>
                 </label>
             </div>
             <div class="sheet-builder-body">
@@ -205,10 +212,14 @@
             <div class="sheet-builder-head">
                 <label class="sheet-builder-paper-control" for="inlineSheetPaperSize">
                     <span>Paper</span>
-                    <select id="inlineSheetPaperSize">
-                        <option value="letter">8.5 x 11 (US Letter)</option>
-                        <option value="a4">8.27 x 11.69 (A4)</option>
-                    </select>
+                    <span class="tz-dropdown sheet-builder-paper-select">
+                        <span class="tz-dropdown-btn-icon" data-icon="printer" data-icon-stroke="2"></span>
+                        <select id="inlineSheetPaperSize" class="tz-dropdown-btn">
+                            <option value="letter">8.5 x 11 (US Letter)</option>
+                            <option value="a4">8.27 x 11.69 (A4)</option>
+                        </select>
+                        <span class="tz-dropdown-btn-caret" data-icon="chevron-down"></span>
+                    </span>
                 </label>
             </div>
             <div class="sheet-builder-body">
