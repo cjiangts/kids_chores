@@ -270,7 +270,7 @@ async function handlePrint() {
     }
     if (printBtn) {
         printBtn.disabled = true;
-        printBtn.textContent = 'Generating PDF...';
+        window.SheetPrintControls.setLabel(printBtn, 'Generating PDF...');
     }
     try {
         const pageMarkup = buildSheetPageMarkup(currentSheetData, 1);
@@ -318,7 +318,7 @@ async function handlePrint() {
     } finally {
         if (printBtn) {
             printBtn.disabled = false;
-            printBtn.textContent = 'Print';
+            window.SheetPrintControls.setLabel(printBtn, 'Print');
         }
     }
 }

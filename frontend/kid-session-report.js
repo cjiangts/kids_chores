@@ -359,6 +359,12 @@ function renderSummaryHero(metaHtml, canFinish) {
     const iconHtml = hasIcon ? window.subjectIcon(key, { size: 36 }) : '';
     const subjectIconHtml = window.icon ? window.icon('book-open', { size: 12, strokeWidth: 2.4 }) : '';
     const subjectMetaHtml = `<span class="report-hero-meta-item"><span class="report-hero-meta-icon">${subjectIconHtml}</span><span class="report-hero-meta-value">${escapeHtml(title)}</span></span>`;
+    const sheetIds = [...new Set((currentSheetTask?.items || []).map((item) => Number(item.sheet_id)).filter((id) => Number.isInteger(id) && id > 0))];
+    const sheetParams = new URLSearchParams({ id: String(kidId), categoryKey: key });
+    sheetIds.forEach((id) => sheetParams.append('sheet', String(id)));
+    const sheetLink = currentSession?.delivery_mode === 'sheet'
+        ? `<a class="session-summary-hero-icon session-summary-sheet-link" href="/kid-writing-sheet-manage.html?${escapeHtml(sheetParams.toString())}" aria-label="View this session's worksheets" title="View worksheets">${window.icon('printer', { size: 28, strokeWidth: 2 })}</a>`
+        : '';
     return `
         <div class="session-summary-hero">
             ${iconHtml ? `<a class="session-summary-hero-icon" href="${escapeHtml(buildCardManageHref())}" aria-label="Manage cards for ${escapeHtml(title)}" title="Manage cards">${iconHtml}</a>` : ''}
@@ -366,6 +372,7 @@ function renderSummaryHero(metaHtml, canFinish) {
                 <div class="report-hero-meta">${subjectMetaHtml}${metaHtml}</div>
             </div>
             ${canFinish ? '<button id="finishSessionBtn" type="button" class="session-finish-btn">End session</button>' : ''}
+            ${sheetLink}
         </div>
     `;
 }

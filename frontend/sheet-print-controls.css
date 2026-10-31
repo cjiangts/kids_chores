@@ -1,0 +1,39 @@
+        .sheet-title-controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.6rem;
+            flex: 0 0 auto;
+        }
+
+        .print-sheet-page .page-header-row .sheet-title-controls h1 {
+            flex: 0 0 auto;
+            white-space: nowrap;
+            overflow: visible;
+        }
+
+        .sheet-title-controls .repeat-control {
+            flex: 0 0 auto;
+        }
+
+        .print-sheet-page .page-header-with-back.page-header-with-actions .page-header-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: center;
+        }
+
+        .print-sheet-page #backToSheetManage {
+            grid-column: 2;
+            grid-row: 1;
+            justify-self: end;
+        }
+
+        .print-sheet-page .page-header-with-back.page-header-with-actions .page-header-actions {
+            grid-column: 1 / -1;
+            grid-row: 2;
+            flex: 0 1 auto;
+            max-width: 100%;
+            margin-left: auto;
+            flex-wrap: wrap;
+        }
+

@@ -35,6 +35,18 @@ function sheetActionButton(action, sheetId, iconName, label, tone) {
     return `<button type="button" class="paradigm-icon-btn${toneClass} paradigm-icon-action-btn" data-sheet-action="${action}" data-sheet-id="${sheetId}" aria-label="${escapeHtml(label)}">${iconHtml}</button>`;
 }
 
+function highlightSessionSheets() {
+    const sheetIds = new Set(params.getAll('sheet'));
+    if (!sheetIds.size || !sheetList) return;
+    let firstMatch = null;
+    sheetList.querySelectorAll('.sheet-item[data-sheet-id]').forEach((item) => {
+        const selected = sheetIds.has(item.dataset.sheetId);
+        item.classList.toggle('is-session-sheet', selected);
+        if (selected && !firstMatch) firstMatch = item;
+    });
+    if (firstMatch) requestAnimationFrame(() => firstMatch.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+}
+
 function formatSheetDay(value) {
     if (!value) return '-';
     const date = new Date(value);
@@ -84,7 +96,7 @@ function renderChineseSheets(sheets) {
             isPending && !sheet.task_started ? sheetActionButton('delete', safeSheetId, 'trash', 'Delete sheet', 'red') : '',
         ].join('');
         return `
-            <article class="sheet-item">
+            <article class="sheet-item" data-sheet-id="${safeSheetId}">
                 ${renderSheetHero(safeSheetId, 'type2')}
                 <div class="sheet-details">
                     <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">${escapeHtml(printedDay)}</span>${renderSheetProgress(sheet)}</div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
@@ -92,6 +104,7 @@ function renderChineseSheets(sheets) {
                 </div>
             </article>`;
     }).join('');
+    highlightSessionSheets();
 }
 
 // =====================================================================
@@ -222,7 +235,7 @@ function renderMathSheets(sheets) {
             ? `${escapeHtml(printedDay)} · ${escapeHtml(accuracyLine)}`
             : escapeHtml(printedDay);
         return `
-            <article class="sheet-item">
+            <article class="sheet-item" data-sheet-id="${safeSheetId}">
                 ${renderSheetHero(safeSheetId, 'type4', `${problemCount} × ${repeatCount} ${repeatCount === 1 ? 'page' : 'pages'}`)}
                 <div class="sheet-details">
                     <div class="sheet-head"><div class="sheet-head-main"><span class="sheet-meta">${sheetMetaHtml}</span><span class="sheet-layout-actions">${cloneBtnHtml}</span>${renderSheetProgress(sheet)}</div>${actionBtns ? `<div class="paradigm-row-action-group">${actionBtns}</div>` : ''}</div>
@@ -230,6 +243,7 @@ function renderMathSheets(sheets) {
                 </div>
             </article>`;
     }).join('');
+    highlightSessionSheets();
 }
 
 // =====================================================================

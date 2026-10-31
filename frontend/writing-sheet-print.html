@@ -171,13 +171,14 @@
         }
     </style>
     <link rel="stylesheet" href="sheet-tasks.css">
+    <link rel="stylesheet" href="sheet-print-controls.css">
 </head>
 <body class="print-sheet-page">
     <header class="page-header-with-back page-header-with-actions">
         <div class="page-header-row">
-            <h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1>
+            <div class="sheet-title-controls"><h1><span class="page-title-icon" aria-hidden="true">🖨️</span> <span id="sheetTitle">Sheet</span></h1></div>
+            <a id="backToSheetManage" class="paradigm-btn page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets">Back</a>
             <div class="page-header-actions">
-                <a id="backToSheetManage" class="paradigm-btn page-header-back-btn" href="kid-writing-sheet-manage.html" aria-label="Back to worksheets"><span data-icon="arrow-left" data-icon-size="16"></span><span>Back</span></a>
                 <button id="finalizeBtn" type="button" class="paradigm-btn hidden">Finalize</button>
                 <button id="printBtn" type="button" class="paradigm-btn">Print</button>
             </div>
@@ -187,6 +188,7 @@
     <div id="sheetPreviewWrap" class="sheet-preview-wrap"></div>
 
     <script src="icons.js"></script>
+    <script src="sheet-print-controls.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="deck-category-common.js"></script>

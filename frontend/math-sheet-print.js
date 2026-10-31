@@ -761,7 +761,7 @@ async function loadAndRender() {
         currentSheetStatus = String(sheet.status || '').trim().toLowerCase();
         if (currentSheetStatus === 'pending' && !showAnswers && !params.get('taskSession')) {
             showAnswers = true;
-            if (showAnswersBtn) showAnswersBtn.querySelector('[data-button-label]').textContent = 'Hide Answers';
+            if (showAnswersBtn) window.SheetPrintControls.setLabel(showAnswersBtn, 'Hide Answers');
         }
         updateToolbarButtons(currentSheetStatus);
         setRepeatCountValue(sheet.repeat_count);
@@ -785,7 +785,7 @@ async function handleRegenerate() {
     if (!kidId || !sheetId) return;
     if (regenerateBtn) {
         regenerateBtn.disabled = true;
-        regenerateBtn.querySelector('[data-button-label]').textContent = 'Regenerating...';
+        window.SheetPrintControls.setLabel(regenerateBtn, 'Regenerating...');
     }
     try {
         await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}/regenerate`), {
@@ -800,7 +800,7 @@ async function handleRegenerate() {
     } finally {
         if (regenerateBtn) {
             regenerateBtn.disabled = false;
-            regenerateBtn.querySelector('[data-button-label]').textContent = 'Regenerate';
+            window.SheetPrintControls.setLabel(regenerateBtn, 'Regenerate');
         }
     }
 }
@@ -809,7 +809,7 @@ async function handleFinalize() {
     if (!kidId || !sheetId) return;
     if (finalizeBtn) {
         finalizeBtn.disabled = true;
-        finalizeBtn.querySelector('[data-button-label]').textContent = 'Finalizing...';
+        window.SheetPrintControls.setLabel(finalizeBtn, 'Finalizing...');
     }
     try {
         await fetchJson(buildType4ApiUrl(`/type4/math-sheets/${sheetId}/finalize`), {
@@ -824,7 +824,7 @@ async function handleFinalize() {
     } finally {
         if (finalizeBtn) {
             finalizeBtn.disabled = false;
-            finalizeBtn.querySelector('[data-button-label]').textContent = 'Finalize';
+            window.SheetPrintControls.setLabel(finalizeBtn, 'Finalize');
         }
     }
 }
@@ -873,7 +873,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (showAnswersBtn) {
         showAnswersBtn.addEventListener('click', () => {
             showAnswers = !showAnswers;
-            showAnswersBtn.querySelector('[data-button-label]').textContent = showAnswers ? 'Hide Answers' : 'Show Answers';
+            window.SheetPrintControls.setLabel(showAnswersBtn, showAnswers ? 'Hide Answers' : 'Show Answers');
             rerenderCanvas();
         });
     }
