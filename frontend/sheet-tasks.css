@@ -28,9 +28,6 @@
 .sheet-task-actions { display: flex; align-items: center; gap: .75rem; margin: 0 auto; padding: 0 0 .75rem; color: #fff; }
 .sheet-task-actions > span { white-space: nowrap; }
 .sheet-task-actions .paradigm-submit-confirm { flex: 1; }
-.sheet-task-actions .sheet-review-count { display: inline-flex; align-items: center; justify-content: center; gap: .25rem; padding: .15rem .35rem; border-radius: 5px; font-variant-numeric: tabular-nums; }
-.sheet-review-count.is-correct { color: #198253; background: #dcefe5; }
-.sheet-review-count.is-wrong { color: #b93838; background: #f9e0e0; }
 .sheet-task-mode { display: flex; flex: 0 0 auto; align-items: center; margin: 0; }
 .practice-page:has(.sheet-task-view) .practice-container { max-width: 900px; }
 .practice-page:has(.sheet-task-view) #practiceSection { width: 100%; }

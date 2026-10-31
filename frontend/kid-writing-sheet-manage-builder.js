@@ -33,6 +33,25 @@ let sheetBuilderPickerRowIndex = null;
 let _cellDesignDeckId = 0;
 let _cellDesignDeckName = '';
 let _cellDesignSample = null;
+let cellDesignInlineHost = null;
+let cellDesignOpening = false;
+let cellDesignSaving = false;
+let cellDesignBaseline = null;
+
+function readCellDesignGeometry() {
+    const box = document.getElementById('cellDesignBox');
+    const content = document.getElementById('cellDesignContent');
+    return JSON.stringify([
+        Math.round(box.offsetWidth), Math.round(box.offsetHeight),
+        Math.round(parseFloat(content.style.left) || 0),
+        Math.round(parseFloat(content.style.top) || 0),
+    ]);
+}
+
+function updateCellDesignConfirm() {
+    document.getElementById('cellDesignSaveBtn').disabled = cellDesignOpening || cellDesignSaving
+        || cellDesignBaseline === null || readCellDesignGeometry() === cellDesignBaseline;
+}
 const DEFAULT_MATH_PAPER_SIZE = 'letter';
 const PAPER_MARGIN = 19;
 const PAPER_EXTRA_SAFE_MARGIN_X = 34;
@@ -141,6 +160,7 @@ function updateCellDesignDimensions() {
     if (!box || !display) return;
     display.textContent = `${Math.round(box.offsetWidth)} × ${Math.round(box.offsetHeight)} px`;
     updateCellDesignResizeButtons();
+    updateCellDesignConfirm();
 }
 
 function rerenderCellDesignContent() {
@@ -294,7 +314,8 @@ function resizeCellDesignCanvas(action) {
     updateCellDesignDimensions();
 }
 
-async function openCellDesigner(deckId) {
+async function openCellDesigner(deckId, inlineHost = null) {
+    if (cellDesignOpening || cellDesignSaving) return;
     if (!canDesignMathCells) {
         showMathSheetError('Only super family can design cells.');
         return;
@@ -307,6 +328,20 @@ async function openCellDesigner(deckId) {
     const modal = document.getElementById('cellDesignModal');
     const boxEl = document.getElementById('cellDesignBox');
     const contentEl = document.getElementById('cellDesignContent');
+    closeCellDesignModal();
+    cellDesignInlineHost = inlineHost;
+    const dialog = modal.querySelector('.modal-content');
+    if (inlineHost) {
+        inlineHost.appendChild(dialog);
+        inlineHost.closest('.sb-picker-card').classList.add('is-editing-cell');
+        inlineHost.closest('.sb-picker-entry').classList.add('is-editing-cell');
+        inlineHost.closest('.sb-picker-entry').querySelector('[data-sb-edit-cell]').setAttribute('aria-expanded', 'true');
+        inlineHost.closest('.sb-picker-entry').querySelector('.sb-picker-entry-heading').appendChild(document.getElementById('cellDesignActions'));
+        inlineHost.setAttribute('aria-busy', 'true');
+    }
+    cellDesignOpening = true;
+    document.getElementById('cellDesignSaveBtn').disabled = true;
+    document.getElementById('cellDesignError').textContent = '';
 
     /* Load previous design or defaults */
     const prev = cellDesigns.get(deckId);
@@ -325,6 +360,10 @@ async function openCellDesigner(deckId) {
         console.error('Failed to fetch sample problem:', err);
         _cellDesignSample = { prompt: '123 + 45 = ?', answer: '168' };
     }
+    cellDesignOpening = false;
+    document.getElementById('cellDesignSaveBtn').disabled = false;
+    if (inlineHost && cellDesignInlineHost !== inlineHost) return;
+    if (inlineHost) inlineHost.removeAttribute('aria-busy');
 
     const savedOffsets = getCellDesignOffsets(prev);
     const hasSavedCanvas = Boolean(prev && Number(prev.canvasVersion || 0) >= CELL_DESIGN_CANVAS_VERSION);
@@ -347,25 +386,51 @@ async function openCellDesigner(deckId) {
     boxEl.style.width = `${nextWidth}px`;
     boxEl.style.height = `${nextHeight}px`;
 
-    modal.classList.remove('hidden');
-    modal.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('modal-open');
+    if (inlineHost) {
+        const stage = document.getElementById('cellDesignStage');
+        stage.style.setProperty('--cell-work-min-width', `${nextWidth + 110}px`);
+        stage.style.setProperty('--cell-work-min-height', `${nextHeight + 100}px`);
+    }
+
+    if (!inlineHost) {
+        modal.classList.remove('hidden');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+    }
     centerCellDesignBox();
+    cellDesignBaseline = readCellDesignGeometry();
     updateCellDesignDimensions();
+    if (inlineHost) inlineHost.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 function closeCellDesignModal() {
+    if (cellDesignSaving) return;
     const modal = document.getElementById('cellDesignModal');
+    cellDesignBaseline = null;
+    if (cellDesignInlineHost) {
+        const host = cellDesignInlineHost;
+        host.querySelector('.modal-content').appendChild(document.getElementById('cellDesignActions'));
+        modal.appendChild(host.querySelector('.modal-content'));
+        host.closest('.sb-picker-entry')?.classList.remove('is-editing-cell');
+        host.closest('.sb-picker-entry')?.querySelector('[data-sb-edit-cell]')?.setAttribute('aria-expanded', 'false');
+        host.closest('.sb-picker-card')?.classList.remove('is-editing-cell');
+        const stage = document.getElementById('cellDesignStage');
+        stage.style.removeProperty('--cell-work-min-width');
+        stage.style.removeProperty('--cell-work-min-height');
+        cellDesignInlineHost = null;
+        return;
+    }
+    const wasOpen = !modal.classList.contains('hidden');
     modal.classList.add('hidden');
     modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
+    if (wasOpen) document.body.classList.remove('modal-open');
 }
 
 async function saveCellDesign() {
     const boxEl = document.getElementById('cellDesignBox');
     const contentEl = document.getElementById('cellDesignContent');
     const saveBtn = document.getElementById('cellDesignSaveBtn');
-    if (!boxEl || !contentEl || !saveBtn) return;
+    if (!boxEl || !contentEl || !saveBtn || saveBtn.disabled || cellDesignSaving) return;
 
     const payload = {
         cellWidth: Math.round(boxEl.offsetWidth),
@@ -379,9 +444,19 @@ async function saveCellDesign() {
         } : null,
     };
 
+    const nextCellDef = { ...cellDesigns.get(_cellDesignDeckId), ...payload };
+    const nextRows = sheetRows.map((row) => row.deckId === _cellDesignDeckId ? { ...row, cellDef: nextCellDef } : row);
+    if (cellDesignInlineHost && !canFitSheetRows(nextRows)) {
+        document.getElementById('cellDesignError').textContent = 'This size would make the current sheet too tall. Shrink the cell or remove a row first.';
+        return;
+    }
+
     saveBtn.disabled = true;
-    const oldText = saveBtn.textContent;
-    saveBtn.textContent = 'Saving...';
+    cellDesignSaving = true;
+    document.getElementById('cellDesignCancelBtn').disabled = true;
+    const oldContent = saveBtn.innerHTML;
+    saveBtn.setAttribute('aria-busy', 'true');
+    document.getElementById('cellDesignError').textContent = '';
     try {
         showMathSheetError('');
         const response = await fetch(`${API_BASE}/shared-decks/${_cellDesignDeckId}/print-cell-design`, {
@@ -429,15 +504,26 @@ async function saveCellDesign() {
                 sample_problem: savedCellDef.sampleProblem,
             };
         }
+        const wasInline = Boolean(cellDesignInlineHost);
+        cellDesignSaving = false;
         closeCellDesignModal();
+        if (wasInline) {
+            sheetRows = sheetRows.map((row) => row.deckId === _cellDesignDeckId ? { ...row, cellDef: savedCellDef } : row);
+            renderSheetBuilderContent(currentSheetScale);
+            renderSheetBuilderPickerOptions();
+        }
         renderMathBuildInfo();
         updateBuildSheetButton();
     } catch (error) {
         console.error('Error saving cell design:', error);
         showMathSheetError(error.message || 'Failed to save cell design.');
+        document.getElementById('cellDesignError').textContent = error.message || 'Failed to save cell design.';
     } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = oldText;
+        cellDesignSaving = false;
+        updateCellDesignConfirm();
+        document.getElementById('cellDesignCancelBtn').disabled = false;
+        saveBtn.innerHTML = oldContent;
+        saveBtn.removeAttribute('aria-busy');
     }
 }
 
@@ -762,10 +848,10 @@ function renderSheetBuilderPickerOptions() {
     optionsEl.innerHTML = decks.map((deck) => {
         const deckId = deck.shared_deck_id;
         const def = cellDesigns.get(deckId);
-        return `<button type="button" class="sb-picker-option" data-sb-picker-deck-id="${deckId}">
+        return `<div class="sb-picker-entry${deckId === currentDeckId ? ' is-current' : ''}"><div class="sb-picker-entry-heading"><button type="button" class="sb-picker-option" data-sb-picker-deck-id="${deckId}">
             <span class="sb-picker-option-heading"><span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)} ${renderPickerCurrentCard(deckId, currentDeckId)}</span>${renderPickerRowCount(sheetRows, deckId)}</span>
             <span class="sb-picker-option-meta">${def.cellWidth} x ${def.cellHeight}px cell</span>
-        </button>`;
+        </button>${canDesignMathCells ? `<button type="button" class="paradigm-icon-btn sb-picker-edit" data-sb-edit-cell="${deckId}" aria-label="Redesign cell for ${escapeHtml(deck.display_name || deck.name)}" title="Redesign Cell" aria-expanded="false">${window.icon('pencil', { size: 16 })}</button>` : ''}</div><div class="sb-picker-cell-editor"></div></div>`;
     }).join('');
 }
 
@@ -786,6 +872,8 @@ function openSheetBuilderPicker(rowIndex) {
 }
 
 function closeSheetBuilderPicker() {
+    if (cellDesignSaving) return;
+    if (cellDesignInlineHost) closeCellDesignModal();
     const pickerEl = document.getElementById('sheetBuilderPicker');
     if (!pickerEl) return;
     pickerEl.classList.add('hidden');
@@ -917,6 +1005,7 @@ async function openClonedMathSheetBuilder(sheetId) {
 }
 
 function closeSheetBuilder() {
+    if (cellDesignSaving) return;
     closeSheetBuilderPicker();
     window.SheetBuilderDialog.setOpen('sheetBuilderModal', false);
 }
@@ -1274,7 +1363,7 @@ function openInlineSheetPicker(rowIndex = null) {
     }
     optionsEl.innerHTML = availableDecks.map((deck) => {
         const deckId = deck.shared_deck_id;
-        return `<button type="button" class="sb-picker-option" data-isb-picker-deck-id="${deckId}">
+        return `<button type="button" class="sb-picker-option${deckId === currentDeckId ? ' is-current' : ''}" data-isb-picker-deck-id="${deckId}">
             <span class="sb-picker-option-heading"><span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)} ${renderPickerCurrentCard(deckId, currentDeckId)}</span>${renderPickerRowCount(inlineSheetRows, deckId)}</span>
         </button>`;
     }).join('');

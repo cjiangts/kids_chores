@@ -51,7 +51,7 @@
     function createMarkAllCorrectButton({ getItems, markCorrect, canEdit, onChange }) {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = 'paradigm-btn paradigm-compact-control';
+        button.className = 'paradigm-btn paradigm-submit-confirm paradigm-submit-confirm--compact paradigm-compact-control';
         button.setAttribute('aria-label', 'Mark all questions correct');
         button.innerHTML = `${global.icon ? global.icon('check', { size: 16 }) : '✓'}<span>All correct</span>`;
         button.addEventListener('click', () => {

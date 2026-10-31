@@ -1981,11 +1981,27 @@
         }
 
         .expanded-detail-card .card-deck-meta > span {
-            flex: 1 1 auto;
+            flex: 0 1 auto;
             min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .card-source-edit-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            color: #6351cf;
+            padding: 2px;
+            border-radius: 3px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        .card-source-edit-link:hover {
+            background: #efecff;
         }
 
         .expanded-detail-card .card-deck-meta svg,
@@ -2308,16 +2324,26 @@
 
         .type4-generator-samples {
             display: grid;
+            grid-template-columns: auto minmax(0, 1fr);
+            align-items: center;
             gap: 0.55rem;
             position: relative;
-            padding-right: 1.75rem;
         }
 
-        .type4-generator-samples .type4-generator-rerun {
+        .type4-generator-samples > :not(.type4-generator-rerun) {
+            grid-column: 2;
+            grid-row: 1;
+        }
+
+        .type4-generator-samples > .type4-generator-rerun {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .type4-generator-rerun {
             --paradigm-icon-btn-size: 1.4rem;
-            position: absolute;
-            top: 0;
-            right: 0;
+            flex: 0 0 auto;
+            margin-left: auto;
             width: 1.4rem;
             height: 1.4rem;
             min-width: 1.4rem;
@@ -2328,6 +2354,38 @@
             aspect-ratio: 1;
             padding: 0;
             border-radius: 50%;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+        }
+
+        .type4-generator-rerun:hover:not(:disabled),
+        .type4-generator-rerun:focus-visible:not(:disabled) {
+            border: none;
+            box-shadow: none;
+        }
+
+        .type4-generator-deck-text {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 0.4rem;
+        }
+
+        .expanded-detail-card:has(.type4-generator-inline) {
+            padding: 1rem;
+        }
+
+        .expanded-detail-card:has(.type4-generator-inline) .card-deck-row {
+            margin-top: 0;
+        }
+
+        .expanded-detail-card:has(.type4-generator-inline) .expanded-card-hero {
+            align-items: center;
+        }
+
+        .type4-generator-inline .manage-popup-modal-body {
+            padding: 0;
         }
 
         .type4-generator-modal-head:not(:has(button)) {

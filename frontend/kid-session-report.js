@@ -363,7 +363,7 @@ function renderSummaryHero(metaHtml, canFinish) {
     const sheetParams = new URLSearchParams({ id: String(kidId), categoryKey: key });
     sheetIds.forEach((id) => sheetParams.append('sheet', String(id)));
     const sheetLink = currentSession?.delivery_mode === 'sheet'
-        ? `<a class="session-summary-hero-icon session-summary-sheet-link" href="/kid-writing-sheet-manage.html?${escapeHtml(sheetParams.toString())}" aria-label="View this session's worksheets" title="View worksheets">${window.icon('printer', { size: 28, strokeWidth: 2 })}</a>`
+        ? `<a class="session-summary-hero-icon session-summary-sheet-link" href="/kid-writing-sheet-manage.html?${escapeHtml(sheetParams.toString())}" aria-label="View this session's worksheets" title="View worksheets"><span class="session-summary-sheet-tile">${window.icon('printer', { size: 22, strokeWidth: 1.8 })}</span></a>`
         : '';
     return `
         <div class="session-summary-hero">
@@ -599,9 +599,8 @@ function renderParentReview(answers) {
     if (!pending) return;
     const actions = document.createElement('div');
     actions.className = 'parent-review-actions';
-    const save = document.createElement('button');
-    save.type = 'button';
-    save.className = 'paradigm-btn paradigm-submit-confirm paradigm-compact-control';
+    const saveControl = window.ReviewSaveButton.create();
+    const save = saveControl.button;
     actions.appendChild(save);
     rightList.before(actions);
     let busy = false;
@@ -625,8 +624,12 @@ function renderParentReview(answers) {
     function refresh() {
         markAllCorrect.disabled = busy;
         const remaining = draft.filter((answer) => Number(answer.correct_score) === 0).length;
-        save.disabled = busy || remaining > 0;
-        save.textContent = busy ? 'Saving…' : remaining > 0 ? `${remaining} to review` : 'Save review';
+        saveControl.update({
+            text: busy ? 'Saving…' : remaining > 0 ? `${remaining} to review` : 'Save review',
+            correct: draft.filter((answer) => Number(answer.correct_score) === 1).length,
+            wrong: draft.filter((answer) => Number(answer.correct_score) === -1).length,
+            disabled: busy || remaining > 0,
+        });
     }
     rightList.querySelectorAll('[data-review-result-id]').forEach((button) => {
         button.addEventListener('click', () => {

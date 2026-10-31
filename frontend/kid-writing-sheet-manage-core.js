@@ -310,6 +310,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('cellDesignSaveBtn')?.addEventListener('click', saveCellDesign);
     document.getElementById('cellDesignCancelBtn')?.addEventListener('click', closeCellDesignModal);
     document.getElementById('cellDesignStage')?.addEventListener('click', (event) => {
+        if (cellDesignOpening || cellDesignSaving) return;
         const resizeBtn = event.target.closest('[data-cell-resize]');
         if (!resizeBtn) return;
         const action = String(resizeBtn.getAttribute('data-cell-resize') || '').trim().toLowerCase();
@@ -358,6 +359,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
     document.getElementById('sheetBuilderPickerOptions')?.addEventListener('click', (event) => {
+        const editBtn = event.target.closest('[data-sb-edit-cell]');
+        if (editBtn) {
+            if (cellDesignOpening || cellDesignSaving) return;
+            const host = editBtn.closest('.sb-picker-entry').querySelector('.sb-picker-cell-editor');
+            if (cellDesignInlineHost === host) closeCellDesignModal();
+            else void openCellDesigner(Number(editBtn.dataset.sbEditCell), host);
+            return;
+        }
+        if (cellDesignOpening || cellDesignSaving) return;
         const optionBtn = event.target.closest('[data-sb-picker-deck-id]');
         if (!optionBtn) return;
         const deckId = Number.parseInt(optionBtn.getAttribute('data-sb-picker-deck-id'), 10);
@@ -401,6 +411,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
+        if (cellDesignSaving) return;
+        if (cellDesignInlineHost) { closeCellDesignModal(); return; }
         const chinesePicker = document.getElementById('chineseSheetPicker');
         const picker = document.getElementById('sheetBuilderPicker');
         const inlinePicker = document.getElementById('inlineSheetPicker');

@@ -1781,6 +1781,25 @@ svg.cards-view-toggle-btn-icon,
     font-weight: var(--paradigm-compact-control-font-weight, var(--paradigm-input-font-weight));
 }
 
+.paradigm-btn.paradigm-submit-confirm.paradigm-submit-confirm--compact {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+}
+
+.review-save-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.review-save-count.is-correct { color: #198253; background: #dcefe5; }
+.review-save-count.is-wrong { color: #b93838; background: #f9e0e0; }
+
 .paradigm-btn.paradigm-submit-confirm:hover:not(:disabled) {
     border-color: #198253;
     background: #187a50;

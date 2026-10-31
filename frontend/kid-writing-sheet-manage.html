@@ -109,6 +109,7 @@
                 </div>
                 <div id="chineseSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
+                        <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-icon-btn paradigm-sheet-close sb-picker-close" aria-label="Close" title="Close">×</button>
                         <div class="sb-picker-header">
                             <h3 class="sb-picker-title" id="chineseSheetPickerTitle">Choose Character</h3>
                             <div id="chineseSheetPickerFilter" class="paradigm-chip-toggle-group paradigm-segmented-toggle" role="group" aria-label="Character filter">
@@ -125,9 +126,6 @@
                             <span id="chineseSheetPickerOtherLegend" class="sb-picker-legend-item hidden"><span class="sb-picker-legend-dot reason-default" aria-hidden="true"></span>Not recommended</span>
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
-                        <div class="sb-picker-actions">
-                            <button type="button" id="chineseSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -165,9 +163,10 @@
                     </div>
                 </div>
             </div>
-            <div style="display:flex; gap:0.6rem; justify-content:flex-end; margin-top:1rem;">
-                <button type="button" id="cellDesignCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                <button type="button" id="cellDesignSaveBtn" class="paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Save cell design" title="Save cell design"><span data-icon="check" data-icon-size="18" data-icon-stroke="2.7"></span></button>
+            <p id="cellDesignError" class="sb-cell-design-error" role="alert"></p>
+            <div id="cellDesignActions" class="cell-design-actions">
+                <button type="button" id="cellDesignCancelBtn" class="paradigm-chip-toggle cell-design-cancel" aria-label="Cancel" title="Cancel">Cancel</button>
+                <button type="button" id="cellDesignSaveBtn" class="paradigm-chip-toggle cell-design-confirm" aria-label="Save cell design" title="Save cell design" disabled>Confirm</button>
             </div>
         </div>
     </div>
@@ -194,12 +193,10 @@
                 </div>
                 <div id="sheetBuilderPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
+                        <button type="button" id="sheetBuilderPickerCancelBtn" class="paradigm-icon-btn paradigm-sheet-close sb-picker-close" aria-label="Close" title="Close">×</button>
                         <h3 class="sb-picker-title" id="sheetBuilderPickerTitle">Choose Card</h3>
                         <p class="sb-picker-note">Pick one of the card designs you already prepared.</p>
                         <div id="sheetBuilderPickerOptions" class="sb-picker-options"></div>
-                        <div class="sb-picker-actions">
-                            <button type="button" id="sheetBuilderPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -228,11 +225,9 @@
                 </div>
                 <div id="inlineSheetPicker" class="sb-picker-backdrop hidden" aria-hidden="true">
                     <div class="sb-picker-card">
+                        <button type="button" id="inlineSheetPickerCancelBtn" class="paradigm-icon-btn paradigm-sheet-close sb-picker-close" aria-label="Close" title="Close">×</button>
                         <h3 class="sb-picker-title">Choose Deck</h3>
                         <div id="inlineSheetPickerOptions" class="sb-picker-options"></div>
-                        <div class="sb-picker-actions">
-                            <button type="button" id="inlineSheetPickerCancelBtn" class="paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Cancel" title="Cancel"><span data-icon="x" data-icon-size="18" data-icon-stroke="2.7"></span></button>
-                        </div>
                     </div>
                 </div>
             </div>

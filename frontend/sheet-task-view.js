@@ -41,25 +41,8 @@ window.SheetTaskView = (() => {
         root.appendChild(pager);
         const actions = document.createElement('div');
         actions.className = 'sheet-task-actions';
-        const save = document.createElement('button');
-        save.type = 'button';
-        save.className = 'paradigm-btn paradigm-submit-confirm paradigm-compact-control';
-        save.setAttribute('aria-label', 'Save review');
-        const saveLabel = document.createElement('span');
-        saveLabel.textContent = 'Save review';
-        save.appendChild(saveLabel);
-        const reviewCounts = (completionReview ? [] : [
-            { key: 'correct', icon: 'check', label: 'correct' },
-            { key: 'wrong', icon: 'x', label: 'wrong' },
-        ]).map((entry) => {
-            const badge = document.createElement('span');
-            badge.className = `sheet-review-count is-${entry.key}`;
-            badge.innerHTML = window.icon ? window.icon(entry.icon, { size: 16 }) : '●';
-            const value = document.createElement('span');
-            badge.appendChild(value);
-            save.appendChild(badge);
-            return { ...entry, badge, value };
-        });
+        const saveControl = window.ReviewSaveButton.create({ showCounts: !completionReview });
+        const save = saveControl.button;
         const markAllCorrect = review && !completionReview
             ? window.ReportGradingCommon.createMarkAllCorrectButton({
                 getItems: () => task.items,
@@ -113,14 +96,13 @@ window.SheetTaskView = (() => {
             const count = task.items.filter((item) => typeof grades[item.id] === 'boolean').length;
             const correct = task.items.filter((item) => grades[item.id] === true).length;
             const counts = { pending: task.items.length - count, correct, wrong: count - correct };
-            save.disabled = busy || (!completionReview && count !== task.items.length) || !review || task.status !== 'pending_review';
-            saveLabel.textContent = busy ? 'Saving…' : completionReview ? 'Confirm completed' : save.disabled ? `${counts.pending} to review` : 'Save review';
-            reviewCounts.forEach(({ key, label, badge, value }) => {
-                value.textContent = String(counts[key]);
-                badge.title = `${counts[key]} ${label}`;
-                badge.setAttribute('aria-label', badge.title);
+            const disabled = busy || (!completionReview && count !== task.items.length) || !review || task.status !== 'pending_review';
+            saveControl.update({
+                text: busy ? 'Saving…' : completionReview ? 'Confirm completed' : counts.pending > 0 ? `${counts.pending} to review` : 'Save review',
+                correct: counts.correct,
+                wrong: counts.wrong,
+                disabled,
             });
-            save.setAttribute('aria-label', completionReview ? saveLabel.textContent : `${saveLabel.textContent}: ${counts.correct} correct, ${counts.wrong} wrong`);
             for (const frame of frames) frame.contentWindow?.postMessage({ type: 'sheet-task-grade-state', sessionId: task.id, grades }, location.origin);
         }
         function renderFrames() {

@@ -299,6 +299,12 @@ function buildExpandedCardPreviewMarkup(card, options = {}) {
     `;
 }
 
+function buildSourceDeckEditLink(card) {
+    const deckId = Number(card?.type4_shared_deck_id);
+    if (!Number.isInteger(deckId) || deckId <= 0) return '';
+    return `<a class="card-source-edit-link" href="/deck-view.html?deckId=${encodeURIComponent(deckId)}" aria-label="Edit source deck" title="Edit source deck">${icon('pencil', { size: 13, strokeWidth: 2 })}</a>`;
+}
+
 function buildCardMarkup(card, options = {}) {
     const classes = ['card-item', 'expanded-detail-card', ...(Array.isArray(options.cardClassNames) ? options.cardClassNames : [])];
     if (card.skip_practice) {
@@ -346,7 +352,7 @@ function buildCardMarkup(card, options = {}) {
                     ${showPrimary ? `<div class="card-front">${renderMathHtml(primaryText)}</div>` : ''}
                     ${showSecondary ? `<div class="card-back${showPrimary ? '' : ' standalone'}${cardBackSizeClass}">${secondaryHtml || escapeHtml(secondaryText)}</div>` : ''}
                     <div class="card-deck-row">
-                        <span class="card-deck-meta" title="${escapeHtml(sourceRaw)}">${icon('layers', { size: 13, strokeWidth: 2.3 })}<span>${sourceDisplay}</span></span>
+                        <span class="card-deck-meta" title="${escapeHtml(sourceRaw)}">${icon('layers', { size: 13, strokeWidth: 2.3 })}<span>${sourceDisplay}</span>${buildSourceDeckEditLink(card)}</span>
                         ${rankMetaHtml}
                         ${deckRowExtraHtml}
                     </div>

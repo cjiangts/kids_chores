@@ -171,7 +171,7 @@ function renderType4GeneratorModal(card) {
     if (runType4GeneratorPreviewBtn) type4GeneratorRerunHome.appendChild(runType4GeneratorPreviewBtn);
     const sourceName = resolveCardSourceDeckName(card);
     type4GeneratorHeading.textContent = String(card && card.front ? card.front : 'Generator');
-    type4GeneratorDeckText.textContent = String(sourceName || '-');
+    type4GeneratorDeckText.innerHTML = `<span>${escapeHtml(String(sourceName || '-'))}</span>${buildSourceDeckEditLink(card)}`;
     const cachedCode = String(card && card.type4_generator_code ? card.type4_generator_code : '').trim();
     const cachedSamples = Array.isArray(card && card.type4_generator_samples) ? card.type4_generator_samples : [];
     setType4GeneratorCodeContent(cachedCode || '// Loading generator…');
