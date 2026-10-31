@@ -22,7 +22,7 @@ window.SheetTaskMode = (() => {
             document.getElementById('printedQuestionShortage')?.classList.toggle('hidden', !shortage);
             const sheetsLink = document.getElementById('openPrintableSheetsBtn');
             if (sheetsLink) {
-                const label = `Manage worksheets · ${stock} unassigned questions remaining${shortage ? ' · Not enough printed questions for today’s target' : ''}`;
+                const label = `Manage worksheets · ${stock} unassigned questions remaining${shortage ? ' · Printed question stock is below the daily target' : ''}`;
                 sheetsLink.title = label;
                 sheetsLink.setAttribute('aria-label', label);
             }

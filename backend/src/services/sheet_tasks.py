@@ -121,7 +121,7 @@ def sheet_summary(conn, kid, category_key):
     available_today = int(task['planned_count']) if task else min(remaining, target)
     return {'supported': True, 'mode': delivery_mode(conn, category_key), 'remaining_count': remaining,
             'target_count': target, 'available_today': available_today,
-            'shortage': available_today < target, 'task': task}
+            'shortage': remaining < target, 'task': task}
 
 
 def set_delivery_mode(conn, kid, category_key, mode):

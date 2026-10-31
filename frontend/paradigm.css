@@ -1240,6 +1240,10 @@ input.paradigm-compact-stepper-value::-webkit-outer-spin-button {
     margin: 0;
 }
 
+.printed-question-shortage {
+    color: #d97706;
+}
+
 .paradigm-status-column {
     min-width: var(--paradigm-status-column-width);
     padding-left: var(--paradigm-status-column-padding-left);
