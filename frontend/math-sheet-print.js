@@ -621,15 +621,16 @@ function drawDivisionPrompt(ctx, parsed, x, y, scale) {
 // =====================================================================
 
 function drawAnswer(ctx, problem, cellX, cellY, cellWidth, cellHeight, scale) {
-    const answer = String((problem && problem.answer) || '').trim();
+    const answer = String(problem?.answer ?? '').trim();
     if (!answer) return;
     const fontSize = BASE_MATH_FONT_SIZE * scale * 0.72;
     ctx.save();
     ctx.font = `bold ${fontSize}px ${MATH_FONT_FAMILY}`;
     ctx.fillStyle = '#2b8a3e';
-    ctx.textBaseline = 'middle';
+    const padding = 6 * scale;
+    ctx.textBaseline = 'bottom';
     ctx.textAlign = 'center';
-    ctx.fillText(answer, cellX + cellWidth / 2, cellY + cellHeight * 0.7);
+    ctx.fillText(answer, cellX + cellWidth / 2, cellY + cellHeight - padding, Math.max(1, cellWidth - 2 * padding));
     ctx.restore();
 }
 
