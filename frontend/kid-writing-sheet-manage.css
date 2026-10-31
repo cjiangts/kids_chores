@@ -573,9 +573,9 @@
             box-shadow: none;
         }
         .sb-row-tool-btn {
-            border: 1px solid #c6d5ff;
-            background: rgba(237, 243, 255, 0.96);
-            color: #2e56a1;
+            border: 1px solid #e4ddff;
+            background: #e4ddff;
+            color: #5140b8;
             border-radius: 999px;
             width: 28px;
             height: 28px;
@@ -587,19 +587,39 @@
             font-weight: 700;
             cursor: pointer;
             line-height: 1;
+            box-shadow: 0 2px 4px rgba(66, 45, 135, 0.18);
+            transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
         }
-        .sb-row-tool-btn:hover {
-            background: rgba(223, 234, 255, 0.98);
+        .sb-row-tool-btn:hover:not(:disabled) {
+            border-color: #d4c8ff;
+            background: #d4c8ff;
+            box-shadow: 0 3px 6px rgba(66, 45, 135, 0.23);
+            transform: translateY(-1px);
+        }
+        .sb-row-tool-btn:active:not(:disabled) {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+        .sb-row-tool-btn:focus-visible {
+            outline: 2px solid #6351cf;
+            outline-offset: 2px;
         }
         .sb-row-tool-btn:disabled {
             cursor: not-allowed;
             opacity: 0.45;
+            box-shadow: none;
         }
         .sb-row-tool-btn.duplicate {
             font-size: 0.86rem;
         }
         .sb-row-tool-btn.delete {
+            border-color: #ffe1dc;
+            background: #ffe1dc;
             color: #c73a2c;
+        }
+        .sb-row-tool-btn.delete:hover:not(:disabled) {
+            border-color: #ffc9c0;
+            background: #ffc9c0;
         }
         .sb-add-row-box {
             width: 100%;
@@ -645,6 +665,44 @@
             box-shadow: 0 12px 30px rgba(42, 55, 88, 0.18);
             padding: 1rem;
         }
+        .sb-picker-row-count {
+            flex: 0 0 auto;
+            background: #fff0ce;
+            color: #945700;
+            border-radius: 999px;
+            padding: 0.15rem 0.45rem;
+            margin-left: auto;
+        }
+
+        .sb-picker-option-heading {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sb-picker-current {
+            display: inline-block;
+            padding: 0.12rem 0.4rem;
+            border-radius: 999px;
+            background: #e4ddff;
+            color: #5140b8;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        .sb-picker-option-heading .sb-picker-option-name {
+            min-width: 0;
+            margin: 0;
+            overflow-wrap: anywhere;
+        }
+
+        :is(#sheetBuilderPicker, #inlineSheetPicker) :is(.sb-picker-card, .sb-picker-title, .sb-picker-note, .sb-picker-option, .sb-picker-option-name, .sb-picker-option-meta, .sb-picker-row-count, .sb-empty-box) {
+            font-family: inherit;
+            font-size: var(--paradigm-list-item-sub-font-size);
+            font-weight: var(--paradigm-list-item-sub-font-weight);
+            line-height: var(--paradigm-list-item-sub-line-height);
+        }
+
         .sb-picker-title {
             margin: 0 0 0.25rem;
             color: #23375f;

@@ -464,32 +464,27 @@ function getDesignedMathDecks() {
     return mathPrintConfigDecks.filter((deck) => cellDesigns.has(deck.shared_deck_id));
 }
 
-function getUsedVerticalSheetDeckIds(excludedRowIndex = null) {
-    const usedDeckIds = new Set();
-    sheetRows.forEach((row, index) => {
-        if (!row || !Number.isInteger(row.deckId)) return;
-        if (Number.isInteger(excludedRowIndex) && index === excludedRowIndex) return;
-        usedDeckIds.add(row.deckId);
-    });
-    return usedDeckIds;
-}
-
-function getAvailableVerticalSheetDecks(excludedRowIndex = null) {
-    const usedDeckIds = getUsedVerticalSheetDeckIds(excludedRowIndex);
-    return getDesignedMathDecks().filter((deck) => !usedDeckIds.has(deck.shared_deck_id));
-}
-
-function getUsedInlineSheetDeckIds() {
-    const usedDeckIds = new Set();
-    inlineSheetRows.forEach((row) => {
-        if (row && Number.isInteger(row.deckId)) usedDeckIds.add(row.deckId);
-    });
-    return usedDeckIds;
+function getAvailableVerticalSheetDecks() {
+    return getDesignedMathDecks();
 }
 
 function getAvailableInlineSheetDecks() {
-    const usedDeckIds = getUsedInlineSheetDeckIds();
-    return mathPrintConfigDecks.filter((deck) => !usedDeckIds.has(deck.shared_deck_id));
+    return mathPrintConfigDecks;
+}
+
+function putCurrentCardFirst(decks, currentDeckId) {
+    return [...decks].sort((a, b) => Number(b.shared_deck_id === currentDeckId) - Number(a.shared_deck_id === currentDeckId));
+}
+
+function renderPickerCurrentCard(deckId, currentDeckId) {
+    return deckId === currentDeckId ? '<span class="sb-picker-current">Current</span>' : '';
+}
+
+function renderPickerRowCount(rows, deckId) {
+    const count = rows.filter((row) => row.deckId === deckId).length;
+    return count > 0
+        ? `<span class="paradigm-pill sb-picker-row-count">${count} ${count === 1 ? 'row' : 'rows'} on this sheet</span>`
+        : '';
 }
 
 function buildSheetRow(deckId, scale = 1) {
@@ -682,19 +677,6 @@ function getRowScaleLabel(scale) {
     return `${Math.round(scale * 100)}%`;
 }
 
-function buildBuilderDeckSummaryText(rows) {
-    if (!Array.isArray(rows) || rows.length === 0) return '';
-    const names = [];
-    const seen = new Set();
-    rows.forEach((row) => {
-        const name = String(row && row.deckName || '').trim();
-        if (!name || seen.has(name)) return;
-        seen.add(name);
-        names.push(name);
-    });
-    return names.join(' · ');
-}
-
 function renderSheetBuilderContent(scale) {
     const a4El = document.getElementById('sheetBuilderA4');
     if (!a4El) return;
@@ -710,8 +692,6 @@ function renderSheetBuilderContent(scale) {
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
     const headerFontPx = Math.max(10, Math.round(12 * scale));
-    const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
-    const deckSummaryText = buildBuilderDeckSummaryText(sheetRows);
 
     let html = '';
     html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
@@ -724,7 +704,7 @@ function renderSheetBuilderContent(scale) {
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
-    html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
+    html += `<span class="sb-header-decks"></span>`;
     html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
     html += '</div>';
     html += `<div id="sheetBuilderGridArea" class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
@@ -743,10 +723,11 @@ function renderSheetBuilderContent(scale) {
         ]);
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewHeight}px;z-index:${sheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="-1" data-row-idx="${idx}" title="Make row smaller (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row smaller" ${canScaleDown ? '' : 'disabled'}>${window.icon('minus', { size: 16 })}</button>
-            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="1" data-row-idx="${idx}" title="Make row larger (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row larger" ${canScaleUp ? '' : 'disabled'}>${window.icon('plus', { size: 16 })}</button>
-            <button type="button" class="sb-row-tool-btn duplicate" data-sb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below" ${canDuplicate ? '' : 'disabled'}>⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-sb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 16 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="-1" data-row-idx="${idx}" title="Make row smaller (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row smaller" ${canScaleDown ? '' : 'disabled'}>${window.icon('minus', { size: 22, strokeWidth: 1.64 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-sb-row-scale="1" data-row-idx="${idx}" title="Make row larger (${escapeHtml(getRowScaleLabel(metrics.scale))})" aria-label="Make row larger" ${canScaleUp ? '' : 'disabled'}>${window.icon('plus', { size: 22, strokeWidth: 1.64 })}</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-sb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below" ${canDuplicate ? '' : 'disabled'}>${window.icon('copy', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-sb-row-replace="${idx}" title="Replace this row's card" aria-label="Replace this row's card">${window.icon('repeat', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn delete" data-sb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 18, strokeWidth: 2 })}</button>
         </div>`;
         html += `<div class="sb-row" style="height:${previewHeight}px;">`;
         for (let cellIndex = 0; cellIndex < metrics.colCount; cellIndex += 1) {
@@ -776,20 +757,13 @@ function updateSheetBuilderDoneBtn() {
 function renderSheetBuilderPickerOptions() {
     const optionsEl = document.getElementById('sheetBuilderPickerOptions');
     if (!optionsEl) return;
-    const decks = getAvailableVerticalSheetDecks(sheetBuilderPickerRowIndex);
-    if (decks.length === 0) {
-        optionsEl.innerHTML = `<div class="sb-add-row-box sb-empty-box">${
-            Number.isInteger(sheetBuilderPickerRowIndex)
-                ? 'All other designed cards are already on this sheet.'
-                : 'All designed cards are already on this sheet.'
-        }</div>`;
-        return;
-    }
+    const currentDeckId = Number.isInteger(sheetBuilderPickerRowIndex) ? sheetRows[sheetBuilderPickerRowIndex]?.deckId : null;
+    const decks = putCurrentCardFirst(getAvailableVerticalSheetDecks(), currentDeckId);
     optionsEl.innerHTML = decks.map((deck) => {
         const deckId = deck.shared_deck_id;
         const def = cellDesigns.get(deckId);
         return `<button type="button" class="sb-picker-option" data-sb-picker-deck-id="${deckId}">
-            <span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)}</span>
+            <span class="sb-picker-option-heading"><span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)} ${renderPickerCurrentCard(deckId, currentDeckId)}</span>${renderPickerRowCount(sheetRows, deckId)}</span>
             <span class="sb-picker-option-meta">${def.cellWidth} x ${def.cellHeight}px cell</span>
         </button>`;
     }).join('');
@@ -805,15 +779,6 @@ function openSheetBuilderPicker(rowIndex) {
         return;
     }
     sheetBuilderPickerRowIndex = Number.isInteger(rowIndex) ? rowIndex : null;
-    const availableDecks = getAvailableVerticalSheetDecks(sheetBuilderPickerRowIndex);
-    if (availableDecks.length === 0) {
-        showMathSheetError(
-            Number.isInteger(sheetBuilderPickerRowIndex)
-                ? 'All other designed cards are already used on this sheet.'
-                : 'All designed cards are already used on this sheet.'
-        );
-        return;
-    }
     titleEl.textContent = Number.isInteger(sheetBuilderPickerRowIndex) ? 'Reselect Card' : 'Choose Card';
     renderSheetBuilderPickerOptions();
     pickerEl.classList.remove('hidden');
@@ -1189,8 +1154,6 @@ function renderInlineSheetBuilderContent(scale) {
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
     const headerFontPx = Math.max(10, Math.round(12 * scale));
-    const headerDeckFontPx = Math.max(9, Math.round(11 * scale));
-    const deckSummaryText = buildBuilderDeckSummaryText(inlineSheetRows);
 
     let html = '';
     html += `<div class="sb-margin" style="top:0;left:0;right:0;height:${marginPx}px;"></div>`;
@@ -1203,7 +1166,7 @@ function renderInlineSheetBuilderContent(scale) {
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-header-row" style="position:absolute;top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ________</span>`;
-    html += `<span class="sb-header-decks" style="font-size:${headerDeckFontPx}px;" title="${escapeHtml(deckSummaryText)}">${escapeHtml(deckSummaryText)}</span>`;
+    html += `<span class="sb-header-decks"></span>`;
     html += `<span class="sb-header-sheetno" style="font-size:${headerFontPx}px;">Sheet #___</span>`;
     html += '</div>';
     html += `<div class="sb-grid-area sb-grid-area-inline" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
@@ -1219,10 +1182,11 @@ function renderInlineSheetBuilderContent(scale) {
         const canFontGrow = testGrow.fontScale > metrics.fontScale;
         html += `<div class="sb-row-wrap" data-sb-row-idx="${idx}" style="height:${previewTotalH}px;z-index:${inlineSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>${window.icon('minus', { size: 16 })}</button>
-            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>${window.icon('plus', { size: 16 })}</button>
-            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below">⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 16 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="-1" data-row-idx="${idx}" title="Smaller text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Smaller text" ${canFontShrink ? '' : 'disabled'}>${window.icon('minus', { size: 22, strokeWidth: 1.64 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-font="1" data-row-idx="${idx}" title="Larger text (${escapeHtml(getInlineFontScaleLabel(metrics.fontScale))})" aria-label="Larger text" ${canFontGrow ? '' : 'disabled'}>${window.icon('plus', { size: 22, strokeWidth: 1.64 })}</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-isb-row-duplicate="${idx}" title="Duplicate this row below" aria-label="Duplicate this row below">${window.icon('copy', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-isb-row-replace="${idx}" title="Replace this row's card" aria-label="Replace this row's card">${window.icon('repeat', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn delete" data-isb-row-delete="${idx}" title="Delete this row" aria-label="Delete this row">${window.icon('trash', { size: 18, strokeWidth: 2 })}</button>
         </div>`;
         const rawPrompt = String(row.sampleProblem.prompt || '').replace(/\s*=\s*[?？_\s]*$/, '');
         const compactPrompt = rawPrompt.replace(/\s*([+\-×x*÷\/])\s*/g, ' $1 ').replace(/\s{2,}/g, ' ').trim();
@@ -1295,20 +1259,23 @@ function closeInlineSheetBuilder() {
     window.SheetBuilderDialog.setOpen('inlineSheetBuilderModal', false);
 }
 
-function openInlineSheetPicker() {
+function openInlineSheetPicker(rowIndex = null) {
     const el = document.getElementById('inlineSheetPicker');
     const optionsEl = document.getElementById('inlineSheetPickerOptions');
     if (!el || !optionsEl) return;
-    const availableDecks = getAvailableInlineSheetDecks();
+    inlineSheetPickerRowIndex = Number.isInteger(rowIndex) ? rowIndex : null;
+    document.getElementById('inlineSheetPickerTitle').textContent = Number.isInteger(inlineSheetPickerRowIndex) ? 'Reselect Card' : 'Choose Card';
+    const currentDeckId = Number.isInteger(inlineSheetPickerRowIndex) ? inlineSheetRows[inlineSheetPickerRowIndex]?.deckId : null;
+    const availableDecks = putCurrentCardFirst(getAvailableInlineSheetDecks(), currentDeckId);
     if (availableDecks.length === 0) {
-        showMathSheetError('All opted-in decks are already used on this sheet.');
-        optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">All opted-in decks are already on this sheet.</div>';
+        showMathSheetError('No opted-in cards are available.');
+        optionsEl.innerHTML = '<div class="sb-add-row-box sb-empty-box">No opted-in cards are available.</div>';
         return;
     }
     optionsEl.innerHTML = availableDecks.map((deck) => {
         const deckId = deck.shared_deck_id;
         return `<button type="button" class="sb-picker-option" data-isb-picker-deck-id="${deckId}">
-            <span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)}</span>
+            <span class="sb-picker-option-heading"><span class="sb-picker-option-name">${escapeHtml(deck.display_name || deck.name)} ${renderPickerCurrentCard(deckId, currentDeckId)}</span>${renderPickerRowCount(inlineSheetRows, deckId)}</span>
         </button>`;
     }).join('');
     el.classList.remove('hidden');
@@ -1317,9 +1284,12 @@ function openInlineSheetPicker() {
 function closeInlineSheetPicker() {
     const el = document.getElementById('inlineSheetPicker');
     if (el) el.classList.add('hidden');
+    inlineSheetPickerRowIndex = null;
 }
 
 async function handleInlineSheetDeckChoice(deckId) {
+    const rowIndex = inlineSheetPickerRowIndex;
+    const previousRow = Number.isInteger(rowIndex) ? inlineSheetRows[rowIndex] : null;
     closeInlineSheetPicker();
     try {
         const response = await fetch(`${API_BASE}/shared-decks/${deckId}/print-problems`, {
@@ -1328,6 +1298,7 @@ async function handleInlineSheetDeckChoice(deckId) {
             body: JSON.stringify({ count: 1 }),
         });
         const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Failed to load sample problem.');
         const sample = Array.isArray(data.problems) && data.problems[0]
             ? data.problems[0]
             : { prompt: '? + ? = ?', answer: '?' };
@@ -1337,10 +1308,15 @@ async function handleInlineSheetDeckChoice(deckId) {
             deckId,
             deckName: deck.display_name || deck.name,
             sampleProblem: sample,
-            repeatCount: INLINE_DEFAULT_REPEAT_COUNT,
-            fontScale: 1,
+            repeatCount: previousRow?.repeatCount ?? INLINE_DEFAULT_REPEAT_COUNT,
+            fontScale: previousRow?.fontScale ?? 1,
         };
-        const nextRows = [...inlineSheetRows, row];
+        if (previousRow && inlineSheetRows[rowIndex] !== previousRow) {
+            throw new Error('This row has changed. Please choose its replacement again.');
+        }
+        const nextRows = previousRow
+            ? inlineSheetRows.map((item, index) => index === rowIndex ? row : item)
+            : [...inlineSheetRows, row];
         showMathSheetError('');
         inlineSheetRows = nextRows;
         renderInlineSheetBuilderContent(currentInlineSheetScale);
@@ -1595,8 +1571,9 @@ function renderChineseSheetBuilderContent(scale) {
 
         html += `<div class="sb-row-wrap" data-cwb-row-idx="${idx}" style="height:${rowHeightPx}px;z-index:${chineseSheetRows.length - idx};">`;
         html += `<div class="sb-row-tools">
-            <button type="button" class="sb-row-tool-btn duplicate" data-cwb-row-duplicate="${idx}" title="Duplicate this row" aria-label="Duplicate" ${canDuplicate ? '' : 'disabled'}>⧉</button>
-            <button type="button" class="sb-row-tool-btn delete" data-cwb-row-delete="1" data-row-idx="${idx}" title="Remove this card" aria-label="Remove row">${window.icon('trash', { size: 16 })}</button>
+            <button type="button" class="sb-row-tool-btn duplicate" data-cwb-row-duplicate="${idx}" title="Duplicate this row" aria-label="Duplicate" ${canDuplicate ? '' : 'disabled'}>${window.icon('copy', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn" data-cwb-row-replace="${idx}" title="Replace this row's card" aria-label="Replace this row's card">${window.icon('repeat', { size: 18, strokeWidth: 2 })}</button>
+            <button type="button" class="sb-row-tool-btn delete" data-cwb-row-delete="1" data-row-idx="${idx}" title="Remove this card" aria-label="Remove row">${window.icon('trash', { size: 18, strokeWidth: 2 })}</button>
         </div>`;
 
         const cells = buildChineseRowCells(row);

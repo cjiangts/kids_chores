@@ -260,6 +260,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (Number.isInteger(idx)) duplicateChineseSheetRow(idx);
             return;
         }
+        const replaceBtn = e.target.closest('[data-cwb-row-replace]');
+        if (replaceBtn) {
+            const idx = Number.parseInt(replaceBtn.getAttribute('data-cwb-row-replace'), 10);
+            if (Number.isInteger(idx)) openChineseSheetPicker(idx);
+            return;
+        }
         const deleteBtn = e.target.closest('[data-cwb-row-delete]');
         if (deleteBtn) {
             const idx = Number.parseInt(deleteBtn.getAttribute('data-row-idx'), 10);
@@ -331,6 +337,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (duplicateBtn) {
             const idx = Number.parseInt(duplicateBtn.getAttribute('data-sb-row-duplicate'), 10);
             if (Number.isInteger(idx)) duplicateSheetRow(idx);
+            return;
+        }
+        const replaceBtn = e.target.closest('[data-sb-row-replace]');
+        if (replaceBtn) {
+            const idx = Number.parseInt(replaceBtn.getAttribute('data-sb-row-replace'), 10);
+            if (Number.isInteger(idx)) openSheetBuilderPicker(idx);
             return;
         }
         const deleteBtn = e.target.closest('[data-sb-row-delete]');
@@ -423,6 +435,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (duplicateBtn) {
             const idx = Number.parseInt(duplicateBtn.getAttribute('data-isb-row-duplicate'), 10);
             if (Number.isInteger(idx)) duplicateInlineSheetRow(idx);
+            return;
+        }
+        const replaceBtn = e.target.closest('[data-isb-row-replace]');
+        if (replaceBtn) {
+            const idx = Number.parseInt(replaceBtn.getAttribute('data-isb-row-replace'), 10);
+            if (Number.isInteger(idx)) openInlineSheetPicker(idx);
             return;
         }
         const deleteBtn = e.target.closest('[data-isb-row-delete]');
