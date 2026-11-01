@@ -159,7 +159,8 @@ function buildSheetPageMarkup(sheet, scale) {
     const contentTopPx = marginPx + safeMarginTopPx;
     const gridTopPx = contentTopPx + headerHeightPx;
     const gridHeightPx = Math.round(paperSpec.builderGridHeight * scale);
-    const headerFontPx = Math.max(10, Math.round(20 * scale));
+    // Keep the header proportional to the paper, including small phone previews.
+    const headerFontPx = 20 * scale;
     const pageWidthPx = paperSpec.pageWidth * scale;
     const pageHeightPx = paperSpec.pageHeight * scale;
 
