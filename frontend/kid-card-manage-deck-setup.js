@@ -45,7 +45,7 @@ function renderDeckSetupActionButtons() {
         const optInMeta = `${optedCount} / ${totalDecks + (orphanDeck ? 1 : 0)} decks opted in`;
         openDeckOptInModalBtn.title = optInMeta;
         openDeckOptInModalBtn.innerHTML = `
-            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { size: 16, strokeWidth: 2.4 })}</span>
+            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { strokeWidth: 2.4 })}</span>
             <span class="cards-select-mode-btn-label">Decks</span>
         `;
     }
@@ -66,7 +66,7 @@ function renderDeckSetupActionButtons() {
         openPersonalDeckModalBtn.title = 'Add Cards';
         openPersonalDeckModalBtn.setAttribute('aria-label', 'Add Cards');
         openPersonalDeckModalBtn.innerHTML = `
-            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { size: 16, strokeWidth: 2.4 })}</span>
+            <span class="cards-select-mode-btn-icon" aria-hidden="true">${icon('pencil', { strokeWidth: 2.4 })}</span>
             <span class="cards-select-mode-btn-label">Cards</span>
         `;
     }

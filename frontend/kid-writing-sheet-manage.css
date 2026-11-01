@@ -22,14 +22,7 @@
         }
 
         .sheet-create-pill {
-            --paradigm-btn-icon-size: 17px;
-            height: var(--paradigm-compact-bar-height);
-            padding: 0 0.65rem;
-            border-radius: 999px;
-            gap: 0.35rem;
             color: var(--p-accent);
-            font-size: 0.8rem;
-            font-weight: 600;
         }
 
         #buildChineseSheetBtn[aria-disabled="true"] {

@@ -41,8 +41,8 @@
                 <a id="cardsSectionTitleIcon" class="paradigm-panel-title-icon kid-card-manage-report-link" aria-label="View activity history" title="View activity history"></a>
                 <span id="cardsSectionTitleText" class="paradigm-panel-heading">Cards</span>
                 <span class="cards-title-actions">
-                    <button id="openDeckDictionaryBtn" type="button" class="paradigm-btn paradigm-compact-control cards-title-dictionary-btn hidden" aria-label="Manage dictionary" title="Manage dictionary"><span data-icon="book-text" data-icon-size="17" data-icon-stroke="2.3"></span><span>Dictionary</span></button>
-                    <a id="openPrintableSheetsBtn" class="paradigm-btn paradigm-compact-control cards-title-worksheet-btn hidden" aria-label="Manage worksheets" title="Manage worksheets" href="#"><span data-icon="printer" data-icon-size="17" data-icon-stroke="2.3"></span><span id="printedQuestionStock">—</span><span id="printedQuestionShortage" class="printed-question-shortage hidden" aria-hidden="true">&#9888;&#65038;</span></a>
+                    <button id="openDeckDictionaryBtn" type="button" class="paradigm-btn paradigm-btn--pill cards-title-dictionary-btn hidden" aria-label="Manage dictionary" title="Manage dictionary"><span data-icon="book-text" data-icon-size="17" data-icon-stroke="2.3"></span><span>Dictionary</span></button>
+                    <a id="openPrintableSheetsBtn" class="paradigm-btn paradigm-btn--pill cards-title-worksheet-btn hidden" aria-label="Manage worksheets" title="Manage worksheets" href="#"><span data-icon="printer" data-icon-size="17" data-icon-stroke="2.3"></span><span id="printedQuestionStock">—</span><span id="printedQuestionShortage" class="printed-question-shortage hidden" aria-hidden="true">&#9888;&#65038;</span></a>
                     <button id="parentReviewToggle" type="button" class="paradigm-chip-toggle hidden" aria-pressed="false">Parent review: Off</button>
                     <button id="speedDrillToggle" type="button" class="paradigm-chip-toggle hidden" aria-pressed="false" title="Speed Drill requires a daily target of at least 20 questions">Speed Drill: Off</button>
                     <div id="sheetTaskMode" class="sheet-task-mode hidden"></div>
@@ -62,7 +62,7 @@
                                     <input class="paradigm-compact-stepper-value" type="number" id="sessionCardCount" min="0" step="1" required>
                                     <button type="button" class="queue-stepper-btn paradigm-compact-stepper-button" data-session-count-step="1" aria-label="Increase cards per day"><span data-icon="plus"></span></button>
                                 </div>
-                                <button id="queueSettingsSaveBtn" type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="session" data-state="saved" aria-label="Save cards per day" disabled>Save</button>
+                                <button id="queueSettingsSaveBtn" type="submit" class="paradigm-edit-action paradigm-edit-action--confirm" data-queue-save-kind="session" data-state="saved" aria-label="Save cards per day" disabled>Save</button>
                             </div>
                         </fieldset>
 
@@ -77,7 +77,7 @@
                                     <input class="paradigm-compact-stepper-value" type="number" id="drillSpeedTargetInput" min="0.5" max="30" step="0.5" required>
                                     <button type="button" class="queue-stepper-btn paradigm-compact-stepper-button" data-drill-speed-step="1" aria-label="Increase speed target"><span data-icon="plus"></span></button>
                                 </div>
-                                <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm queue-save-pill" data-queue-save-kind="speed" data-state="saved" aria-label="Save speed target" disabled>Save</button>
+                                <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm" data-queue-save-kind="speed" data-state="saved" aria-label="Save speed target" disabled>Save</button>
                             </div>
                         </fieldset>
                     </form>
@@ -104,8 +104,8 @@
                     </button>
                     <div id="sourceDeckFilterPopover" class="sort-menu-popover hidden" role="menu" aria-hidden="true"></div>
                 </div>
-                <button id="openDeckOptInModalBtn" type="button" class="paradigm-btn cards-import-decks-btn" aria-label="Import Decks" title="Import Decks">
-                    <span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-size="16" data-icon-stroke="2.4" aria-hidden="true"></span>
+                <button id="openDeckOptInModalBtn" type="button" class="paradigm-btn paradigm-btn--pill cards-import-decks-btn" aria-label="Import Decks" title="Import Decks">
+                    <span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-stroke="2.4" aria-hidden="true"></span>
                     <span class="cards-select-mode-btn-label">Decks</span>
                 </button>
                 <div class="search-bar cards-search-wrap">
@@ -120,10 +120,10 @@
                 <button
                     id="openPersonalDeckModalBtn"
                     type="button"
-                    class="paradigm-btn cards-add-card-btn hidden"
+                    class="paradigm-btn paradigm-btn--pill cards-add-card-btn hidden"
                     aria-label="Add Cards"
                     title="Add Cards"
-                ><span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-size="16" data-icon-stroke="2.4"></span><span class="cards-select-mode-btn-label">Cards</span></button>
+                ><span class="cards-select-mode-btn-icon" data-icon="pencil" data-icon-stroke="2.4"></span><span class="cards-select-mode-btn-label">Cards</span></button>
                 <div class="sort-control-group">
                     <div class="sort-menu">
                         <button id="sortMenuBtn" type="button" class="sort-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-label="Sort by">
@@ -150,8 +150,8 @@
                         aria-label="Highest first"
                         title="Highest first"
                     ><span class="sort-direction-toggle-btn-icon" data-icon="arrow-down-wide-narrow" data-icon-size="18" data-icon-stroke="2.3"></span></button>
-                    <button id="cardsSelectModeBtn" type="button" class="paradigm-btn" aria-pressed="false" aria-label="Select cards" title="Select cards">
-                        <span class="cards-select-mode-btn-icon" data-icon="box-select" data-icon-size="16" data-icon-stroke="2.4" aria-hidden="true"></span>
+                    <button id="cardsSelectModeBtn" type="button" class="paradigm-btn paradigm-btn--pill" aria-pressed="false" aria-label="Select cards" title="Select cards">
+                        <span class="cards-select-mode-btn-icon" data-icon="box-select" data-icon-stroke="2.4" aria-hidden="true"></span>
                         <span class="cards-select-mode-btn-label">Select</span>
                     </button>
                 </div>
@@ -186,7 +186,7 @@
                     <div class="search-bar deck-tree-search-wrap">
                         <input id="deckTreeSearchInput" type="text" class="paradigm-search-input" placeholder="Search decks or card content...">
                     </div>
-                    <button id="openDeckBulkAddBtn" type="button" class="paradigm-btn paradigm-compact-control hidden" aria-label="Bulk add new decks" title="Bulk add new decks"><span data-icon="list-plus" data-icon-size="14" data-icon-stroke="2.4"></span><span>Bulk add</span></button>
+                    <button id="openDeckBulkAddBtn" type="button" class="paradigm-btn paradigm-btn--pill hidden" aria-label="Bulk add new decks" title="Bulk add new decks"><span data-icon="list-plus" data-icon-stroke="2.4"></span><span>Bulk add</span></button>
                 </div>
             </div>
             <div class="manage-popup-modal-body">
