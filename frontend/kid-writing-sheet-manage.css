@@ -87,7 +87,7 @@
             font-weight: var(--paradigm-list-item-sub-font-weight);
         }
 
-        .sheet-builder-paper-control .point-log-stepper-input { display: inline-flex; align-items: center; justify-content: center; }
+        .sheet-builder-paper-control:has(.paradigm-compact-stepper) { flex-wrap: nowrap; }
         .sheet-builder-paper-select {
             flex: 0 1 210px;
             width: 210px;
@@ -465,13 +465,15 @@
 
         .sheet-builder-actions {
             flex: 0 0 auto;
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-end;
             align-items: center;
-            gap: 0.45rem;
+            gap: 0.45rem 1rem;
         }
 
         .sheet-builder-question-count {
+            flex: 1 1 180px;
             min-width: 0;
             color: var(--paradigm-list-item-sub-color);
             font-size: var(--paradigm-list-item-sub-font-size);
@@ -903,6 +905,25 @@
             overflow-y: auto;
             overscroll-behavior: contain;
             scrollbar-gutter: stable;
+        }
+        .sb-picker-selection-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding-top: 0.75rem;
+            color: #6c7b95;
+            font-size: var(--paradigm-list-item-sub-font-size);
+        }
+        #chineseSheetPicker .sb-picker-bubble.is-selected {
+            background: #6b55ed;
+            border-color: #6b55ed;
+            color: #fff;
+            box-shadow: 0 0 0 2px #e5dfff;
+        }
+        #chineseSheetPicker .sb-picker-bubble:disabled {
+            opacity: 0.4;
+            cursor: default;
         }
         .sb-picker-header {
             display: flex;

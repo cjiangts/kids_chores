@@ -33,7 +33,9 @@
             grid-row: 2;
             flex: 0 1 auto;
             max-width: 100%;
-            margin-left: auto;
+            justify-self: center;
+            justify-content: center;
+            margin-inline: 0;
             flex-wrap: wrap;
         }
 

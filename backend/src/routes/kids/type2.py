@@ -10,6 +10,8 @@ Layout (search for `# === N. ` banner markers to jump between sections):
     3. Chinese print-sheets    — CRUD + complete/withdraw lifecycle
                                  /kids/<id>/type2/chinese-print-sheets[...]
 """
+import math
+
 from src.routes.kids import (
     build_shared_type1_prompt_audio_file_name,
     build_shared_writing_audio_file_name,
@@ -37,6 +39,8 @@ from src.routes.kids import (
 )
 from src.services.card_stats import delete_card_from_deck_internal
 from src.services.sheet_tasks import enumerate_sheet_items
+from src.services.chinese_sheet_layout import row_cards, row_capacity
+from src.services.type4_print_layout import get_type_iv_print_sheet_paper_spec
 from src.services.family_auth import get_kid_connection_for, get_kid_for_family
 from src.services.kid_card_queries import get_kid_card_fronts_for_deck_ids
 from src.services.kid_category_resolve import (
@@ -589,17 +593,21 @@ def create_chinese_print_sheet(kid_id):
         try:
             conn = get_kid_connection_for(kid)
             card_ids = []
+            row_card_ids = []
             for row in rows:
                 if not isinstance(row, dict):
                     return jsonify({'error': 'rows must contain objects'}), 400
+                ids = row.get('cardIds', [row.get('cardId')])
+                if not isinstance(ids, list) or not ids:
+                    return jsonify({'error': 'Each row must select at least one card'}), 400
                 try:
-                    card_id = int(row.get('cardId'))
+                    ids = [int(value) for value in ids]
                 except (TypeError, ValueError):
-                    return jsonify({'error': 'rows must contain valid cardId values'}), 400
-                if card_id <= 0:
-                    return jsonify({'error': 'rows must contain valid cardId values'}), 400
-                if card_id not in card_ids:
-                    card_ids.append(card_id)
+                    return jsonify({'error': 'rows must contain valid cardIds'}), 400
+                if any(value <= 0 for value in ids) or len(set(ids)) != len(ids):
+                    return jsonify({'error': 'Select distinct valid cards for each row'}), 400
+                row_card_ids.append(ids)
+                card_ids.extend(value for value in ids if value not in card_ids)
 
             source_decks = get_shared_merged_source_decks_for_kid(
                 conn,
@@ -634,17 +642,20 @@ def create_chinese_print_sheet(kid_id):
                 return jsonify({'error': 'Some selected cards are no longer available'}), 409
 
             layout_rows = []
-            for row in rows:
-                card_id = int(row.get('cardId'))
-                card = found_map.get(card_id)
-                if not card:
-                    return jsonify({'error': f'Card {card_id} not found'}), 404
+            paper_width = float(get_type_iv_print_sheet_paper_spec(paper_size)['box_width'])
+            for row, ids in zip(rows, row_card_ids):
+                empty_count = max(1, min(9, int(row.get('emptyCount') or 1)))
+                scale = round(max(0.5, min(2.0, float(row.get('scale') or 1.0))), 2)
+                columns = max(1, int(paper_width // math.ceil(52 * scale)))
+                if len(ids) > row_capacity(columns, empty_count):
+                    return jsonify({'error': 'Too many characters for the current row size'}), 400
+                cards = [{'card_id': card_id, 'front': found_map[card_id]['front'],
+                          'back': found_map[card_id]['back']} for card_id in ids]
                 layout_rows.append({
-                    'card_id': card_id,
-                    'front': card['front'],
-                    'back': card['back'],
-                    'empty_count': max(1, min(9, int(row.get('emptyCount') or 1))),
-                    'scale': round(max(0.5, min(2.0, float(row.get('scale') or 1.0))), 2),
+                    **cards[0],
+                    'cards': cards,
+                    'empty_count': empty_count,
+                    'scale': scale,
                 })
 
             layout_json = json.dumps({
@@ -697,7 +708,7 @@ def list_chinese_print_sheets(kid_id):
                 """
                 SELECT id, category_key, layout_json, status, created_at, completed_at,
                        EXISTS(SELECT 1 FROM sheet_session_items i WHERE i.sheet_kind = 'type2' AND i.sheet_id = type2_chinese_print_sheets.id),
-                       (SELECT COUNT(*) FROM sheet_session_items i WHERE i.sheet_kind = 'type2' AND i.sheet_id = type2_chinese_print_sheets.id AND i.result_id IS NOT NULL)
+                       (SELECT COUNT(*) FROM sheet_session_items i JOIN sessions s ON s.id = i.session_id WHERE i.sheet_kind = 'type2' AND i.sheet_id = type2_chinese_print_sheets.id AND s.completed_at IS NOT NULL)
                 FROM type2_chinese_print_sheets
                 WHERE category_key = ?
                 ORDER BY created_at DESC, id DESC
@@ -718,9 +729,10 @@ def list_chinese_print_sheets(kid_id):
             layout_rows = list(layout.get('rows') or [])
             card_labels = []
             for lr in layout_rows:
-                label = str(lr.get('front') or lr.get('back') or '')
-                if label and label not in card_labels:
-                    card_labels.append(label)
+                for card in row_cards(lr):
+                    label = str(card.get('front') or card.get('back') or '')
+                    if label and label not in card_labels:
+                        card_labels.append(label)
             sheets.append({
                 'id': int(row[0]),
                 'category_key': str(row[1] or ''),

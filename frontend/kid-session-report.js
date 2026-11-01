@@ -313,7 +313,11 @@ function renderSummary(session, answers) {
     if (startedDate) metaItems.push({ icon: 'calendar', value: `Started ${startedDate}` });
     if (relativeDay) metaItems.push({ icon: 'history', value: relativeDay });
     if (modeLabel) metaItems.push({ icon: 'target', value: `${modeLabel} mode` });
-    if (isSheet && currentSheetTask?.status !== 'reviewed') {
+    if (isSheet && currentSheetTask?.grading_policy === 'completion') {
+        metaItems.push({ icon: 'list-ordered', value: `${currentSheetTask.unique_character_count} unique characters · ${currentSheetTask.practice_box_count} practice boxes` });
+        metaItems.push({ icon: currentSheetTask.status === 'reviewed' ? 'check' : 'clock',
+            value: currentSheetTask.status === 'reviewed' ? 'Completed' : 'Waiting for confirmation' });
+    } else if (isSheet && currentSheetTask?.status !== 'reviewed') {
         metaItems.push({ icon: 'list-ordered', value: `${session.planned_count} assigned` });
         metaItems.push({ icon: 'clock', value: currentSheetTask?.status === 'pending_review' ? 'Waiting for review' : 'In progress' });
     } else metaItems.push(...buildSummaryOutcomeMetaItems({

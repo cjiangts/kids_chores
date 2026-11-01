@@ -11,6 +11,8 @@ Layout:
 """
 import json
 
+from src.services.chinese_sheet_layout import row_cards
+
 from src.services.normalize_inputs import (
     normalize_lowercase_string_list,
     normalize_positive_int_list,
@@ -148,11 +150,12 @@ def get_pending_writing_card_ids(conn):
     for row in rows:
         _, layout_rows = _load_type2_chinese_print_sheet_layout(row[0])
         for layout_row in layout_rows:
-            card_id = _get_type2_chinese_print_sheet_row_card_id(layout_row)
-            if card_id is None or card_id in seen:
-                continue
-            seen.add(card_id)
-            pending_card_ids.append(card_id)
+            for card in row_cards(layout_row):
+                card_id = _get_type2_chinese_print_sheet_row_card_id(card)
+                if card_id is None or card_id in seen:
+                    continue
+                seen.add(card_id)
+                pending_card_ids.append(card_id)
     return pending_card_ids
 
 
@@ -186,10 +189,19 @@ def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('p
         kept_rows = []
         removed_any = False
         for layout_row in layout_rows:
-            card_id = _get_type2_chinese_print_sheet_row_card_id(layout_row)
-            if card_id is not None and card_id in blocked_card_set:
-                removed_any = True
-                continue
+            if layout_row.get('cards'):
+                cards = [card for card in layout_row['cards']
+                         if _get_type2_chinese_print_sheet_row_card_id(card) not in blocked_card_set]
+                if len(cards) != len(layout_row['cards']):
+                    removed_any = True
+                    if not cards:
+                        continue
+                    layout_row = {**layout_row, **cards[0], 'cards': cards}
+            else:
+                card_id = _get_type2_chinese_print_sheet_row_card_id(layout_row)
+                if card_id is not None and card_id in blocked_card_set:
+                    removed_any = True
+                    continue
             kept_rows.append(layout_row)
 
         if not removed_any:

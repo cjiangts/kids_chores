@@ -73,7 +73,7 @@ def sheet_task_review(kid_id, session_id):
     def operation(conn, kid):
         shared_conn = get_shared_decks_connection(read_only=True)
         try:
-            return sheet_tasks.review_sheet_task(conn, shared_conn, kid, session_id, payload.get('grades'))
+            return sheet_tasks.review_sheet_task(conn, shared_conn, kid, session_id, payload.get('grades'), confirmed=payload.get('confirmed'))
         finally:
             shared_conn.close()
     return _run(kid_id, operation)

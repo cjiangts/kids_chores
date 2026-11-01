@@ -12,7 +12,10 @@ window.SheetBuilderDialog = (() => {
         heading.textContent = modal.dataset.builderTitle;
         header.querySelector('button').id = `${prefix}CloseBtn`;
         actions.querySelector('[role="status"]').id = `${prefix}QuestionCount`;
-        actions.querySelector('button').id = `${prefix}DoneBtn`;
+        actions.querySelector('[data-builder-confirm]').id = `${prefix}DoneBtn`;
+        const cancel = actions.querySelector('[data-builder-cancel]');
+        cancel.id = `${prefix}CancelBtn`;
+        cancel.addEventListener('click', () => header.querySelector('button').click());
         dialog.setAttribute('role', 'dialog');
         dialog.setAttribute('aria-modal', 'true');
         dialog.setAttribute('aria-labelledby', heading.id);
@@ -37,6 +40,8 @@ window.SheetBuilderDialog = (() => {
     function setSaving(prefix, saving) {
         const button = document.getElementById(`${prefix}DoneBtn`);
         if (!button) return;
+        const cancel = document.getElementById(`${prefix}CancelBtn`);
+        if (cancel) cancel.disabled = saving;
         if (saving) {
             button.disabled = true;
             button.setAttribute('aria-busy', 'true');

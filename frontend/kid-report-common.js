@@ -477,7 +477,8 @@
             const categoryKey = normalizeCategoryKey(session?.type);
             const sessionUrl = buildSessionUrl(session);
             const time = formatSessionTime(session.started_at);
-            const mode = formatPracticeMode(session.practice_mode);
+            const copying = session.grading_policy === 'completion';
+            const mode = copying ? 'Copying · Sheet mode' : formatPracticeMode(session.practice_mode);
             const subParts = [time, mode].filter((part) => part && part !== '-');
             const totalMins = (getSessionResponseMinutes(session) + getSessionRetryResponseMinutes(session)).toFixed(1);
             const result = getSessionResultMeta(session);
@@ -493,9 +494,9 @@
                         <div class="session-sub activity-timeline-note">${escapeHtml(subParts.filter((part) => part !== time).join(' · '))}</div>
                     </div>
                     <div class="session-stats">
-                        <div class="session-mins">${totalMins}<span class="session-mins-unit">min</span></div>
+                        ${copying ? '' : `<div class="session-mins">${totalMins}<span class="session-mins-unit">min</span></div>`}
                         ${result ? `<div class="session-result" style="color:${escapeHtml(result.color)}">${escapeHtml(result.text)}</div>` : ''}
-                        <div class="session-retries">Retries ${retries}</div>
+                        ${copying ? '' : `<div class="session-retries">Retries ${retries}</div>`}
                     </div>
                     <div class="session-chevron">›</div>
                 </a>
@@ -944,6 +945,12 @@
     }
 
     function getSessionResultMeta(session) {
+        if (session?.grading_policy === 'completion') {
+            return {
+                text: session.completed_at ? `${safeNum(session.planned_count)} unique characters · ${safeNum(session.completed_practice_count)} practice boxes completed` : 'Waiting for confirmation',
+                color: session.completed_at ? '#15803d' : '#7c839d',
+            };
+        }
         const SESSION_RESULT_SUCCESS_COLOR = '#15803d';
         const SESSION_RESULT_ERROR_COLOR = '#dc2626';
         const right = safeNum(session?.right_count);

@@ -205,10 +205,13 @@ def get_kid_dashboard_stats(
                 COUNT(sr.id) AS answer_count,
                 COALESCE(uc.unresolved_count, 0) AS unresolved_count,
                 s.completed_today,
-                s.started_today
+                s.started_today,
+                COALESCE(copy_items.item_count, 0) AS copy_count
             FROM todays_sessions s
             LEFT JOIN session_results sr ON sr.session_id = s.id
             LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
+            LEFT JOIN (SELECT session_id, COUNT(*) AS item_count FROM sheet_session_items
+                       WHERE sheet_kind = 'type2' GROUP BY session_id) copy_items ON copy_items.session_id = s.id
             GROUP BY
                 s.id,
                 s.type,
@@ -217,7 +220,8 @@ def get_kid_dashboard_stats(
                 s.started_at,
                 s.completed_today,
                 s.started_today,
-                uc.unresolved_count
+                uc.unresolved_count,
+                copy_items.item_count
             ORDER BY COALESCE(s.completed_at, s.started_at) ASC, s.id ASC
             """,
             [
@@ -262,14 +266,18 @@ def get_kid_dashboard_stats(
             target_answer_count = max(planned_count, answer_count, right_count + wrong_count)
             if target_answer_count <= 0 and planned_count <= 0:
                 continue
-            is_incomplete = planned_count > 0 and answer_count < planned_count
+            copying = int(row[6] or 0) > 0
+            completed_work = planned_count if copying else answer_count
+            is_incomplete = planned_count > 0 and completed_work < planned_count
             if is_incomplete:
                 base_tier = 'half_silver'
             else:
                 base_tier = 'gold'
             effective_best_total = right_count
 
-            if is_incomplete:
+            if copying:
+                effective_percent = float(completed_work) * 100.0 / float(max(1, target_answer_count))
+            elif is_incomplete:
                 effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
             elif session_behavior_type == DECK_CATEGORY_BEHAVIOR_TYPE_III and (right_count + wrong_count) <= 0:
                 effective_percent = float(answer_count) * 100.0 / float(max(1, target_answer_count))
@@ -280,7 +288,7 @@ def get_kid_dashboard_stats(
             today_counts['total'] += 1
             today_latest_percent[session_type] = max(0.0, min(100.0, effective_percent))
             today_latest_target_count[session_type] = int(target_answer_count)
-            today_latest_tried_count[session_type] = max(0, int(answer_count))
+            today_latest_tried_count[session_type] = max(0, int(completed_work))
             today_latest_right_count[session_type] = max(
                 0,
                 min(

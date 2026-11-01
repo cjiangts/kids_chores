@@ -146,29 +146,6 @@ async function fetchJson(url, options) {
 // === 4. Row cells + sheet page markup builder
 // =====================================================================
 
-function buildRowCells(character, emptyCount, colCount) {
-    const chars = [...(character || '')];
-    if (chars.length === 0) return [];
-    const empty = Math.max(1, Math.min(9, emptyCount || CW_DEFAULT_EMPTY_COUNT));
-    const groupSize = 1 + empty;
-    const cells = [];
-    let charIdx = 0;
-    for (let col = 0; col < colCount; col += 1) {
-        const posInGroup = col % groupSize;
-        if (posInGroup === 0) {
-            if (col === colCount - 1) {
-                cells.push({ type: 'empty' });
-            } else {
-                cells.push({ type: 'demo', char: chars[charIdx % chars.length] });
-                charIdx += 1;
-            }
-        } else {
-            cells.push({ type: 'empty' });
-        }
-    }
-    return cells;
-}
-
 function buildSheetPageMarkup(sheet, scale) {
     const paperSpec = currentPaperSpec;
     const layoutRows = Array.isArray(sheet?.layout?.rows) ? sheet.layout.rows : [];
@@ -215,12 +192,11 @@ function buildSheetPageMarkup(sheet, scale) {
     html += `<div class="sb-grid-area" style="top:${gridTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${gridHeightPx}px;">`;
 
     layoutRows.forEach((row) => {
-        const character = String(row?.front || row?.back || '').trim();
         const emptyCount = Number.parseInt(
             row?.empty_count != null ? row.empty_count : row?.emptyCount,
             10,
         ) || CW_DEFAULT_EMPTY_COUNT;
-        const cells = buildRowCells(character, emptyCount, colCount);
+        const cells = window.ChineseSheetLayout.cells(row, colCount, emptyCount);
         const rowHeightPx = cellSizePx + gapPx;
 
         html += `<div class="sb-row-wrap" style="height:${rowHeightPx}px;">`;

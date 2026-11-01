@@ -289,6 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         chineseSheetPickerQuery = event.target.value;
         renderChineseSheetPickerOptions();
     });
+    document.getElementById('chineseSheetPickerConfirmBtn')?.addEventListener('click', confirmChineseSheetPicker);
     document.getElementById('chineseSheetPickerCancelBtn')?.addEventListener('click', closeChineseSheetPicker);
     chineseSheetPaperSizeSelect?.addEventListener('change', (event) => {
         handleChineseSheetPaperSizeChange(event.target.value);

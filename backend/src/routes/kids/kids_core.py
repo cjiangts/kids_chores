@@ -752,7 +752,9 @@ def get_kid_report(kid_id):
                     ) AS right_count,
                     COALESCE(uc.unresolved_count, 0) AS wrong_count,
                     COALESCE(a.total_response_ms, 0) AS total_response_ms,
-                    COALESCE(s.practice_mode, 'na') AS practice_mode
+                    COALESCE(s.practice_mode, 'na') AS practice_mode,
+                    s.delivery_mode,
+                    (SELECT COUNT(*) FROM sheet_session_items i WHERE i.session_id = s.id AND i.sheet_kind = 'type2') AS copy_count
                 FROM sessions s
                 LEFT JOIN session_results_agg a ON a.session_id = s.id
                 LEFT JOIN unresolved_counts uc ON uc.session_id = s.id
@@ -786,6 +788,9 @@ def get_kid_report(kid_id):
                 'wrong_count': int(row[10] or 0),
                 'total_response_ms': int(row[11] or 0),
                 'practice_mode': normalize_session_practice_mode(row[12]),
+                'delivery_mode': row[13],
+                'grading_policy': 'completion' if int(row[14] or 0) > 0 else 'per_item',
+                'completed_practice_count': int(row[14] or 0) if row[3] else 0,
             })
 
         return jsonify({
@@ -997,6 +1002,10 @@ def get_kid_report_session_detail(kid_id, session_id):
             finally:
                 speed_conn.close()
 
+        point_eligible_count = len(answers) if sheet_task else len(answers) - len(wrong_cards)
+        if sheet_task and sheet_task['grading_policy'] == 'completion':
+            point_eligible_count = int(sheet_task['planned_count']) if sheet_task['status'] == 'reviewed' else 0
+
         return jsonify({
             'kid': {
                 'id': kid.get('id'),
@@ -1025,11 +1034,8 @@ def get_kid_report_session_detail(kid_id, session_id):
                 # Early finalization credits answered cards except unresolved
                 # wrong / partial answers. A normally completed clean session
                 # still credits all of its cards through the usual path.
-                'point_eligible_card_count': len(answers) if sheet_task else len(answers) - len(wrong_cards),
-                'projected_points': (
-                    (len(answers) if sheet_task else len(answers) - len(wrong_cards)) // cards_per_point
-                    if cards_per_point else 0
-                ),
+                'point_eligible_card_count': point_eligible_count,
+                'projected_points': point_eligible_count // cards_per_point if cards_per_point else 0,
                 'awarded_points': awarded_points,
                 'parent_finalized': parent_finalized,
             },

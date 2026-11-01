@@ -20,6 +20,10 @@ window.SheetTaskView = (() => {
         status.className = 'sheet-task-status hidden';
         status.setAttribute('role', 'status');
         root.appendChild(status);
+        const taskCount = document.createElement('div');
+        taskCount.className = 'sheet-task-status';
+        taskCount.classList.toggle('hidden', !completionReview || review);
+        root.appendChild(taskCount);
         const pages = document.createElement('div');
         pages.className = 'sheet-task-pages';
         root.appendChild(pages);
@@ -92,6 +96,7 @@ window.SheetTaskView = (() => {
         layoutObserver.observe(root);
         window.addEventListener('resize', fitPage);
         function refresh() {
+            if (completionReview) taskCount.textContent = `${task.unique_character_count} unique characters · ${task.practice_box_count} practice boxes`;
             if (markAllCorrect) markAllCorrect.disabled = busy || task.status !== 'pending_review';
             const count = task.items.filter((item) => typeof grades[item.id] === 'boolean').length;
             const correct = task.items.filter((item) => grades[item.id] === true).length;
@@ -173,14 +178,15 @@ window.SheetTaskView = (() => {
         window.addEventListener('message', receive);
         save.addEventListener('click', async () => {
             if (save.disabled) return;
-            if (completionReview) task.items.forEach((item) => { grades[item.id] = true; });
             busy = true;
             showError('');
             refresh();
             try {
                 task = await request(taskUrl(kidId, task.id, '/review'), {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ grades: task.items.map((item) => ({ id: item.id, correct: grades[item.id] })) }),
+                    body: JSON.stringify(completionReview
+                        ? { confirmed: true }
+                        : { grades: task.items.map((item) => ({ id: item.id, correct: grades[item.id] })) }),
                 });
                 actions.classList.add('hidden');
                 renderFrames();

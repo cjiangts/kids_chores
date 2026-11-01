@@ -836,8 +836,26 @@ function renderSheetBuilderContent(scale) {
 }
 
 function updateSheetBuilderDoneBtn() {
-    const count = sheetRows.reduce((sum, row) => sum + getSheetRowMetrics(row).colCount, 0);
-    window.SheetBuilderDialog.update('sheetBuilder', count);
+    updateMathSheetRowCount('sheetBuilder', sheetRows.map(getSheetRowMetrics));
+}
+
+function updateMathSheetRowCount(prefix, metrics) {
+    const rowsByQuestionCount = new Map();
+    let rowCount = 0;
+    let questionCount = 0;
+    metrics.forEach(({ colCount, repeatCount = 1 }) => {
+        rowCount += repeatCount;
+        questionCount += colCount * repeatCount;
+        rowsByQuestionCount.set(colCount, (rowsByQuestionCount.get(colCount) || 0) + repeatCount);
+    });
+    const rowLabel = `${rowCount} row${rowCount === 1 ? '' : 's'}`;
+    const distribution = rowsByQuestionCount.size === 1
+        ? `${rowsByQuestionCount.keys().next().value} questions/row`
+        : [...rowsByQuestionCount].map(([questions, rows]) => (
+            `${rows} row${rows === 1 ? '' : 's'} × ${questions} question${questions === 1 ? '' : 's'}`
+        )).join(' + ');
+    window.SheetBuilderDialog.update(prefix, questionCount, 'question',
+        `${rowLabel}${distribution ? ` · ${distribution}` : ''}`);
 }
 
 function renderSheetBuilderPickerOptions() {
@@ -1310,11 +1328,7 @@ function renderInlineSheetBuilderContent(scale) {
 }
 
 function updateInlineSheetDoneBtn() {
-    const count = inlineSheetRows.reduce((sum, row) => {
-        const metrics = getInlineRowMetrics(row);
-        return sum + metrics.colCount * metrics.repeatCount;
-    }, 0);
-    window.SheetBuilderDialog.update('inlineSheet', count);
+    updateMathSheetRowCount('inlineSheet', inlineSheetRows.map(getInlineRowMetrics));
 }
 
 function openPreparedInlineSheetBuilder(rows = [], paperSize = currentMathPaperSize) {
@@ -1503,12 +1517,13 @@ function updateBuildInlineSheetButton() {
 
 const buildChineseSheetBtn = document.getElementById('buildChineseSheetBtn');
 const chineseSheetPaperSizeSelect = document.getElementById('chineseSheetPaperSize');
-let chineseSheetRows = [];       /* { cardId, character, emptyCount, scale } */
+let chineseSheetRows = [];       /* { cards: [{ card_id, front, back }], emptyCount, scale } */
 let chineseSheetBankCards = [];
 let chineseSheetPickerShowAll = false;
 let chineseSheetPickerQuery = '';
 let currentChineseSheetScale = 0.5;
 let chineseSheetPickerRowIndex = null;
+let chineseSheetPickerSelectedIds = [];
 let cwGlobalEmptyCount = 1;     /* shared default for new rows */
 
 const CW_CELL_SIZE = 52;       /* px at scale=1 — single 田字格 square */
@@ -1547,45 +1562,35 @@ function getChineseSheetRowHeight(row) {
 /* Build the cell pattern for a row: repeating [demo, empty x N] filling all columns.
    If a demo char would land on the last column, show empty instead. */
 function buildChineseRowCells(row) {
-    const chars = [...(row.character || '')];
-    if (chars.length === 0) return [];
     const empty = Math.max(CW_MIN_EMPTY_COUNT, Math.min(CW_MAX_EMPTY_COUNT, row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT));
-    const colCount = getChineseSheetColCount(row);
-    const groupSize = 1 + empty; /* one demo + N empties */
-    const cells = [];
-    let charIdx = 0;
-    for (let c = 0; c < colCount; c++) {
-        const posInGroup = c % groupSize;
-        if (posInGroup === 0) {
-            /* Demo slot — but if this is the last column, show empty instead */
-            if (c === colCount - 1) {
-                cells.push({ type: 'empty' });
-            } else {
-                cells.push({ type: 'demo', char: chars[charIdx % chars.length] });
-                charIdx++;
-            }
-        } else {
-            cells.push({ type: 'empty' });
-        }
-    }
-    return cells;
+    return window.ChineseSheetLayout.cells(row, getChineseSheetColCount(row), empty);
 }
 
 function getChineseSheetRowsTotalHeight(rows) {
     return rows.reduce((sum, row) => sum + getChineseSheetRowHeight(row), 0);
 }
 
+function canRepresentChineseSheetRows(rows) {
+    return rows.every((row) => window.ChineseSheetLayout.cards(row).length <= window.ChineseSheetLayout.capacity(
+        getChineseSheetColCount(row), row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT,
+    ));
+}
+
 function canFitChineseSheetRows(rows) {
-    return getChineseSheetRowsTotalHeight(rows) <= getMathPaperSpec().builderSafeGridHeight;
+    return canRepresentChineseSheetRows(rows)
+        && getChineseSheetRowsTotalHeight(rows) <= getMathPaperSpec().builderSafeGridHeight;
 }
 
 function getAvailableChineseCharacters(excludedRowIndex, showAll = chineseSheetPickerShowAll, query = chineseSheetPickerQuery) {
     const usedCardIds = new Set();
     chineseSheetRows.forEach((row, idx) => {
         if (Number.isInteger(excludedRowIndex) && idx === excludedRowIndex) return;
-        if (row.cardId) usedCardIds.add(row.cardId);
+        window.ChineseSheetLayout.cards(row).forEach((card) => usedCardIds.add(card.card_id));
     });
-    const source = showAll ? chineseSheetBankCards : state2Cards;
+    const source = showAll ? chineseSheetBankCards : [...new Map([
+        ...state2Cards,
+        ...chineseSheetBankCards.filter((card) => chineseSheetPickerSelectedIds.includes(card.id)),
+    ].map((card) => [card.id, card])).values()];
     const search = String(query || '').trim().normalize('NFKC').toLocaleLowerCase();
     return source.filter((card) => {
         if (card.skip_practice || usedCardIds.has(card.id)) return false;
@@ -1695,10 +1700,13 @@ function renderChineseSheetBuilderContent(scale) {
 }
 
 function updateChineseSheetDoneBtn() {
-    const practiceCount = chineseSheetRows.reduce((sum, row) => (
-        sum + buildChineseRowCells(row).filter((cell) => cell.type === 'empty').length
-    ), 0);
-    window.SheetBuilderDialog.update('chineseSheet', chineseSheetRows.length, 'character', `${practiceCount} practice boxes`);
+    const cells = chineseSheetRows.flatMap(buildChineseRowCells);
+    const practiceCount = cells.filter((cell) => cell.type === 'empty').length;
+    const uniqueCharacterCount = new Set(cells
+        .filter((cell) => cell.type === 'demo' && cell.char)
+        .map((cell) => cell.char.normalize('NFC'))).size;
+    window.SheetBuilderDialog.update('chineseSheet', chineseSheetRows.length, 'row',
+        `${uniqueCharacterCount} unique character${uniqueCharacterCount === 1 ? '' : 's'} · ${practiceCount} practice boxes`);
 }
 
 function openChineseSheetBuilder() {
@@ -1733,6 +1741,10 @@ function renderChineseSheetPickerOptions() {
         button.setAttribute('aria-pressed', String(active));
     });
     document.getElementById('chineseSheetPickerOtherLegend')?.classList.toggle('hidden', !chineseSheetPickerShowAll);
+    const limit = getChineseSheetPickerLimit();
+    const confirm = document.getElementById('chineseSheetPickerConfirmBtn');
+    confirm.disabled = chineseSheetPickerSelectedIds.length === 0 || chineseSheetPickerSelectedIds.length > limit;
+    document.getElementById('chineseSheetPickerSelection').textContent = `${chineseSheetPickerSelectedIds.length} / ${limit} selected`;
     const available = getAvailableChineseCharacters(chineseSheetPickerRowIndex);
     if (available.length === 0) {
         const message = chineseSheetPickerQuery.trim()
@@ -1746,8 +1758,11 @@ function renderChineseSheetPickerOptions() {
     optionsEl.innerHTML = available.map((card) => {
         const label = String(card.front || card.back || '').trim();
         const reasonMeta = getChineseSheetPickerReasonMeta(card);
-        const optionTitle = reasonMeta.label ? `${label} · ${reasonMeta.label}` : label;
-        return `<button type="button" class="sb-picker-option sb-picker-bubble ${reasonMeta.className}" data-cwb-picker-card-id="${card.id}" title="${escapeHtml(optionTitle)}" aria-label="${escapeHtml(optionTitle)}">
+        const selected = chineseSheetPickerSelectedIds.includes(card.id);
+        const disabled = !selected && chineseSheetPickerSelectedIds.length >= limit;
+        const selectionOrder = chineseSheetPickerSelectedIds.indexOf(card.id) + 1;
+        const optionTitle = [label, reasonMeta.label, selected ? `Selected ${selectionOrder}` : ''].filter(Boolean).join(' · ');
+        return `<button type="button" class="sb-picker-option sb-picker-bubble ${reasonMeta.className} ${selected ? 'is-selected' : ''}" aria-pressed="${selected}" ${disabled ? 'disabled' : ''} data-cwb-picker-card-id="${card.id}" title="${escapeHtml(optionTitle)}" aria-label="${escapeHtml(optionTitle)}">
             <span class="sb-picker-option-name">${window.ChineseStrokes.renderText(label)}</span>
         </button>`;
     }).join('');
@@ -1769,6 +1784,9 @@ function openChineseSheetPicker(rowIndex) {
     const titleEl = document.getElementById('chineseSheetPickerTitle');
     if (!pickerEl || !titleEl) return;
     chineseSheetPickerRowIndex = Number.isInteger(rowIndex) ? rowIndex : null;
+    chineseSheetPickerSelectedIds = Number.isInteger(chineseSheetPickerRowIndex)
+        ? window.ChineseSheetLayout.cards(chineseSheetRows[chineseSheetPickerRowIndex]).map((card) => card.card_id)
+        : [];
     titleEl.textContent = Number.isInteger(chineseSheetPickerRowIndex) ? 'Replace Character' : 'Choose Character';
     const searchInput = document.getElementById('chineseSheetPickerSearch');
     searchInput.value = chineseSheetPickerQuery;
@@ -1785,10 +1803,8 @@ function closeChineseSheetPicker() {
     chineseSheetPickerRowIndex = null;
 }
 
-function addChineseSheetRow(card) {
-    const label = String(card.front || card.back || '').trim();
-    if (!label) return false;
-    const nextRow = { cardId: card.id, character: label, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
+function addChineseSheetRow(cards) {
+    const nextRow = { cards, emptyCount: cwGlobalEmptyCount, scale: cwCurrentGlobalScale() };
     const nextRows = [...chineseSheetRows, nextRow];
     if (!canFitChineseSheetRows(nextRows)) {
         showSheetError('That character does not fit in the remaining printable area.');
@@ -1800,12 +1816,10 @@ function addChineseSheetRow(card) {
     return true;
 }
 
-function replaceChineseSheetRow(rowIndex, card) {
+function replaceChineseSheetRow(rowIndex, cards) {
     if (!Number.isInteger(rowIndex) || rowIndex < 0 || rowIndex >= chineseSheetRows.length) return false;
-    const label = String(card.front || card.back || '').trim();
-    if (!label) return false;
     showSheetError('');
-    chineseSheetRows[rowIndex] = Object.assign({}, chineseSheetRows[rowIndex], { cardId: card.id, character: label });
+    chineseSheetRows[rowIndex] = Object.assign({}, chineseSheetRows[rowIndex], { cards });
     renderChineseSheetBuilderContent(currentChineseSheetScale);
     return true;
 }
@@ -1824,13 +1838,14 @@ function updateChineseSheetGlobalScale(direction) {
     if (next === current) return;
     const nextRows = chineseSheetRows.map((r) => Object.assign({}, r, { scale: next }));
     if (!canFitChineseSheetRows(nextRows)) {
-        showSheetError('That size does not fit in the printable area.');
+        showSheetError('That size leaves too little space for the selected characters or rows.');
         return;
     }
     showSheetError('');
     chineseSheetRows = nextRows;
     renderChineseSheetBuilderContent(currentChineseSheetScale);
     updateCwScaleButtons();
+    updateCwEmptyCountButtons();
 }
 
 function updateCwScaleButtons() {
@@ -1853,8 +1868,14 @@ function updateCwScaleButtons() {
 function updateCwGlobalEmptyCount(direction) {
     const next = Math.max(CW_MIN_EMPTY_COUNT, Math.min(CW_MAX_EMPTY_COUNT, cwGlobalEmptyCount + direction));
     if (next === cwGlobalEmptyCount) return;
+    const nextRows = chineseSheetRows.map((r) => Object.assign({}, r, { emptyCount: next }));
+    if (!canRepresentChineseSheetRows(nextRows)) {
+        showSheetError('Choose fewer characters in each row before adding more practice boxes.');
+        return;
+    }
     cwGlobalEmptyCount = next;
-    chineseSheetRows = chineseSheetRows.map((r) => Object.assign({}, r, { emptyCount: next }));
+    chineseSheetRows = nextRows;
+    showSheetError('');
     renderChineseSheetBuilderContent(currentChineseSheetScale);
     updateCwEmptyCountButtons();
 }
@@ -1864,7 +1885,9 @@ function updateCwEmptyCountButtons() {
     const plusBtn = document.getElementById('cwEmptyCountUp');
     const labelEl = document.getElementById('cwEmptyCountLabel');
     if (minusBtn) minusBtn.disabled = cwGlobalEmptyCount <= CW_MIN_EMPTY_COUNT;
-    if (plusBtn) plusBtn.disabled = cwGlobalEmptyCount >= CW_MAX_EMPTY_COUNT;
+    if (plusBtn) plusBtn.disabled = cwGlobalEmptyCount >= CW_MAX_EMPTY_COUNT || !canRepresentChineseSheetRows(
+        chineseSheetRows.map((row) => ({ ...row, emptyCount: cwGlobalEmptyCount + 1 })),
+    );
     if (labelEl) labelEl.textContent = String(cwGlobalEmptyCount);
 }
 
@@ -1885,17 +1908,39 @@ function duplicateChineseSheetRow(rowIndex) {
     renderChineseSheetBuilderContent(currentChineseSheetScale);
 }
 
+function getChineseSheetPickerLimit() {
+    const row = chineseSheetRows[chineseSheetPickerRowIndex] || { scale: cwCurrentGlobalScale(), emptyCount: cwGlobalEmptyCount };
+    return window.ChineseSheetLayout.capacity(getChineseSheetColCount(row), row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT);
+}
+
 function handleChineseSheetPickerChoice(cardId) {
-    const card = getAvailableChineseCharacters(chineseSheetPickerRowIndex).find((c) => c.id === cardId);
-    if (!card) return;
+    const index = chineseSheetPickerSelectedIds.indexOf(cardId);
+    if (index >= 0) chineseSheetPickerSelectedIds.splice(index, 1);
+    else if (chineseSheetPickerSelectedIds.length < getChineseSheetPickerLimit()) chineseSheetPickerSelectedIds.push(cardId);
+    renderChineseSheetPickerOptions();
+}
+
+function confirmChineseSheetPicker() {
+    if (!chineseSheetPickerSelectedIds.length || chineseSheetPickerSelectedIds.length > getChineseSheetPickerLimit()) return;
+    const bank = new Map(chineseSheetBankCards.map((card) => [card.id, card]));
+    const cards = chineseSheetPickerSelectedIds.map((id) => bank.get(id));
+    if (cards.some((card) => !card || card.skip_practice)) return;
+    const selected = cards.map((card) => ({ card_id: card.id, front: card.front, back: card.back }));
     const ok = Number.isInteger(chineseSheetPickerRowIndex)
-        ? replaceChineseSheetRow(chineseSheetPickerRowIndex, card)
-        : addChineseSheetRow(card);
+        ? replaceChineseSheetRow(chineseSheetPickerRowIndex, selected)
+        : addChineseSheetRow(selected);
     if (ok) closeChineseSheetPicker();
 }
 
 function handleChineseSheetPaperSizeChange(nextPaperSize) {
+    const previousPaperSize = currentMathPaperSize;
     currentMathPaperSize = normalizeMathPaperSize(nextPaperSize);
+    if (!canRepresentChineseSheetRows(chineseSheetRows)) {
+        currentMathPaperSize = previousPaperSize;
+        chineseSheetPaperSizeSelect.value = previousPaperSize;
+        showSheetError('Choose fewer characters in each row before switching to this paper size.');
+        return;
+    }
     if (chineseSheetPaperSizeSelect) chineseSheetPaperSizeSelect.value = currentMathPaperSize;
     syncMathPaperSizeSelects();
     const modal = document.getElementById('chineseSheetBuilderModal');
@@ -1923,7 +1968,7 @@ async function saveChineseSheetFromBuilder() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 rows: chineseSheetRows.map((row) => ({
-                    cardId: row.cardId,
+                    cardIds: window.ChineseSheetLayout.cards(row).map((card) => card.card_id),
                     emptyCount: row.emptyCount ?? CW_DEFAULT_EMPTY_COUNT,
                     scale: cwClampScale(row.scale || 1),
                 })),

@@ -160,7 +160,7 @@ window.PracticeManageCommon = {
                 justify-content: flex-end;
                 gap: 0.5rem;
             }
-            .pwd-btn {
+            .pwd-btn:not(.paradigm-edit-action) {
                 width: var(--paradigm-panel-title-action-size, 34px);
                 min-width: var(--paradigm-panel-title-action-size, 34px);
                 height: var(--paradigm-panel-title-action-size, 34px);
@@ -192,8 +192,8 @@ window.PracticeManageCommon = {
                     <input class="pwd-input" type="password" autocomplete="current-password" />
                     ${trustOptionLabel ? `<label class="pwd-trust-row"><input class="pwd-trust-input" type="checkbox" /> <span>${escapeHtml(trustOptionLabel)}</span></label>` : ''}
                     <div class="pwd-actions">
-                        <button type="button" class="pwd-btn cancel paradigm-decision-btn paradigm-decision-btn--cancel" aria-label="Close" title="Close">${this._dialogIcon('x')}</button>
-                        <button type="button" class="pwd-btn confirm paradigm-decision-btn paradigm-decision-btn--confirm" aria-label="Confirm" title="Confirm">${this._dialogIcon('check')}</button>
+                        <button type="button" class="pwd-btn cancel paradigm-edit-action paradigm-edit-action--cancel">Cancel</button>
+                        <button type="button" class="pwd-btn confirm paradigm-edit-action paradigm-edit-action--confirm">Confirm</button>
                     </div>
                 </div>
             `;

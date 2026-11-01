@@ -28,7 +28,8 @@ window.SheetTaskMode = (() => {
             const sheetsLink = document.getElementById('openPrintableSheetsBtn');
             if (sheetsLink) {
                 sheetsLink.classList.toggle('hidden', data.mode !== 'sheet');
-                const label = `Manage worksheets · ${stock} unassigned questions remaining${shortage ? ' · Printed question stock is below the daily target' : ''}`;
+                const unit = data.count_unit === 'character' ? 'unique characters' : 'questions';
+                const label = `Manage worksheets · ${stock} unassigned ${unit} remaining${shortage ? ' · Worksheet stock is below the daily target' : ''}`;
                 sheetsLink.title = label;
                 sheetsLink.setAttribute('aria-label', label);
             }

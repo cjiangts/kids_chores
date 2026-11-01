@@ -41,6 +41,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (cancelDeckTreeModalBtn) {
         cancelDeckTreeModalBtn.addEventListener('click', closeDeckTreeModal);
     }
+    document.getElementById('cancelDeckTreeChangesBtn')?.addEventListener('click', closeDeckTreeModal);
     window.Paradigm?.enableSheetSwipeToClose(deckTreeModal, closeDeckTreeModal);
     if (applyDeckTreeChangesBtn) {
         applyDeckTreeChangesBtn.addEventListener('click', async () => {

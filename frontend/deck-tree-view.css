@@ -544,16 +544,20 @@
 
 .deck-tree-modal .deck-tree-actions {
     flex: 0 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.45rem 1rem;
 }
 
-.deck-tree-modal .deck-tree-action-row-primary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.45rem;
-}
-
-.deck-tree-modal .deck-tree-action-row-primary .deck-tree-counter {
-    align-self: center;
+.deck-tree-modal .deck-tree-actions > .deck-tree-counter {
+    flex: 1 1 auto;
     min-width: 0;
+}
+
+.deck-tree-modal .deck-tree-actions > #deckTreeChangeMessage {
+    flex: 0 0 100%;
 }
 
 @media (max-width: 760px) {

@@ -862,19 +862,21 @@ def list_app_category_strictly_done_sessions_today(kid_conn, family_id, category
         f"""
         SELECT s.id,
                s.completed_at,
-               COUNT(sr.id) AS completed_card_count
+               CASE WHEN MAX(copy_items.item_count) > 0 THEN COALESCE(s.planned_count, 0) ELSE COUNT(sr.id) END AS completed_card_count
         FROM sessions s
         LEFT JOIN session_results sr ON sr.session_id = s.id
+        LEFT JOIN (SELECT session_id, COUNT(*) AS item_count FROM sheet_session_items
+                   WHERE sheet_kind = 'type2' GROUP BY session_id) copy_items ON copy_items.session_id = s.id
         WHERE s.type = ?
           AND NOT (s.practice_mode = 'parent_review' AND EXISTS (SELECT 1 FROM session_results pending_grade WHERE pending_grade.session_id = s.id AND pending_grade.correct = 0))
           AND s.completed_at IS NOT NULL
           AND s.completed_at >= ?
           AND s.completed_at < ?
         GROUP BY s.id, s.planned_count, s.completed_at, s.delivery_mode
-        HAVING COUNT(sr.id) > 0
+        HAVING completed_card_count > 0
            AND (
              COALESCE(s.planned_count, 0) <= 0
-             OR COUNT(sr.id) >= COALESCE(s.planned_count, 0)
+             OR completed_card_count >= COALESCE(s.planned_count, 0)
            )
            AND (s.delivery_mode = 'sheet' OR SUM(CASE WHEN sr.correct = ? OR sr.correct = ? THEN 1 ELSE 0 END) = 0)
         ORDER BY s.completed_at ASC, s.id ASC

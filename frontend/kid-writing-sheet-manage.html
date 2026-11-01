@@ -69,7 +69,10 @@
         </div>
         <div class="sheet-builder-actions">
             <span class="sheet-builder-question-count" role="status" aria-live="polite" aria-atomic="true">0 questions total</span>
-            <button type="button" class="paradigm-btn paradigm-submit-confirm paradigm-compact-control" aria-label="Save sheet" title="Save sheet" disabled><span class="icon" data-icon="check" data-icon-size="16" data-icon-stroke="2.4"></span></button>
+            <div class="paradigm-edit-actions">
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-builder-cancel>Cancel</button>
+                <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm" data-builder-confirm disabled>Confirm</button>
+            </div>
         </div>
     </template>
 
@@ -78,17 +81,21 @@
         <div class="modal-content paradigm-sheet-dialog">
             <div class="sheet-builder-head">
                 <div style="display:inline-flex; align-items:center; gap:0.8rem; flex-wrap:wrap;">
-                    <span class="sheet-builder-paper-control queue-stepper">
+                    <span class="sheet-builder-paper-control">
                         <span>Size</span>
-                        <button type="button" id="cwGlobalScaleDown" class="queue-stepper-btn" title="Smaller"><span data-icon="minus"></span></button>
-                        <span id="cwGlobalScaleLabel" class="point-log-stepper-input">130%</span>
-                        <button type="button" id="cwGlobalScaleUp" class="queue-stepper-btn" title="Larger"><span data-icon="plus"></span></button>
+                        <span class="paradigm-compact-stepper">
+                            <button type="button" id="cwGlobalScaleDown" class="paradigm-compact-stepper-button" title="Smaller" aria-label="Smaller"><span data-icon="minus"></span></button>
+                            <span id="cwGlobalScaleLabel" class="paradigm-compact-stepper-value">130%</span>
+                            <button type="button" id="cwGlobalScaleUp" class="paradigm-compact-stepper-button" title="Larger" aria-label="Larger"><span data-icon="plus"></span></button>
+                        </span>
                     </span>
-                    <span class="sheet-builder-paper-control queue-stepper">
+                    <span class="sheet-builder-paper-control">
                         <span>Practice</span>
-                        <button type="button" id="cwEmptyCountDown" class="queue-stepper-btn" title="Fewer practice boxes"><span data-icon="minus"></span></button>
-                        <span id="cwEmptyCountLabel" class="point-log-stepper-input">1</span>
-                        <button type="button" id="cwEmptyCountUp" class="queue-stepper-btn" title="More practice boxes"><span data-icon="plus"></span></button>
+                        <span class="paradigm-compact-stepper">
+                            <button type="button" id="cwEmptyCountDown" class="paradigm-compact-stepper-button" title="Fewer practice boxes" aria-label="Fewer practice boxes"><span data-icon="minus"></span></button>
+                            <span id="cwEmptyCountLabel" class="paradigm-compact-stepper-value">1</span>
+                            <button type="button" id="cwEmptyCountUp" class="paradigm-compact-stepper-button" title="More practice boxes" aria-label="More practice boxes"><span data-icon="plus"></span></button>
+                        </span>
                     </span>
                     <label class="sheet-builder-paper-control" for="chineseSheetPaperSize">
                         <span>Paper</span>
@@ -126,6 +133,10 @@
                             <span id="chineseSheetPickerOtherLegend" class="sb-picker-legend-item hidden"><span class="sb-picker-legend-dot reason-default" aria-hidden="true"></span>Not recommended</span>
                         </div>
                         <div id="chineseSheetPickerOptions" class="sb-picker-options sb-picker-options-bubbles"></div>
+                        <div class="sb-picker-selection-footer">
+                            <span id="chineseSheetPickerSelection" role="status" aria-live="polite"></span>
+                            <button type="button" id="chineseSheetPickerConfirmBtn" class="paradigm-chip-toggle cell-design-confirm" disabled>Confirm</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -247,6 +258,7 @@
     <script src="sheet-builder-dialog.js"></script>
     <script src="kid-writing-sheet-manage-core.js"></script>
     <script src="kid-writing-sheet-manage-lists.js"></script>
+    <script src="chinese-sheet-layout.js"></script>
     <script src="kid-writing-sheet-manage-builder.js"></script>
 </body>
 </html>

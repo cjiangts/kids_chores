@@ -510,7 +510,7 @@ function renderPersonalDeckPreviewTable(rows, options = {}) {
     personalDeckPreviewTableBody.innerHTML = html;
     if (personalDeckPreviewSummary) {
         const n = rows.length;
-        personalDeckPreviewSummary.textContent = `${n} card${n === 1 ? '' : 's'} ready — review then Apply.`;
+        personalDeckPreviewSummary.textContent = `${n} card${n === 1 ? '' : 's'} ready`;
     }
 }
 
@@ -526,7 +526,7 @@ function setPersonalDeckMode(mode) {
     if (addReadingBtn) {
         if (isPreview) {
             addReadingBtn.disabled = false;
-            addReadingBtn.innerHTML = (typeof icon === 'function' ? icon('check', { size: 18 }) : '') + ' Apply';
+            addReadingBtn.textContent = 'Confirm';
         } else {
             updateAddReadingButtonCount();
         }
@@ -733,7 +733,7 @@ function applyCategoryUiText() {
         } else if (isType2Behavior()) {
             chineseCharInput.placeholder = '添加生词练习。两种格式 — 只能选一种。\n\n• 格式 A — 词块（听到的词 = 要写的词）\n好像 香菜 为难 关心 事情\n答应 知道 从来 勇敢\n\n• 格式 B —「答案，提示」一行一张卡\n好像，看起来很像\n香菜，有香味的蔬菜\n为难，感到困难';
         } else {
-            chineseCharInput.placeholder = '添加生字 — 一字一卡，拼音自动生成。\n\n直接粘贴文章或生字表都可以；只识别汉字，其他符号会被忽略。\n点 Preview 可查看自动生成的拼音再确认。\n\n比如:\n坐 甘 罗 茂 叹 皇 帝 做 官 爷 留 孙\n说 笑 心 喜 当 楚 北 摸 肩 膀';
+            chineseCharInput.placeholder = '添加生字 — 一字一卡，拼音自动生成。\n\n直接粘贴文章或生字表都可以；只识别汉字，其他符号会被忽略。\n点 Confirm 可查看自动生成的拼音，再次确认后添加。\n\n比如:\n坐 甘 罗 茂 叹 皇 帝 做 官 爷 留 孙\n说 笑 心 喜 当 楚 北 摸 肩 膀';
         }
     }
     document.body.classList.toggle('type1-chinese-mode', isChineseSpecificLogic);

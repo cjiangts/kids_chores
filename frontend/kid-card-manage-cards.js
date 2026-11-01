@@ -802,15 +802,18 @@ function updateAddReadingButtonCount() {
     if (!addReadingBtn || !chineseCharInput) {
         return;
     }
-    const renderIcon = (name) => (typeof icon === 'function' ? icon(name, { size: 18 }) : '');
+    addReadingBtn.textContent = 'Confirm';
     if (isReadingBulkAdding) {
-        addReadingBtn.textContent = 'Adding...';
         addReadingBtn.disabled = true;
+        if (personalDeckPreviewSummary) personalDeckPreviewSummary.textContent = personalDeckMode === 'preview' ? 'Adding…' : 'Preparing preview…';
         return;
     }
     if (typeof personalDeckMode !== 'undefined' && personalDeckMode === 'preview') {
         addReadingBtn.disabled = false;
-        addReadingBtn.innerHTML = renderIcon('check') + ' Apply';
+        if (personalDeckPreviewSummary) {
+            const count = personalDeckPreviewTableBody?.rows.length || 0;
+            personalDeckPreviewSummary.textContent = `${count} card${count === 1 ? '' : 's'} ready`;
+        }
         return;
     }
     const csvMode = isType1ChineseEnglishBackMode();
@@ -829,23 +832,18 @@ function updateAddReadingButtonCount() {
     if (addCardStatusMessage && addCardStatusMessage.textContent === TYPE2_MIXED_FORMAT_ERROR) {
         showStatusMessage('');
     }
-    const usePreviewFlow = supportsPersonalDeckEditor();
-    const primaryLabel = usePreviewFlow ? 'Preview' : 'Bulk Add';
-    const primaryIcon = usePreviewFlow ? renderIcon('eye') : renderIcon('plus');
     if (dedupStats.mixedFormat) {
         addReadingBtn.disabled = !hasInput;
-        addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel}`;
+        if (personalDeckPreviewSummary) personalDeckPreviewSummary.textContent = 'Mixed input formats';
         return;
     }
     addReadingBtn.disabled = csvMode ? !hasInput : dedupStats.uniqueCount <= 0;
-    if (dedupStats.uniqueCount > 0) {
-        const countText = dedupStats.dedupedCount > 0
-            ? `${dedupStats.uniqueCount}, dedup ${dedupStats.dedupedCount}`
-            : `${dedupStats.uniqueCount}`;
-        addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel} (${countText})`;
-        return;
+    if (personalDeckPreviewSummary) {
+        const count = dedupStats.uniqueCount;
+        const duplicates = dedupStats.dedupedCount;
+        personalDeckPreviewSummary.textContent = `${count} card${count === 1 ? '' : 's'} ready`
+            + (duplicates > 0 ? ` · ${duplicates} duplicate${duplicates === 1 ? '' : 's'} removed` : '');
     }
-    addReadingBtn.innerHTML = `${primaryIcon} ${primaryLabel}`;
 }
 
 function setReadingBulkAddBusy(isBusy) {
@@ -855,6 +853,8 @@ function setReadingBulkAddBusy(isBusy) {
     isReadingBulkAdding = !!isBusy;
     addReadingBtn.disabled = isReadingBulkAdding;
     chineseCharInput.disabled = isReadingBulkAdding;
+    if (personalDeckClearBtn) personalDeckClearBtn.disabled = isReadingBulkAdding;
+    if (personalDeckBackBtn) personalDeckBackBtn.disabled = isReadingBulkAdding;
     updateAddReadingButtonCount();
 }
 
