@@ -1533,7 +1533,7 @@ const CW_DEFAULT_EMPTY_COUNT = 1;
 const CW_MIN_EMPTY_COUNT = 1;
 const CW_MAX_EMPTY_COUNT = 9;
 const CW_ROW_GAP = 4;          /* px gap between rows at scale=1 */
-const CW_DEFAULT_SCALE = 1.3;
+const CW_DEFAULT_SCALE = 1.1;
 const CW_MIN_SCALE = 0.5;
 const CW_MAX_SCALE = 2.0;
 const CW_SCALE_STEP = 0.1;
