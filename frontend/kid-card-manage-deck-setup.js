@@ -224,6 +224,56 @@ async function refreshDeckSelectionViews() {
     await loadSharedDeckCards();
 }
 
+async function reloadDataAfterDeckMembershipChange() {
+    const draftCount = hasSessionCountSettingsChanges() ? sessionCardCountInput?.value : null;
+    const draftSpeed = hasDrillSpeedSettingsChanges() ? getDrillSpeedTargetInputMs() : null;
+    // Let previous lazy loads settle before replacing their cached promises.
+    await Promise.allSettled([
+        sharedDecksLoadPromise, sharedDeckCardsLoadPromise, sharedDeckCardSearchIndexPromise,
+    ]);
+    sharedDecksLoadPromise = null;
+    sharedDeckCardsLoadPromise = null;
+    sharedDeckCardsHaveLoaded = false;
+    sharedDeckCardSearchIndex = null;
+    sharedDeckCardSearchIndexScope = null;
+    sharedDeckCardSearchIndexPromise = null;
+    const tree = deckTreeViewInstance;
+    tree?.setCardIndex(null);
+    const errors = [];
+    try {
+        await loadKidsAndApplyKidInfo();
+    } catch (error) {
+        errors.push(error);
+    }
+    if (draftCount !== null && sessionCardCountInput) sessionCardCountInput.value = draftCount;
+    if (draftSpeed !== null) setDrillSpeedTargetInputMs(draftSpeed);
+    const results = await Promise.allSettled([
+        ensureSharedDeckCardsLoaded(),
+        ensureSharedDeckCardSearchIndex(),
+    ]);
+    results.forEach((result) => {
+        if (result.status === 'rejected') errors.push(result.reason);
+    });
+    // Loading newly available cards can auto-set the daily target. Read sheet
+    // stock/shortage only after that setting has reached the backend.
+    try {
+        await window.SheetTaskMode.load(kidId, categoryKey);
+    } catch (error) {
+        errors.push(error);
+    }
+    if (tree) {
+        tree.setDecks(allDecks, { orphanDeck });
+        tree.setBaseline(baselineOptedDeckIdSet, baselineIncludeOrphanInQueue);
+        tree.setSelection(stagedOptedDeckIdSet, stagedIncludeOrphanInQueue);
+        tree.setCardIndex(sharedDeckCardSearchIndex);
+        tree.render();
+    }
+    updateQueueMixLegend();
+    updateQueueSettingsSaveButtonState();
+    updateAddReadingButtonCount();
+    if (errors.length) throw errors[0];
+}
+
 async function requestOptInDeckIds(deckIds) {
     const body = { deck_ids: deckIds, categoryKey };
     const response = await fetch(buildSharedDeckApiUrl('shared-decks/opt-in'), {
@@ -441,7 +491,6 @@ async function applyDeckTreeChanges() {
     closeDeckTreeModal();
     clearDeckSelectionMessages();
     await applyDeckMembershipChanges();
-    await refreshDeckSelectionViews();
 }
 
 async function refreshDeckDataAfterHistoryReturn() {
@@ -532,6 +581,9 @@ async function applyDeckMembershipChanges() {
     const orphanChanged = stagedIncludeOrphanInQueue !== baselineIncludeOrphanInQueue;
 
     isDeckMoveInFlight = true;
+    deckTreeViewInstance?.setApplyDisabled(true);
+    cancelQueuePreviewReload();
+    sharedDeckCardsResponseTracker?.begin();
     renderDeckPendingInfo();
     showError('');
     showSuccess('');
@@ -557,12 +609,18 @@ async function applyDeckMembershipChanges() {
             applyIncludeOrphanFromPayload(result);
         }
         showDeckChangeMessage('');
-        await loadSharedType1Decks();
     } catch (error) {
         console.error('Error applying deck membership changes:', error);
         showDeckChangeMessage(error.message || 'Failed to apply deck changes.', true);
     } finally {
+        try {
+            await reloadDataAfterDeckMembershipChange();
+        } catch (error) {
+            console.error('Error refreshing data after deck membership changes:', error);
+            showError(`Failed to refresh data after deck changes: ${error.message}`);
+        }
         isDeckMoveInFlight = false;
+        deckTreeViewInstance?.setApplyDisabled(false);
         renderDeckPendingInfo();
     }
 }

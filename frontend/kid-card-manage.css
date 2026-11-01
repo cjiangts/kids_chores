@@ -937,6 +937,32 @@
             flex: 1 1 auto;
         }
 
+        #sourceDeckFilterBtnLabel {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .source-filter-name {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .source-filter-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+            flex: 0 0 auto;
+        }
+
+        .source-filter-count svg {
+            width: 12px;
+            height: 12px;
+            flex: 0 0 auto;
+        }
+
         .manage-page .cards-toolbar > * {
             min-width: 0;
         }
@@ -1508,8 +1534,9 @@
             z-index: 2;
         }
 
-        .card-compact-pill.skipped .card-compact-pill-text {
-            text-decoration: line-through;
+        .card-compact-pill.skipped {
+            border-style: dashed;
+            opacity: 0.5;
         }
 
         .card-compact-pill-check {
@@ -1908,8 +1935,9 @@
             color: #1f7a5c;
         }
 
-        .expanded-card-preview.skipped .expanded-card-preview-text {
-            text-decoration: line-through;
+        .expanded-card-preview.skipped {
+            border-style: dashed;
+            opacity: 0.5;
         }
 
         .expanded-card-preview-text {

@@ -705,6 +705,7 @@ function renderCardsInChunks(totalCount, buildItemHtml, postBatchHook, options =
 }
 
 function displayCards(cards) {
+    syncSourceDeckFilterMenu();
     restoreType4GeneratorPanel();
     sortedCards = getSortedCardsForDisplay(cards);
     const queueHighlightMap = getQueueHighlightMap(cards);
@@ -1047,7 +1048,7 @@ function getType1EnglishBackBulkInputStats(text) {
 // =====================================================================
 // === 4. Shared-deck card mutations (skip, recording download)
 // =====================================================================
-async function loadSharedDeckCards() {
+async function loadSharedDeckCards(options = {}) {
     const requestId = sharedDeckCardsResponseTracker
         ? sharedDeckCardsResponseTracker.begin()
         : 0;
@@ -1085,6 +1086,7 @@ async function loadSharedDeckCards() {
         showError(error.message || `Failed to load shared ${getCurrentCategoryDisplayName()} cards.`);
         currentCards = [];
         resetAndDisplayCards(currentCards);
+        if (options.throwOnError) throw error;
     }
 }
 
@@ -1806,7 +1808,7 @@ function ensureSharedDeckCardsLoaded() {
     if (!sharedDeckCardsLoadPromise) {
         sharedDeckCardsLoadPromise = (async () => {
             await ensureSharedDecksLoaded();
-            await loadSharedDeckCards();
+            await loadSharedDeckCards({ throwOnError: true });
             sharedDeckCardsHaveLoaded = true;
         })().catch((error) => {
             sharedDeckCardsLoadPromise = null;

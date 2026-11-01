@@ -165,8 +165,12 @@ function syncSourceDeckFilterMenu() {
     if (sourceDeckFilterBtnLabel) {
         const selectedItem = items.find((item) => item.dataset.value === currentSourceDeckFilter);
         const labelText = selectedItem ? selectedItem.dataset.label || 'All decks' : 'All decks';
-        const countText = selectedItem ? selectedItem.dataset.count || '0' : '0';
-        sourceDeckFilterBtnLabel.textContent = `${labelText} (${countText})`;
+        const scopedCards = filterCardsBySourceDeck(currentCards, currentSourceDeckFilter);
+        const skipped = scopedCards.filter((card) => card.skip_practice).length;
+        const available = scopedCards.length - skipped;
+        const label = `${labelText} · Available ${available} · Skip ${skipped}`;
+        sourceDeckFilterBtnLabel.innerHTML = `<span class="source-filter-name">${escapeHtml(labelText)}</span><span class="source-filter-count">(<span class="source-filter-count" aria-label="${available} available">${window.icon('eye', { size: 12 })}<span>${available}</span></span><span class="source-filter-count" aria-label="${skipped} skipped">${window.icon('eye-off', { size: 12 })}<span>${skipped}</span></span>)</span>`;
+        sourceDeckFilterBtnLabel.title = label;
     }
 }
 
