@@ -1021,6 +1021,18 @@
             border-radius: 50%;
             flex-shrink: 0;
         }
+        .sb-picker-legend-pending {
+            color: #237b44;
+            font-weight: 700;
+        }
+        .sb-picker-legend-dot.reason-pending {
+            background: #32965a;
+        }
+        .sb-picker-option.sb-picker-bubble.reason-pending {
+            border-color: #75ba8c;
+            background: #e8f5ec;
+            color: #237b44;
+        }
         .sb-picker-legend-dot.reason-new {
             background: #5f82d8;
         }

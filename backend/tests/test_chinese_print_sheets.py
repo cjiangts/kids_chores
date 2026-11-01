@@ -65,6 +65,25 @@ class ChinesePrintSheetSelectionTest(unittest.TestCase):
         self.assertEqual(self.save(1)[1], 201)
         self.assertEqual(self.conn.execute('SELECT count(*) FROM type2_chinese_print_sheets').fetchone()[0], 2)
 
+    def test_sheet_list_exposes_card_ids_for_legacy_and_multi_card_rows(self):
+        self.conn.execute('ALTER TABLE type2_chinese_print_sheets ADD COLUMN created_at TIMESTAMP')
+        self.conn.execute('ALTER TABLE type2_chinese_print_sheets ADD COLUMN completed_at TIMESTAMP')
+        self.conn.execute('CREATE TABLE sessions (id INTEGER, completed_at TIMESTAMP)')
+        self.conn.execute('CREATE TABLE sheet_session_items (sheet_kind VARCHAR, sheet_id INTEGER, session_id INTEGER)')
+        layout = {'rows': [
+            {'card_id': 1, 'front': '中', 'scale': 1.1},
+            {'cards': [{'card_id': 1, 'front': '中'}, {'card_id': 2, 'front': '文'}], 'scale': 1.1},
+        ]}
+        self.conn.execute("INSERT INTO type2_chinese_print_sheets (category_key, layout_json, status) VALUES ('writing', ?, 'pending')", [json.dumps(layout)])
+        with patch.object(routes, 'get_kid_connection_for', side_effect=lambda *args, **kwargs: self.conn.cursor()):
+            with self.app.test_request_context():
+                response, status = routes.list_chinese_print_sheets('kid')
+        self.assertEqual(status, 200, response.get_json())
+        sheet = response.get_json()['sheets'][0]
+        self.assertEqual(sheet['card_ids'], [1, 2])
+        self.assertEqual(sheet['status'], 'pending')
+        self.assertGreater(sheet['total_question_count'], sheet['completed_question_count'])
+
     def test_skipped_outside_bank_and_missing_cards_are_rejected(self):
         for card_id in (2, 3, 4, 999):
             with self.subTest(card_id=card_id):

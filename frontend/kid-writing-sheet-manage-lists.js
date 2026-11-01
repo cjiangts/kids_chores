@@ -26,7 +26,13 @@ async function loadChineseSheets() {
     const response = await fetch(buildType2ApiUrl('/chinese-print-sheets'));
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || `Failed to load sheets (HTTP ${response.status})`);
-    renderChineseSheets(Array.isArray(data.sheets) ? data.sheets : []);
+    const sheets = Array.isArray(data.sheets) ? data.sheets : [];
+    chineseSheetPendingCardIds = new Set(sheets
+        .filter((sheet) => sheet.status === 'pending'
+            && Number(sheet.completed_question_count || 0) < Number(sheet.total_question_count || 0))
+        .flatMap((sheet) => sheet.card_ids || []).map(Number));
+    renderChineseSheets(sheets);
+    renderChineseSheetPickerOptions();
 }
 
 function sheetActionButton(action, sheetId, iconName, label, tone) {

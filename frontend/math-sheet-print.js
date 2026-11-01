@@ -26,6 +26,7 @@ const repeatCountInput = document.getElementById('repeatCountInput');
 const regenerateBtn = document.getElementById('regenerateBtn');
 const finalizeBtn = document.getElementById('finalizeBtn');
 const printBtn = document.getElementById('printBtn');
+const showHeaderBtn = document.getElementById('showHeaderBtn');
 const showAnswersBtn = document.getElementById('showAnswersBtn');
 
 const params = new URLSearchParams(window.location.search);
@@ -39,7 +40,8 @@ const initialRepeatCount = Number.parseInt(params.get('repeatCount') || '', 10);
 let currentSheetStatus = '';
 let currentSheetData = null;
 let currentRepeatCount = Number.isInteger(initialRepeatCount) && initialRepeatCount > 0 ? initialRepeatCount : 1;
-let showAnswers = params.get('taskRole') === 'review';
+let showAnswers = false;
+let showSheetHeader = true;
 let previewPageIndex = 0;
 const DEFAULT_PAPER_SIZE = 'letter';
 const HEADER_FONT_SIZE = 22;
@@ -337,6 +339,7 @@ function handlePrint() {
 // =====================================================================
 
 function drawSheetHeader(ctx, sheet) {
+    if (!showSheetHeader) return;
     const pageBoxWidth = currentPaperSpec.boxWidthPx;
     ctx.save();
     ctx.fillStyle = '#333';
@@ -760,10 +763,6 @@ async function loadAndRender() {
             || DEFAULT_PAPER_SIZE
         );
         currentSheetStatus = String(sheet.status || '').trim().toLowerCase();
-        if (currentSheetStatus === 'pending' && !showAnswers && !params.get('taskSession')) {
-            showAnswers = true;
-            if (showAnswersBtn) window.SheetPrintControls.setLabel(showAnswersBtn, 'Hide Answers');
-        }
         updateToolbarButtons(currentSheetStatus);
         setRepeatCountValue(sheet.repeat_count);
         updateSheetTitle(sheet);
@@ -871,6 +870,12 @@ document.addEventListener('DOMContentLoaded', () => {
             handlePrint();
         });
     }
+    showHeaderBtn?.addEventListener('click', () => {
+        showSheetHeader = !showSheetHeader;
+        showHeaderBtn.setAttribute('aria-pressed', String(showSheetHeader));
+        window.SheetPrintControls.setLabel(showHeaderBtn, showSheetHeader ? 'Hide Header' : 'Show Header');
+        rerenderCanvas();
+    });
     if (showAnswersBtn) {
         showAnswersBtn.addEventListener('click', () => {
             showAnswers = !showAnswers;

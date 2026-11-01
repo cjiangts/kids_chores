@@ -23,6 +23,7 @@ const API_BASE = `${window.location.origin}/api`;
 const sheetTitle = document.getElementById('sheetTitle');
 const sheetPreviewWrap = document.getElementById('sheetPreviewWrap');
 const printBtn = document.getElementById('printBtn');
+const showHeaderBtn = document.getElementById('showHeaderBtn');
 
 const params = new URLSearchParams(window.location.search);
 const kidId = String(params.get('id') || '').trim();
@@ -30,6 +31,7 @@ const sheetId = parseInt(params.get('sheet') || '0', 10);
 const categoryKey = String(params.get('categoryKey') || '').trim().toLowerCase();
 
 let currentSheetData = null;
+let showSheetHeader = true;
 
 /* ── Constants matching the builder ── */
 const CW_CELL_SIZE = 52;
@@ -183,7 +185,7 @@ function buildSheetPageMarkup(sheet, scale) {
     html += `<div class="sb-safe-margin" style="bottom:${marginPx}px;left:${marginPx}px;right:${marginPx}px;height:${safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;left:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
     html += `<div class="sb-safe-margin" style="top:${marginPx + safeMarginTopPx}px;right:${marginPx}px;width:${safeMarginXPx}px;bottom:${marginPx + safeMarginBottomPx}px;"></div>`;
-    html += `<div class="sb-header-row" style="top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;">`;
+    html += `<div class="sb-header-row" style="top:${contentTopPx}px;left:${contentLeftPx}px;width:${gridWidthPx}px;height:${headerHeightPx}px;${showSheetHeader ? '' : 'visibility:hidden;'}">`;
     const kidName = String(sheet?.kid_name || '').trim();
     const displaySheetNumber = String(sheet?.id || '').trim();
     html += `<span class="sb-header-name" style="font-size:${headerFontPx}px;">Name: ${escapeHtml(kidName || '________')}</span>`;
@@ -369,6 +371,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (printBtn) {
         printBtn.addEventListener('click', () => handlePrint());
     }
+
+    showHeaderBtn?.addEventListener('click', () => {
+        showSheetHeader = !showSheetHeader;
+        showHeaderBtn.setAttribute('aria-pressed', String(showSheetHeader));
+        window.SheetPrintControls.setLabel(showHeaderBtn, showSheetHeader ? 'Hide Header' : 'Show Header');
+        if (currentSheetData) renderSheetPreview(currentSheetData);
+    });
 
     window.addEventListener('resize', () => {
         if (currentSheetData) renderSheetPreview(currentSheetData);

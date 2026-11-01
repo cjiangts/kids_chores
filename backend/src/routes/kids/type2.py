@@ -745,6 +745,8 @@ def list_chinese_print_sheets(kid_id):
                 'paper_size': str(layout.get('paper_size') or 'us-letter'),
                 'row_count': len(layout_rows),
                 'card_labels': card_labels,
+                'card_ids': sorted({int(card['card_id']) for lr in layout_rows
+                                    for card in row_cards(lr) if card.get('card_id')}),
             })
 
         return jsonify({'sheets': sheets}), 200

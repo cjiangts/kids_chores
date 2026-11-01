@@ -1519,6 +1519,7 @@ const buildChineseSheetBtn = document.getElementById('buildChineseSheetBtn');
 const chineseSheetPaperSizeSelect = document.getElementById('chineseSheetPaperSize');
 let chineseSheetRows = [];       /* { cards: [{ card_id, front, back }], emptyCount, scale } */
 let chineseSheetBankCards = [];
+let chineseSheetPendingCardIds = new Set();
 let chineseSheetPickerShowAll = false;
 let chineseSheetPickerQuery = '';
 let currentChineseSheetScale = 0.5;
@@ -1769,6 +1770,9 @@ function renderChineseSheetPickerOptions() {
 }
 
 function getChineseSheetPickerReasonMeta(card) {
+    if (chineseSheetPendingCardIds.has(Number(card.id))) {
+        return { label: 'On unfinished sheet', className: 'reason-pending' };
+    }
     const reason = String(card?.practicing_reason || '').trim();
     if (reason === 'never_seen') {
         return { label: 'Newly added', className: 'reason-new' };
