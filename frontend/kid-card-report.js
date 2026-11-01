@@ -172,10 +172,10 @@ function renderHero(card, attempts, queuePreview) {
     const chineseBankMode = getChineseBankMode(card?.chinese_back_content);
     const heroIconHtml = !isKidMode() && chineseBankMode && labelText
         ? `<a class="card-report-hero-icon card-report-hero-icon-link" href="${escapeHtml(buildChineseBankUrl(chineseBankMode, labelText))}" aria-label="Search Chinese Bank for ${escapeHtml(labelText)}">
-                <span class="${getCardReportHeroLabelClasses(labelText)}">${escapeHtml(labelText)}</span>
+                <span class="${getCardReportHeroLabelClasses(labelText)}">${window.ChineseStrokes.renderText(labelText)}</span>
             </a>`
         : `<div class="card-report-hero-icon">
-                <span class="${getCardReportHeroLabelClasses(labelText)}">${escapeHtml(labelText)}</span>
+                <span class="${getCardReportHeroLabelClasses(labelText)}">${window.ChineseStrokes.renderText(labelText)}</span>
             </div>`;
 
     const counts = { right: 0, fixed: 0, wrong: 0 };

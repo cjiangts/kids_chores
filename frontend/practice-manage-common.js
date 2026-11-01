@@ -39,7 +39,7 @@ function escapeHtml(text) {
 function renderMathHtml(text) {
     const raw = String(text ?? '');
     if (!raw) return '';
-    if (!hasMathNotation(raw)) return escapeHtml(raw);
+    if (!hasMathNotation(raw)) return window.ChineseStrokes?.renderText(raw) ?? escapeHtml(raw);
     let latex = raw.replace(/sqrt\(([^)]+)\)/gi, (_match, inner) => `\\sqrt{${inner}}`);
     latex = latex.replace(/\^(\([^)]+\)|\d+|[a-zA-Z])/g, (_match, exp) => {
         const inner = exp.startsWith('(') && exp.endsWith(')') ? exp.slice(1, -1) : exp;

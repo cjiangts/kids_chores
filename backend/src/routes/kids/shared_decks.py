@@ -96,6 +96,13 @@ from src.services.type4_generator_definitions import (
     get_shared_deck_generator_definition,
     shared_deck_generator_definition_has_print_cell_design_columns,
 )
+from flask import send_from_directory
+from src.services.writing_audio import (
+    build_shared_writing_audio_file_name,
+    build_writing_front_tts_text,
+    get_shared_writing_audio_dir,
+    synthesize_shared_writing_audio,
+)
 
 # ============================================================================
 # 1. Deck categories — CRUD + share-to-non-super + cascade-delete-across-kids
@@ -1023,6 +1030,8 @@ def get_shared_deck_details(deck_id):
                 return jsonify({'error': 'Deck not found'}), 404
             behavior_type = get_shared_deck_behavior_type_from_raw_tags(conn, deck_row[2])
             chinese_type_i = is_shared_deck_chinese_type_i(conn, deck_row[2])
+            category_tags = extract_shared_deck_tags_and_labels(deck_row[2])[0]
+            category_meta = get_shared_deck_category_meta_by_key().get(category_tags[0], {}) if category_tags else {}
             chinese_back_content = (
                 get_shared_deck_chinese_back_content(conn, deck_row[2])
                 if chinese_type_i
@@ -1046,7 +1055,7 @@ def get_shared_deck_details(deck_id):
                 'creator_family_id': int(deck_row[3]),
                 'created_at': deck_row[4].isoformat() if deck_row[4] else None,
                 'behavior_type': behavior_type,
-                'has_chinese_specific_logic': chinese_type_i,
+                'has_chinese_specific_logic': bool(category_meta.get('has_chinese_specific_logic')),
                 'chinese_back_content': chinese_back_content,
             },
             'card_count': len(cards),
@@ -1055,6 +1064,36 @@ def get_shared_deck_details(deck_id):
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@kids_bp.route('/shared-decks/<int:deck_id>/writing-audio-preview', methods=['POST'])
+def preview_shared_deck_writing_audio(deck_id):
+    """Play the full Type-II prompt, including unsaved CSV preview text."""
+    if not current_family_id():
+        return jsonify({'error': 'Family login required'}), 401
+    try:
+        conn = get_shared_decks_connection(read_only=True)
+        try:
+            row = conn.execute('SELECT tags FROM deck WHERE deck_id = ?', [deck_id]).fetchone()
+            if not row:
+                return jsonify({'error': 'Deck not found'}), 404
+            tags = extract_shared_deck_tags_and_labels(row[0])[0]
+            category = get_shared_deck_category_meta_by_key().get(tags[0], {}) if tags else {}
+            if category.get('behavior_type') != 'type_ii' or not category.get('has_chinese_specific_logic'):
+                return jsonify({'error': 'Audio preview is only available for Chinese writing decks'}), 400
+        finally:
+            conn.close()
+        payload = request.get_json(silent=True) or {}
+        front, back = payload.get('front'), payload.get('back', '')
+        if not isinstance(front, str) or not isinstance(back, str) or not front.strip():
+            return jsonify({'error': 'Provide front and back text'}), 400
+        file_name = build_shared_writing_audio_file_name(front, back)
+        synthesize_shared_writing_audio(file_name, build_writing_front_tts_text(front, back), has_chinese_specific_logic=True)
+        return send_from_directory(get_shared_writing_audio_dir(), file_name, mimetype='audio/mpeg')
+    except ValueError as error:
+        return jsonify({'error': str(error)}), 400
+    except Exception as error:
+        return jsonify({'error': str(error)}), 500
 
 
 # ============================================================================

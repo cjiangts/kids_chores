@@ -228,7 +228,7 @@ function buildSheetPageMarkup(sheet, scale) {
         cells.forEach((cell) => {
             html += `<div class="cw-grid-cell" style="width:${cellSizePx}px;height:${cellSizePx}px;">`;
             if (cell.type === 'demo') {
-                html += `<span class="cw-grid-char cw-grid-char-first" style="font-size:${fontSizePx}px;font-family:${CW_CHINESE_FONT};">${escapeHtml(cell.char)}</span>`;
+                html += `<span class="cw-grid-char cw-grid-char-first" style="font-size:${fontSizePx}px;font-family:${CW_CHINESE_FONT};">${window.ChineseStrokes.renderText(cell.char)}</span>`;
             }
             html += '</div>';
         });

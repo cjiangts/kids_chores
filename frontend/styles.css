@@ -36,6 +36,15 @@
 
 /* === 2. Atomic widgets =================================================== */
 
+.chinese-stroke-glyph {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    flex: 0 0 auto;
+    vertical-align: -0.12em;
+    overflow: visible;
+}
+
 .app-spinner {
     display: inline-block;
     width: 36px;

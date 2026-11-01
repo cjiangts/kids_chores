@@ -90,7 +90,7 @@ function showCurrentPrompt() {
 
     const card = state.sessionCards[state.currentIndex];
     renderPracticeProgress(progress, progressFill, state.currentIndex + 1, state.sessionCards.length, 'Card');
-    cardAnswer.textContent = state.type2ParentReview ? '' : (card.front || '');
+    cardAnswer.innerHTML = state.type2ParentReview ? '' : window.ChineseStrokes.renderText(card.front || '');
     cardAnswer.classList.add('hidden');
     flashcard.classList.remove('revealed');
 

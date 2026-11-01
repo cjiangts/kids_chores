@@ -127,6 +127,61 @@ function formatDeckCardBackHtml(rawBack) {
     return escapeHtml(rawBack || '-');
 }
 
+let deckAudioPreview = null;
+let deckAudioPreviewRows = [];
+
+function stopDeckAudioPreview() {
+    if (!deckAudioPreview) return;
+    const { player, button } = deckAudioPreview;
+    deckAudioPreview = null;
+    player.stop();
+    player.clearCache();
+    button.disabled = isMutating;
+    button.dataset.loading = 'false';
+    button.setAttribute('aria-pressed', 'false');
+    button.setAttribute('aria-label', 'Play full recording');
+    button.innerHTML = `${icon('volume-2', { size: 12 })}<span>Play</span>`;
+}
+
+async function playDeckWritingPreview(button) {
+    if (isMutating) return;
+    if (deckAudioPreview?.button === button) { stopDeckAudioPreview(); return; }
+    stopDeckAudioPreview();
+    const card = deckAudioPreviewRows[Number(button.dataset.writingAudioRow)];
+    if (!card) return;
+    showError('');
+    const player = window.WritingAudioSequence.createPlayer({
+        fetchOptions: {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ front: card.front || '', back: card.back || '' }),
+        },
+        onError: (error) => {
+            if (deckAudioPreview?.player !== player) return;
+            stopDeckAudioPreview();
+            showError(error.message || 'Failed to play recording.');
+        },
+    });
+    deckAudioPreview = { player, button };
+    player.audio.addEventListener('ended', () => {
+        if (deckAudioPreview?.player === player) stopDeckAudioPreview();
+    });
+    button.disabled = true;
+    button.dataset.loading = 'true';
+    button.innerHTML = '<span>Loading…</span>';
+    const played = await player.playUrls([`${API_BASE}/shared-decks/${deckId}/writing-audio-preview`]);
+    if (deckAudioPreview?.player !== player) { player.clearCache(); return; }
+    button.disabled = isMutating;
+    button.dataset.loading = 'false';
+    if (played) {
+        button.setAttribute('aria-pressed', 'true');
+        button.setAttribute('aria-label', 'Stop recording');
+        button.innerHTML = `${icon('pause', { size: 12 })}<span>Stop</span>`;
+    }
+}
+
+window.addEventListener('pagehide', stopDeckAudioPreview);
+
 document.addEventListener('DOMContentLoaded', async () => {
     const allowed = await ensureFamily();
     if (!allowed) {
@@ -138,6 +193,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         showError('Invalid or missing deckId in URL.');
         return;
     }
+    cardsTableBody.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-writing-audio-row]');
+        if (button) void playDeckWritingPreview(button);
+    });
     if (!isSuperFamily) {
         document.title = 'View Deck - The Mommy App';
         const pageHeading = document.querySelector('.page-header-row h1');
@@ -591,6 +650,10 @@ function syncApplyCsvBtn() {
 }
 
 function renderCardsTable(cards, isTypeIV) {
+    stopDeckAudioPreview();
+    const supportsWritingAudio = currentDeck?.behavior_type === 'type_ii' && currentDeck.has_chinese_specific_logic;
+    document.getElementById('writingAudioHeader').classList.toggle('hidden', !supportsWritingAudio);
+    deckAudioPreviewRows = cards;
     if (cards.length === 0) {
         cardsTableBody.innerHTML = '';
         tableWrap.classList.add('hidden');
@@ -622,6 +685,7 @@ function renderCardsTable(cards, isTypeIV) {
                 <td>${renderMathHtml(card.front || '')}</td>
                 ${multiChoiceCellHtml}
                 <td>${formatDeckCardBackHtml(card.back || '-')}</td>
+                ${supportsWritingAudio ? `<td><button type="button" class="paradigm-btn paradigm-btn--pill" data-writing-audio-row="${index}" aria-label="Play full recording" aria-pressed="false">${icon('volume-2', { size: 12 })}<span>Play</span></button></td>` : ''}
             </tr>
         `;
     }).join('');
@@ -748,6 +812,10 @@ async function applyCsvChanges() {
 
 function setMutating(isBusy) {
     isMutating = Boolean(isBusy);
+    if (isMutating) stopDeckAudioPreview();
+    cardsTableBody.querySelectorAll('[data-writing-audio-row]').forEach((button) => {
+        button.disabled = isMutating || button.dataset.loading === 'true';
+    });
     syncPreviewCsvBtnState();
     if (resetCsvBtn) {
         resetCsvBtn.disabled = isMutating;

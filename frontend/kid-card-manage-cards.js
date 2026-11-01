@@ -476,7 +476,7 @@ function buildCompactCardMarkup(card, options = {}) {
             aria-label="${ariaLabel}"${selectAttrs}${isCardsSelectModeOn ? '' : ` aria-expanded="${isExpanded ? 'true' : 'false'}"`}
         >
             <span class="card-compact-pill-check" aria-hidden="true">${icon('check', { size: 12, strokeWidth: 3 })}</span>
-            <span class="card-compact-pill-text">${escapeHtml(text)}</span>
+            <span class="card-compact-pill-text">${window.ChineseStrokes.renderText(text)}</span>
             <span class="card-compact-count-badge" aria-hidden="true">${totalPracticed}</span>
         </button>
     `;

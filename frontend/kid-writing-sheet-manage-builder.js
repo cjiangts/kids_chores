@@ -1670,7 +1670,7 @@ function renderChineseSheetBuilderContent(scale) {
         cells.forEach((cell) => {
             html += `<div class="cw-grid-cell" style="width:${cellSizePx}px;height:${cellSizePx}px;">`;
             if (cell.type === 'demo') {
-                html += `<span class="cw-grid-char cw-grid-char-first" style="font-size:${fontSizePx}px;font-family:${CW_CHINESE_FONT};">${escapeHtml(cell.char)}</span>`;
+                html += `<span class="cw-grid-char cw-grid-char-first" style="font-size:${fontSizePx}px;font-family:${CW_CHINESE_FONT};">${window.ChineseStrokes.renderText(cell.char)}</span>`;
             }
             html += '</div>';
         });
@@ -1748,7 +1748,7 @@ function renderChineseSheetPickerOptions() {
         const reasonMeta = getChineseSheetPickerReasonMeta(card);
         const optionTitle = reasonMeta.label ? `${label} · ${reasonMeta.label}` : label;
         return `<button type="button" class="sb-picker-option sb-picker-bubble ${reasonMeta.className}" data-cwb-picker-card-id="${card.id}" title="${escapeHtml(optionTitle)}" aria-label="${escapeHtml(optionTitle)}">
-            <span class="sb-picker-option-name">${escapeHtml(label)}</span>
+            <span class="sb-picker-option-name">${window.ChineseStrokes.renderText(label)}</span>
         </button>`;
     }).join('');
 }

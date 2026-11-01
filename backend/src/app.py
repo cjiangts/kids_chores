@@ -707,6 +707,12 @@ def create_app():
 
     frontend_dir = os.path.join(PROJECT_ROOT, 'frontend')
 
+    @app.route('/chinese-strokes-data.js')
+    def chinese_strokes_data():
+        from src.services.chinese_strokes import get_chinese_stroke_dictionary
+        payload = json.dumps(get_chinese_stroke_dictionary(), ensure_ascii=True)
+        return app.response_class(f'window.ChineseStrokeData = {payload};', mimetype='application/javascript')
+
     def frontend_html_response(filename):
         """Serve a normal app shell; the service worker owns app caching."""
         html_path = os.path.join(frontend_dir, filename)

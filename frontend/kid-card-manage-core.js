@@ -502,7 +502,7 @@ function renderPersonalDeckPreviewTable(rows, options = {}) {
         return (
             `<tr>`
             + `<td class="col-num">${idx + 1}</td>`
-            + `<td class="col-front">${escapeHtml(row.front)}</td>`
+            + `<td class="col-front">${window.ChineseStrokes.renderText(row.front)}</td>`
             + `<td class="col-back">${backHtml}</td>`
             + `</tr>`
         );

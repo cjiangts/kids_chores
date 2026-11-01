@@ -15,6 +15,7 @@ import mimetypes
 import os
 import re
 import uuid
+from src.services.chinese_strokes import stroke_spoken_text, stroke_characters, get_chinese_stroke_dictionary
 from urllib.parse import quote
 
 from src.routes.kids_constants import (
@@ -60,8 +61,8 @@ def get_writing_tts_language(has_chinese_specific_logic=True):
 
 def build_writing_front_tts_text(front_text, back_text):
     """Build spoken text for front prompt clip."""
-    front_norm = normalize_writing_audio_text(front_text)
-    back_norm = normalize_writing_audio_text(back_text)
+    front_norm = stroke_spoken_text(normalize_writing_audio_text(front_text))
+    back_norm = stroke_spoken_text(normalize_writing_audio_text(back_text))
     if not front_norm:
         return ''
     if back_norm and back_norm != front_norm:
@@ -99,8 +100,9 @@ def build_shared_writing_audio_file_name(front_text, back_text):
     if not safe:
         safe = 'tts'
 
+    stroke_version = (f"\x1fstrokes-v{get_chinese_stroke_dictionary()['version']}" if any(char in stroke_characters() for char in normalized_front + normalized_back) else '')
     digest = hashlib.sha1(
-        f"{normalized_front}\x1f{normalized_back}".encode('utf-8')
+        f"{normalized_front}\x1f{normalized_back}{stroke_version}".encode('utf-8')
     ).hexdigest()[:8]
 
     file_name = f"{safe}_{digest}{WRITING_AUDIO_EXTENSION}"

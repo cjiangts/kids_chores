@@ -87,7 +87,7 @@ function renderChineseSheets(sheets) {
         const safeSheetId = Number.isInteger(sheetId) && sheetId > 0 ? sheetId : 0;
         const cardLabels = Array.isArray(sheet && sheet.card_labels) ? sheet.card_labels : [];
         const answersHtml = cardLabels.length > 0
-            ? cardLabels.map((label) => `<span class="sheet-card-label">${escapeHtml(label)}</span>`).join('')
+            ? cardLabels.map((label) => `<span class="sheet-card-label">${window.ChineseStrokes.renderText(label)}</span>`).join('')
             : '<span class="sheet-card-empty">(no cards)</span>';
         const isDone = String(sheet && sheet.status || '').trim().toLowerCase() === 'done';
         const isPending = !isDone;
