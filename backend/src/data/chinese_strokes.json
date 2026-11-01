@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "strokes": [
+    {"id":"pie","name":"撇","character":"㇒","aliases":["丿"],"path":"M66 18 Q63 59 27 82"},
+    {"id":"na","name":"捺","character":"㇏","aliases":[],"path":"M27 20 Q33 62 77 80"},
+    {"id":"heng_zhe_gou","name":"横折钩","character":"㇆","aliases":["𠃌"],"path":"M20 28 H78 L73 76 Q72 84 60 77"},
+    {"id":"shu_gou","name":"竖钩","character":"㇚","aliases":["亅"],"path":"M55 18 V76 Q55 84 43 75"},
+    {"id":"shu_wan_gou","name":"竖弯钩","character":"㇟","aliases":["乚"],"path":"M35 18 V66 Q35 80 50 80 H73 Q80 80 78 68"},
+    {"id":"heng","name":"横","character":"㇐","aliases":[],"path":"M18 50 L82 46"},
+    {"id":"shu","name":"竖","character":"㇑","aliases":["丨"],"path":"M50 16 V84"},
+    {"id":"dian","name":"点","character":"㇔","aliases":["丶"],"path":"M37 34 Q56 42 60 60"},
+    {"id":"heng_zhe_wan_gou","name":"横折弯钩","character":"㇈","aliases":[],"path":"M16 28 H53 L49 58 Q47 79 62 79 H78 L77 67"},
+    {"id":"heng_zhe","name":"横折","character":"㇕","aliases":["𠃍"],"path":"M20 28 H77 V80"},
+    {"id":"pie_zhe","name":"撇折","character":"㇜","aliases":[],"path":"M62 18 L30 67 H75"},
+    {"id":"heng_gou","name":"横钩","character":"㇖","aliases":["乛"],"path":"M18 42 L77 36 L68 47"},
+    {"id":"pie_dian","name":"撇点","character":"㇛","aliases":[],"path":"M61 18 L37 48 Q54 63 63 82"},
+    {"id":"shu_zhe","name":"竖折","character":"㇗","aliases":["𠃊"],"path":"M30 18 V74 H78"},
+    {"id":"shu_ti","name":"竖提","character":"㇙","aliases":["𠄌"],"path":"M38 18 V79 L66 60"}
+  ]
+}
