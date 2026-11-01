@@ -33,6 +33,10 @@ window.SheetTaskMode = (() => {
                 sheetsLink.title = label;
                 sheetsLink.setAttribute('aria-label', label);
             }
+            const chineseSheet = typeof isChineseSheetCardView === 'function' && isChineseSheetCardView();
+            document.getElementById('sortMenuBtn')?.closest('.sort-menu')?.classList.toggle('hidden', chineseSheet);
+            document.getElementById('sortDirectionToggleGroup')?.classList.toggle('hidden', chineseSheet);
+            if (typeof displayCards === 'function' && typeof currentCards !== 'undefined') displayCards(currentCards);
             if (typeof applySessionCardCountCapToInput === 'function') applySessionCardCountCapToInput();
             buttons.forEach((button) => {
                 const active = button.dataset.mode === data.mode;

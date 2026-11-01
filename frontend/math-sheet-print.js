@@ -40,7 +40,8 @@ const initialRepeatCount = Number.parseInt(params.get('repeatCount') || '', 10);
 let currentSheetStatus = '';
 let currentSheetData = null;
 let currentRepeatCount = Number.isInteger(initialRepeatCount) && initialRepeatCount > 0 ? initialRepeatCount : 1;
-let showAnswers = false;
+const isSheetReview = Boolean(params.get('taskSession')) && params.get('taskRole') === 'review';
+let showAnswers = isSheetReview;
 let showSheetHeader = true;
 let previewPageIndex = 0;
 const DEFAULT_PAPER_SIZE = 'letter';
@@ -273,7 +274,7 @@ function createSheetCanvas(sheet, withAnswers, fullPaper = Boolean(params.get('t
     ctx.translate(pageInset + PAPER_EXTRA_SAFE_MARGIN_X_PX, pageInset + PAPER_EXTRA_SAFE_MARGIN_TOP_PX);
     drawSheetHeader(ctx, sheet);
     sheet.task_rects = [];
-    drawSheetRows(ctx, sheet, withAnswers);
+    drawSheetRows(ctx, sheet, isSheetReview || withAnswers);
     if (fullPaper) {
         sheet.task_rects = sheet.task_rects.map((rect) => ({ ...rect, x: rect.x + pageInset, y: rect.y + pageInset }));
     }
@@ -877,7 +878,9 @@ document.addEventListener('DOMContentLoaded', () => {
         rerenderCanvas();
     });
     if (showAnswersBtn) {
+        showAnswersBtn.hidden = isSheetReview;
         showAnswersBtn.addEventListener('click', () => {
+            if (isSheetReview) return;
             showAnswers = !showAnswers;
             window.SheetPrintControls.setLabel(showAnswersBtn, showAnswers ? 'Hide Answers' : 'Show Answers');
             rerenderCanvas();

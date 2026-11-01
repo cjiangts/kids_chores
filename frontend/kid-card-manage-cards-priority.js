@@ -99,12 +99,38 @@ function filterCardsBySourceDeck(cards, filterKey) {
 // =====================================================================
 // === 2. Sort: comparators + display ordering
 // =====================================================================
+function isChineseSheetCardView() {
+    return isType2Behavior() && isChineseSpecificLogic
+        && document.getElementById('sheetTaskMode')?.dataset.mode === 'sheet';
+}
+
+function getSheetCardState(card) {
+    if (card.skip_practice) return 'skipped';
+    const next = Number(card.sheet_queue_order) > 0
+        && Number(card.sheet_queue_order) <= normalizeSessionCountInputValue();
+    if (next) return 'sheet-next';
+    return Number(card.sheet_print_order) > 0 ? 'sheet-printed' : 'sheet-unprinted';
+}
+
+function compareSheetCards(a, b) {
+    const groups = { 'sheet-next': 0, 'sheet-printed': 1, 'sheet-unprinted': 2, skipped: 3 };
+    const aState = getSheetCardState(a), bState = getSheetCardState(b);
+    if (aState !== bState) return groups[aState] - groups[bState];
+    if (aState === 'sheet-next') {
+        const order = (card) => Number(card.sheet_queue_order);
+        return order(a) - order(b);
+    }
+    if (aState === 'sheet-printed') return Number(a.sheet_print_order) - Number(b.sheet_print_order);
+    return compareCardIdentity(a, b);
+}
+
 function getSortedCardsForDisplay(cards) {
     const sourceFiltered = filterCardsBySourceDeck(cards, currentSourceDeckFilter);
     if (isType4Behavior()) {
         return window.PracticeManageCommon.sortCardsForView(sourceFiltered, CARD_SORT_MODE_ADDED_TIME);
     }
     const filteredCards = filterCardsByQuery(sourceFiltered, cardSearchInput ? cardSearchInput.value : '');
+    if (isChineseSheetCardView()) return [...filteredCards].sort(compareSheetCards);
     return sortCardsForDisplay(filteredCards, getSelectedCardSortMode(), getCurrentCardSortDirection());
 }
 
@@ -200,17 +226,6 @@ function usesPracticePriorityDisplay() {
     return supportsPracticePriorityPreview() && !isType4Behavior();
 }
 
-function isCardInPendingWorksheet(card) {
-    if (!card) {
-        return false;
-    }
-    if (Boolean(card.pending_sheet)) {
-        return true;
-    }
-    const writingState = Number.parseInt(card.writing_state, 10);
-    return Number.isInteger(writingState) && writingState === 3;
-}
-
 function compareCardIdentity(a, b) {
     const aId = Number.parseInt(a && a.id, 10);
     const bId = Number.parseInt(b && b.id, 10);
@@ -281,11 +296,6 @@ function comparePracticeQueueCards(a, b, direction) {
     const bSkipped = Boolean(b && b.skip_practice);
     if (aSkipped !== bSkipped) {
         return aSkipped ? 1 : -1;
-    }
-    const aInWorksheet = isCardInPendingWorksheet(a);
-    const bInWorksheet = isCardInPendingWorksheet(b);
-    if (aInWorksheet !== bInWorksheet) {
-        return aInWorksheet ? 1 : -1;
     }
     const aRaw = Number(a && a.practice_priority_order);
     const bRaw = Number(b && b.practice_priority_order);
@@ -560,7 +570,7 @@ function getPracticePriorityRankText(card) {
         return '';
     }
     const activeCount = Array.isArray(sortedCards)
-        ? sortedCards.filter((queueCard) => !queueCard.skip_practice && !isCardInPendingWorksheet(queueCard)).length
+        ? sortedCards.filter((queueCard) => !queueCard.skip_practice).length
         : 0;
     return `Rank #${order}${activeCount > 0 ? ` of ${activeCount}` : ''}`;
 }
@@ -714,6 +724,10 @@ function getCardIdText(card) {
 }
 
 function getQueueHighlightMap(cards) {
+    if (isChineseSheetCardView()) {
+        return new Map((cards || []).filter((card) => !card.skip_practice)
+            .map((card) => [getCardIdText(card), getSheetCardState(card)]));
+    }
     if (isType4Behavior()) {
         return new Map();
     }
@@ -741,7 +755,7 @@ function getQueueHighlightMap(cards) {
     if (usesPracticePriorityDisplay()) {
         const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
             (Array.isArray(cards) ? cards : []).filter((card) => {
-                if (!card || card.skip_practice || isCardInPendingWorksheet(card)) {
+                if (!card || card.skip_practice) {
                     return false;
                 }
                 const rawOrder = Number(card.practice_priority_order);
@@ -771,7 +785,7 @@ function getQueueHighlightMap(cards) {
 
     const orderedQueueCards = window.PracticeManageCommon.sortCardsForView(
         (Array.isArray(cards) ? cards : []).filter((card) => {
-            if (!card || card.skip_practice || isCardInPendingWorksheet(card)) {
+            if (!card || card.skip_practice) {
                 return false;
             }
             const rawOrder = Number(card.next_session_order);
@@ -815,6 +829,16 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
     if (!cardsQueueLegend) {
         return;
     }
+    if (isChineseSheetCardView()) {
+        cardsQueueLegend.innerHTML = [
+            ['sheet-next', 'In next session'],
+            ['sheet-printed', 'Printed but not in next session'],
+            ['sheet-unprinted', 'Not printed'],
+        ].map(([state, label]) => `<span class="cards-queue-legend-item ${state}"><span class="cards-queue-legend-dot" aria-hidden="true"></span>${label}</span>`).join('');
+        cardsQueueLegend.classList.toggle('hidden', cardCount <= 0);
+        cardsQueueLegend.setAttribute('aria-hidden', String(cardCount <= 0));
+        return;
+    }
     const sortingByThumbDowns = getSelectedCardSortMode() === CARD_SORT_MODE_THUMB_DOWNS;
     const shouldShow = (usesPracticePriorityDisplay() || sortingByThumbDowns)
         && Number.parseInt(cardCount, 10) > 0;
@@ -828,15 +852,11 @@ function updateCardsQueueLegendVisibility(cardCount = sortedCards.length) {
             const slowLegendHtml = (isType2Behavior() || isType3Behavior())
                 ? ''
                 : '<span class="cards-queue-legend-item slow"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Slow</span>';
-            const worksheetLegendHtml = isType2Behavior()
-                ? '<span class="cards-queue-legend-item worksheet"><span class="cards-queue-legend-dot" aria-hidden="true"></span>In worksheet</span>'
-                : '';
             cardsQueueLegend.innerHTML = `
                 ${missedLegendHtml}
                 ${slowLegendHtml}
                 <span class="cards-queue-legend-item learning"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Learning</span>
                 <span class="cards-queue-legend-item due"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Due</span>
-                ${worksheetLegendHtml}
                 <span class="cards-queue-legend-item not-included"><span class="cards-queue-legend-dot" aria-hidden="true"></span>Not in next session</span>
             `;
         }
@@ -1320,7 +1340,7 @@ function cancelQueuePreviewReload() {
 }
 
 function rerenderCompactCardsForQueuePreview() {
-    if (currentCardViewMode !== 'short' || !Array.isArray(currentCards) || currentCards.length <= 0) {
+    if ((!isChineseSheetCardView() && currentCardViewMode !== 'short') || !Array.isArray(currentCards) || currentCards.length <= 0) {
         return;
     }
     displayCards(currentCards);

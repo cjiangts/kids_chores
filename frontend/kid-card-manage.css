@@ -899,9 +899,6 @@
             background: #8c68cf;
         }
 
-        .cards-queue-legend-item.worksheet .cards-queue-legend-dot {
-            background: #2ba879;
-        }
 
         .cards-queue-legend-item.not-included .cards-queue-legend-dot {
             background: #fff;
@@ -1610,12 +1607,6 @@
             color: var(--pill-accent);
         }
 
-        .card-compact-pill.in-worksheet {
-            --pill-accent: #1f7a5c;
-            border-color: #acdcca;
-            background: #edf9f4;
-            color: var(--pill-accent);
-        }
 
         .card-compact-pill.is-expanded {
             background: var(--pill-accent);
@@ -1920,11 +1911,6 @@
             color: #6441a8;
         }
 
-        .expanded-card-preview.in-worksheet {
-            border-color: #acdcca;
-            background: #edf9f4;
-            color: #1f7a5c;
-        }
 
         .expanded-card-preview.skipped {
             border-style: dashed;
@@ -3088,3 +3074,32 @@
             font-weight: var(--paradigm-list-item-sub-font-weight);
             line-height: var(--paradigm-list-item-sub-line-height);
         }
+
+/* Chinese Sheet mode uses paper assignment states instead of online priority. */
+.card-compact-pill.queue-sheet-next,
+.expanded-card-preview.queue-sheet-next {
+    --pill-accent: #237b44;
+    color: var(--pill-accent);
+    background: #e8f5ec;
+    border-color: #a7d6b5;
+}
+.card-compact-pill.queue-sheet-printed,
+.expanded-card-preview.queue-sheet-printed {
+    --pill-accent: #4561b0;
+    color: var(--pill-accent);
+    background: #eef2ff;
+    border-color: #b9c6ef;
+}
+.card-compact-pill.queue-sheet-unprinted,
+.expanded-card-preview.queue-sheet-unprinted {
+    --pill-accent: #747c99;
+    color: var(--pill-accent);
+    background: #fff;
+    border-color: #d8ddef;
+}
+.cards-queue-legend-item.sheet-next .cards-queue-legend-dot { background: #32965a; }
+.cards-queue-legend-item.sheet-printed .cards-queue-legend-dot { background: #627fd0; }
+.cards-queue-legend-item.sheet-unprinted .cards-queue-legend-dot {
+    background: #fff;
+    border: 1px solid #d8ddef;
+}

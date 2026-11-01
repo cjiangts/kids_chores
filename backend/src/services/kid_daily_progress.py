@@ -593,7 +593,10 @@ def get_kid_today_session_status_by_deck_category(
             }
         from src.services.sheet_tasks import apply_sheet_statuses
         from src.services.parent_review import apply_parent_review_statuses
-        return apply_parent_review_statuses(local_conn, apply_sheet_statuses(local_conn, kid, status_by_key))
+        from src.services.writing_candidates import apply_online_writing_shortages
+        apply_sheet_statuses(local_conn, kid, status_by_key)
+        apply_online_writing_shortages(local_conn, kid, status_by_key, effective_category_meta_by_key)
+        return apply_parent_review_statuses(local_conn, status_by_key)
     except Exception:
         return status_by_key
     finally:

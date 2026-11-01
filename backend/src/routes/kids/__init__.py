@@ -769,18 +769,12 @@ def get_decks_for_scope(kid_id, category):
                     if bool(src.get('included_in_queue')) and int(src.get('active_card_count') or 0) > 0
                 ]
                 source_deck_ids = [int(src['local_deck_id']) for src in included_sources]
-                pending_card_ids = (
-                    get_pending_writing_card_ids(conn)
-                    if bool(scope_context.get('has_chinese_specific_logic'))
-                    else []
-                )
                 special_ready_payload = build_special_session_ready_payload(
                     conn,
                     kid,
                     scope_context['category_key'],
                     source_by_deck_id={int(src['local_deck_id']): src for src in included_sources},
                     source_deck_ids=source_deck_ids,
-                    excluded_card_ids=pending_card_ids,
                 )
             finally:
                 conn.close()
@@ -987,16 +981,12 @@ def get_shared_type2_cards(kid_id):
             ]
 
             pending_card_ids = []
-            pending_card_set = set()
             candidate_rows = []
             candidate_card_ids = []
             candidate_card_set = set()
             candidate_reason_by_card = {}
-            preview_excluded_ids = []
             if has_chinese_specific_logic:
                 pending_card_ids = get_pending_writing_card_ids(conn)
-                pending_card_set = set(pending_card_ids)
-                preview_excluded_ids = list(pending_card_set)
                 candidate_rows = get_writing_candidate_rows(
                     conn,
                     bank_deck_ids,
@@ -1022,7 +1012,6 @@ def get_shared_type2_cards(kid_id):
                     if int(src.get('active_card_count') or 0) > 0
                 },
                 source_deck_ids=practice_source_ids,
-                excluded_card_ids=pending_card_ids,
             )
 
             preview_order = {}
@@ -1038,7 +1027,6 @@ def get_shared_type2_cards(kid_id):
                     practice_source_ids,
                     category_key,
                     get_session_behavior_type(category_key),
-                    excluded_card_ids=preview_excluded_ids,
                 )
                 preview_order = priority_preview['order_by_card_id']
                 practice_priority_preview_by_card_id = priority_preview['details_by_card_id']
@@ -1075,14 +1063,10 @@ def get_shared_type2_cards(kid_id):
                     mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
                     card_id = int(row[0])
                     is_candidate = card_id in candidate_card_set
-                    mapped['pending_sheet'] = card_id in pending_card_set
-                    mapped['available_for_practice'] = (not mapped['pending_sheet'])
+                    mapped['available_for_practice'] = True
                     mapped['practicing_reason'] = None
                     mapped['practicing_reason_label'] = None
-                    if mapped['pending_sheet']:
-                        mapped['writing_state'] = 3
-                        mapped['writing_state_label'] = 'In Practicing Sheet'
-                    elif is_candidate:
+                    if is_candidate:
                         mapped['writing_state'] = 2
                         mapped['writing_state_label'] = 'Ready for Practicing Sheet'
                         reason = candidate_reason_by_card.get(card_id)
@@ -1119,7 +1103,6 @@ def get_shared_type2_cards(kid_id):
                 extra_ids = [cid for cid in practiced_ids if cid not in existing_ids]
                 for row in get_cards_with_stats_for_card_ids(conn, extra_ids):
                     mapped = map_card_row(row, preview_order, practice_priority_preview_by_card_id)
-                    mapped['pending_sheet'] = False
                     mapped['available_for_practice'] = False
                     mapped['practicing_reason'] = None
                     mapped['practicing_reason_label'] = None
@@ -1142,6 +1125,13 @@ def get_shared_type2_cards(kid_id):
                 for card in merged_cards
                 if int(card.get('id') or 0) > 0
             }
+            if has_chinese_specific_logic:
+                from src.services.sheet_tasks import chinese_sheet_card_states
+                sheet_states = chinese_sheet_card_states(conn, kid, category_key)
+                for card in merged_cards:
+                    card.update(sheet_states.get(int(card['id'])) or {
+                        'sheet_print_order': None, 'sheet_next_order': None,
+                    })
             practicing_cards = []
             for card_id in candidate_card_ids:
                 card = merged_by_id.get(int(card_id))

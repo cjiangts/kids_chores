@@ -215,3 +215,28 @@ def remove_cards_from_type2_chinese_print_sheets(conn, card_ids, *, statuses=('p
             "UPDATE type2_chinese_print_sheets SET layout_json = ? WHERE id = ?",
             [json.dumps(layout, ensure_ascii=False, separators=(',', ':')), sheet_id],
         )
+
+
+def apply_online_writing_shortages(conn, kid, statuses, category_meta_by_key):
+    """Flag low online Chinese-writing stock using the same exclusions as start."""
+    from src.services.deck_source_merge import get_shared_merged_source_decks_for_kid
+    from src.services.kid_category_config import get_category_session_card_count_for_kid
+    from src.services.practice_session import get_practice_candidate_cards_for_decks
+
+    modes = dict(conn.execute('SELECT category_key, task_delivery_mode FROM deck_category_opt_in').fetchall())
+    for key, status in statuses.items():
+        meta = category_meta_by_key.get(key) or {}
+        if (modes.get(key) == 'sheet' or meta.get('behavior_type') != 'type_ii'
+                or not meta.get('has_chinese_specific_logic')):
+            continue
+        target = max(0, get_category_session_card_count_for_kid(kid, key))
+        if target <= 0:
+            continue
+        sources = get_shared_merged_source_decks_for_kid(conn, kid, key)
+        deck_ids = [int(src['local_deck_id']) for src in sources
+                    if src.get('included_in_queue') and int(src.get('active_card_count') or 0) > 0]
+        _, candidate_ids = get_practice_candidate_cards_for_decks(conn, deck_ids)
+        available = len(candidate_ids)
+        status.update({'onlineAvailableCount': available, 'onlineTargetCount': target,
+                       'onlineShortage': available < target})
+    return statuses

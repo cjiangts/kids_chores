@@ -1671,8 +1671,13 @@ function buildMatrixCell(row, kid) {
         const sheetStatus = kid?.todaySessionStatusByDeckCategory?.[row.categoryKey] || {};
         const configuredCount = Number.isInteger(targets[row.categoryKey]) ? targets[row.categoryKey] : 0;
         const cardsPerDay = sheetStatus.taskDeliveryMode === 'sheet' ? sheetStatus.sheetAvailableCount : configuredCount;
-        const shortageMark = sheetStatus.taskDeliveryMode === 'sheet' && sheetStatus.sheetShortage
-            ? ' <span class="printed-question-shortage" title="Printed question stock is below the daily target">&#9888;&#65038;</span>'
+        const shortageTitle = sheetStatus.taskDeliveryMode === 'sheet' && sheetStatus.sheetShortage
+            ? 'Printed question stock is below the daily target'
+            : sheetStatus.onlineShortage
+                ? `Only ${sheetStatus.onlineAvailableCount} online cards available for a daily target of ${sheetStatus.onlineTargetCount}`
+                : '';
+        const shortageMark = shortageTitle
+            ? ` <span class="printed-question-shortage" role="img" aria-label="${escapeHtml(shortageTitle)}" title="${escapeHtml(shortageTitle)}">&#9888;&#65038;</span>`
             : '';
         const params = new URLSearchParams({ id: kidId, categoryKey: row.categoryKey, view: 'queue' });
         const href = `/kid-card-manage.html?${params.toString()}`;

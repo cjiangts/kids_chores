@@ -347,3 +347,23 @@ def apply_sheet_statuses(conn, kid, statuses):
         status.update({'taskDeliveryMode': 'sheet', 'sheetAvailableCount': summary['available_today'],
                        'sheetRemainingCount': summary['remaining_count'], 'sheetTargetCount': summary['target_count'], 'sheetShortage': summary['shortage']})
     return statuses
+
+
+def chinese_sheet_card_states(conn, kid, category_key):
+    """Use exactly the remaining finalized inventory counted by the stock badge."""
+    inventory = read_sheet_inventory(conn, category_key)
+    unit_orders = {unit: index for index, unit in enumerate(dict.fromkeys(
+        assignment_unit_key(item) for item in inventory), 1)}
+    target = sheet_target(conn, kid, category_key)
+    states = {}
+    for item in inventory:
+        card_id = int(item['card_id'])
+        if card_id in states:
+            continue
+        order = unit_orders[assignment_unit_key(item)]
+        states[card_id] = {
+            'sheet_print_order': len(states) + 1,
+            'sheet_queue_order': order,
+            'sheet_next_order': order if order <= target else None,
+        }
+    return states

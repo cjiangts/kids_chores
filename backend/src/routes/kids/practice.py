@@ -86,7 +86,6 @@ from src.services.type4_session import (
     get_type_iv_retry_source_result_rows,
     map_type_iv_pending_item_to_response_card,
 )
-from src.services.writing_candidates import get_pending_writing_card_ids
 from src.services.kid_today_sessions import (
     filter_answers_to_pending_cards,
     get_latest_retry_source_session_for_today,
@@ -183,7 +182,6 @@ def start_writing_practice_session(kid_id):
         ]
         source_by_deck_id = {int(src['local_deck_id']): src for src in included_sources}
 
-        pending_card_ids = get_pending_writing_card_ids(conn) if has_chinese_specific_logic else []
         continue_source_session = get_latest_unfinished_session_for_today(conn, kid, category_key)
         is_continue_session = continue_source_session is not None
         retry_source_session = None
@@ -194,7 +192,7 @@ def start_writing_practice_session(kid_id):
                 conn,
                 continue_source_session['session_id'],
             )
-            excluded_card_ids = list(set([*pending_card_ids, *practiced_card_ids]))
+            excluded_card_ids = practiced_card_ids
             missing_count = max(
                 0,
                 int(continue_source_session['planned_count']) - int(continue_source_session['answer_count']),
@@ -233,7 +231,6 @@ def start_writing_practice_session(kid_id):
                     retry_wrong_card_ids,
                 )
             else:
-                excluded_card_ids = list(set(pending_card_ids))
                 writing_session_count = get_category_session_card_count_for_kid(kid, category_key)
                 if writing_session_count <= 0:
                     conn.close()
@@ -257,7 +254,6 @@ def start_writing_practice_session(kid_id):
                     preview_kid,
                     source_deck_ids,
                     category_key,
-                    excluded_card_ids=excluded_card_ids
                 )
                 for card_id in selected_ids:
                     card = cards_by_id.get(card_id) or {}

@@ -6,7 +6,7 @@ window.SheetPrintControls = (() => {
         regenerateBtn: ['refresh-cw', 'Regenerate'],
         finalizeBtn: ['check', 'Finalize'],
         printBtn: ['printer', 'Print'],
-        showHeaderBtn: ['eye', 'Hide Header'],
+        showHeaderBtn: ['panel-top', 'Hide Header'],
     };
 
     function setLabel(button, text) {
