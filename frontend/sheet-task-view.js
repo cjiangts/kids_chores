@@ -65,26 +65,34 @@ window.SheetTaskView = (() => {
             status.classList.toggle('hidden', !message);
         }
         function fitPage() {
-            const frame = frames[activePage];
-            if (!frame || !pages.clientWidth) return;
-            const ratio = Number(frame.dataset.paperRatio) || 11 / 8.5;
-            let width = pages.clientWidth;
+            if (!frames.length || !pages.clientWidth) return;
+            const desktop = window.matchMedia('(min-width: 900px)').matches;
+            frames.forEach((frame, position) => frame.classList.toggle('hidden', !desktop && position !== activePage));
+            pager.classList.toggle('hidden', desktop || frames.length <= 1);
+            const visibleFrames = desktop ? frames : [frames[activePage]];
+            const gap = 16;
+            const columns = desktop
+                ? Math.min(frames.length, Math.max(1, Math.floor((pages.clientWidth + gap) / (320 + gap))))
+                : 1;
+            let width = (pages.clientWidth - gap * (columns - 1)) / columns;
             if (window.matchMedia('(min-width: 768px)').matches) {
                 const navigation = document.querySelector('.kid-app-nav');
                 const navHeight = navigation && window.matchMedia('(max-width: 899px)').matches
                     && getComputedStyle(navigation).position === 'fixed' ? navigation.getBoundingClientRect().height : 0;
                 const availableHeight = window.innerHeight - Math.max(16, pages.getBoundingClientRect().top)
                     - pager.getBoundingClientRect().height - navHeight - 32;
-                width = Math.min(width, Math.max(1, availableHeight) / ratio);
+                const maxRatio = Math.max(...visibleFrames.map((frame) => Number(frame.dataset.paperRatio) || 11 / 8.5));
+                width = Math.min(width, Math.max(1, availableHeight) / maxRatio);
             }
-            frame.style.width = `${width}px`;
-            frame.style.height = `${Math.ceil(width * ratio)}px`;
-            actions.style.width = `${width}px`;
+            for (const frame of visibleFrames) {
+                const ratio = Number(frame.dataset.paperRatio) || 11 / 8.5;
+                frame.style.width = `${width}px`;
+                frame.style.height = `${Math.ceil(width * ratio)}px`;
+            }
+            actions.style.width = desktop ? '100%' : `${width}px`;
         }
         function showPage(index) {
             activePage = Math.max(0, Math.min(frames.length - 1, index));
-            frames.forEach((frame, position) => frame.classList.toggle('hidden', position !== activePage));
-            pager.classList.toggle('hidden', frames.length <= 1);
             previousPage.disabled = activePage === 0;
             nextPage.disabled = activePage === frames.length - 1;
             pageLabel.textContent = `${activePage + 1} / ${frames.length}`;

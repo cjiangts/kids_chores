@@ -33,3 +33,17 @@
 .practice-page:has(.sheet-task-view) #practiceSection { width: 100%; }
 .sheet-task-embedded .kid-app-nav { display: none !important; }
 .sheet-task-embedded body.has-kid-app-nav { padding: 0 !important; }
+
+@media (min-width: 900px) {
+    .sheet-task-view { max-width: none; }
+    .practice-page:has(.sheet-task-view) .practice-container,
+    .report-page:has(.sheet-task-view) > .container { max-width: none; width: 100%; }
+    .sheet-task-pages {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 16px;
+    }
+    .sheet-task-frame { flex: 0 0 auto; margin: 0; }
+}
