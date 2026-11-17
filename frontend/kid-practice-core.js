@@ -247,8 +247,10 @@ const recordingVisualizer = window.RecordingVisualizer
 const earlyFinishController = window.PracticeUiCommon.createEarlyFinishController({
     button: finishEarlyBtn,
     getCanGiveUp: () => state.drillActive && isSessionInProgress(),
-    onRequestGiveUp: () => {
+    onRequestGiveUp: async () => {
         if (!window.confirm('Give up this Speed Drill?\n\nAll progress from this attempt will be lost. Nothing will be saved.')) return;
+        try { await window.PracticeSessionFlow.discardProgress(state); }
+        catch (error) { showError(error.message); return; }
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);
         state.activePendingSessionId = '';
         state.sessionAnswers = [];
@@ -1335,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     bindEventHandlers();
 
     try {
+        await window.OfflinePracticeClient.ready;
         await loadKidInfo({ preferNavigationCache: true });
         configureTypeUi();
         await loadReadyState();

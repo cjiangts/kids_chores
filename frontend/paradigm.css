@@ -456,6 +456,16 @@ body select {
     cursor: not-allowed;
 }
 
+.paradigm-edit-action--danger:not(:disabled) {
+    background: #d83b3b;
+    color: #fff;
+}
+
+.paradigm-edit-action--danger:hover:not(:disabled),
+.paradigm-edit-action--danger:focus-visible:not(:disabled) {
+    background: #b82727;
+}
+
 .paradigm-edit-action--cancel:disabled,
 .paradigm-edit-action--delete:disabled {
     color: #9ca5b8;
@@ -1493,6 +1503,11 @@ input.paradigm-compact-stepper-value::-webkit-outer-spin-button {
     cursor: pointer;
     min-width: 0;
     transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.kid-avatar-switcher-item:disabled {
+    cursor: default;
+    opacity: .55;
 }
 
 .kid-avatar-switcher-item:focus-visible {

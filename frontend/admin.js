@@ -81,7 +81,9 @@ let offAppInactiveExpanded = false;
 // =====================================================================
 // === 1. DOM refs + auth + DOMContentLoaded
 // =====================================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await window.OfflineParentClient?.ready;
+    if (window.OfflineParentClient?.blocked) return;
     if (typeof window.hydrateIcons === 'function') {
         window.hydrateIcons(document);
     }
@@ -308,7 +310,7 @@ async function fetchOkWithRetry(url, { retries = 3, delayMs = 500 } = {}) {
 }
 
 async function loadKids(options = {}) {
-    const preferNavigationCache = Boolean(options?.preferNavigationCache);
+    const preferNavigationCache = Boolean(options?.preferNavigationCache) && !window.OfflineParentClient?.active;
     let usedNavigationCache = false;
     try {
         showError('');
@@ -336,7 +338,7 @@ async function loadKids(options = {}) {
         adminOffAppRuleCatalog = normalizeAdminOffAppRuleCatalog(pointRulesData.rules);
         currentKids = Array.isArray(kids) ? kids : [];
         kidsLoaded = true;
-        cacheKidsForParentNavigation(currentKids);
+        if (!window.OfflineParentClient?.active) cacheKidsForParentNavigation(currentKids);
         offAppReviewPendingByKidId = new Map();
         typeIIIReviewPendingByKidId = new Map();
         renderAll();
@@ -480,6 +482,7 @@ function getCategoryRowsForFamily(kids) {
 }
 
 function adminPointActivityReportHref(ruleId) {
+    if (window.OfflineParentClient?.active) return '';
     const normalizedRuleId = Number.parseInt(ruleId, 10);
     return Number.isInteger(normalizedRuleId) && normalizedRuleId > 0
         ? `/point-activity-report.html?ruleId=${encodeURIComponent(normalizedRuleId)}`
@@ -602,7 +605,7 @@ function renderMatrix(options = {}) {
     const columnHtml = `
         <colgroup>
             <col class="admin-matrix-subject-col">
-            ${matrixKids.map(() => '<col class="admin-matrix-target-col"><col class="admin-matrix-opt-col">').join('')}
+            ${matrixKids.map(() => `<col class="admin-matrix-target-col">${window.OfflineParentClient?.active ? '' : '<col class="admin-matrix-opt-col">'}`).join('')}
             ${showTodayStatusColumn ? '<col class="admin-matrix-status-col">' : ''}
         </colgroup>
     `;
@@ -654,6 +657,14 @@ function renderMatrix(options = {}) {
 
 function renderAdminKidTabs(kids) {
     if (!adminKidAvatarSwitcher) return;
+    if (window.OfflineParentClient?.active) {
+        adminKidAvatarSwitcher.setAttribute('role', 'group');
+        window.KidAppNavigation.renderKidAvatarSwitcher(adminKidAvatarSwitcher, kids.slice(0, 1), {
+            selectedKidId: String(kids[0]?.id || ''), hideWhenLessThan: 1,
+            showPoints: false, readOnly: true,
+        });
+        return;
+    }
     if (window.KidAppNavigation && typeof window.KidAppNavigation.renderKidAvatarSwitcher === 'function') {
         window.KidAppNavigation.renderKidAvatarSwitcher(adminKidAvatarSwitcher, kids, {
             selectedKidId: selectedAdminKidId,
@@ -1014,6 +1025,7 @@ function buildAdminOffAppStatusHtml(chore, directReviewKey = '') {
 }
 
 function buildAdminOffAppOptInCell(chore) {
+    if (window.OfflineParentClient?.active) return '';
     const ruleId = Number.parseInt(chore?.ruleId, 10);
     const enabled = Boolean(chore?.enabled);
     const savingKey = `toggle:${ruleId}`;
@@ -1022,7 +1034,7 @@ function buildAdminOffAppOptInCell(chore) {
     const label = enabled ? `Remove ${name}` : `Add ${name}`;
     return `
         <td class="admin-off-app-opt-cell admin-matrix-cell">
-            <button type="button" role="checkbox" class="admin-matrix-row-check admin-off-app-row-check${enabled ? ' is-checked' : ''}" data-off-app-opt-toggle data-rule-id="${escapeHtml(ruleId)}" aria-checked="${enabled ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"${isSaving ? ' disabled' : ''}>
+            <button type="button" role="checkbox" class="admin-matrix-row-check admin-off-app-row-check${enabled ? ' is-checked' : ''}" data-off-app-opt-toggle data-rule-id="${escapeHtml(ruleId)}" aria-checked="${enabled ? 'true' : 'false'}" aria-label="${escapeHtml(label)}"${isSaving || window.OfflineParentClient?.active ? ' disabled' : ''}>
                 <span class="admin-matrix-row-check-box paradigm-selection-check${enabled ? ' is-checked' : ''}" aria-hidden="true">${enabled && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
             </button>
         </td>
@@ -1072,7 +1084,7 @@ function buildAdminOffAppRow(chore, state) {
     if (isReviewable && isEditing) {
         return `
             <tr class="admin-off-app-row is-reviewable is-editing paradigm-editing-row" data-off-app-rule-id="${ruleId}">
-                <th class="admin-off-app-name-cell" scope="row" colspan="3">
+                <th class="admin-off-app-name-cell" scope="row" colspan="${window.OfflineParentClient?.active ? 2 : 3}">
                     <div class="admin-off-app-edit-stack">
                         ${taskContentHtml}
                         ${buildAdminOffAppGradeFormHtml(chore, reviewKind, reviewItem)}
@@ -1101,14 +1113,14 @@ function buildAdminOffAppTable(bodyHtml) {
         <table class="admin-matrix admin-off-app-matrix">
             <colgroup>
                 <col class="admin-matrix-subject-col">
-                <col class="admin-off-app-opt-col">
+                ${window.OfflineParentClient?.active ? '' : '<col class="admin-off-app-opt-col">'}
                 <col class="admin-matrix-status-col">
             </colgroup>
             <thead>
                 <tr>
                     <th class="admin-matrix-subject-head"><span class="admin-chore-group-title paradigm-panel-title paradigm-panel-title--inline"><span class="admin-chore-group-title-icon paradigm-panel-title-icon" aria-hidden="true">${iconHtml}</span><span class="paradigm-panel-heading">Off-App Chores</span></span></th>
-                    <th class="admin-off-app-opt-head"></th>
-                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head"><button type="button" class="paradigm-subject-icon admin-point-report-icon admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="subject-icon subject-blue" aria-hidden="true">${addIconHtml}</span></button></th>
+                    ${window.OfflineParentClient?.active ? '' : '<th class="admin-off-app-opt-head"></th>'}
+                    <th class="admin-matrix-status-head admin-off-app-action-cell paradigm-status-column admin-off-app-add-head">${window.OfflineParentClient?.active ? '' : `<button type="button" class="paradigm-subject-icon admin-point-report-icon admin-off-app-add-btn" data-off-app-add-open aria-label="Add off-app chore" title="Add off-app chore"><span class="subject-icon subject-blue" aria-hidden="true">${addIconHtml}</span></button>`}</th>
                 </tr>
             </thead>
             <tbody>${bodyHtml}</tbody>
@@ -1117,6 +1129,7 @@ function buildAdminOffAppTable(bodyHtml) {
 }
 
 function buildAdminOffAppCreateRow() {
+    if (window.OfflineParentClient?.active) return '';
     if (!isAddingAdminOffAppChore) return '';
     const saving = Boolean(adminOffAppCreateDraft?.saving);
     const hasName = Boolean(String(adminOffAppCreateDraft?.name || '').trim());
@@ -1137,10 +1150,11 @@ function buildAdminOffAppCreateRow() {
 }
 
 function buildAdminOffAppMessageRow(message) {
-    return `<tr><td class="admin-off-app-empty" colspan="3">${escapeHtml(message)}</td></tr>`;
+    return `<tr><td class="admin-off-app-empty" colspan="${window.OfflineParentClient?.active ? 2 : 3}">${escapeHtml(message)}</td></tr>`;
 }
 
 function buildAdminOffAppVisibilityToggleRow(unaddedCount, inactiveCount) {
+    if (window.OfflineParentClient?.active) return '';
     const safeUnadded = Math.max(0, Number.parseInt(unaddedCount, 10) || 0);
     const safeInactive = Math.max(0, Number.parseInt(inactiveCount, 10) || 0);
     if (!safeUnadded && !safeInactive) return '';
@@ -1343,7 +1357,7 @@ async function submitAdminOffAppGrade(reviewKey) {
         adminOffAppEditingKeys.delete(normalizedReviewKey);
         adminOffAppByKidId.delete(kidId);
         await loadAdminOffAppChores(kidId);
-        await window.KidAppNavigation?.refreshKidAvatarPointBalances?.(kidId);
+        if (!window.OfflineParentClient?.active) await window.KidAppNavigation?.refreshKidAvatarPointBalances?.(kidId);
         showError('');
     } catch (error) {
         showError(error.message || 'Failed to save off-app chore grade.');
@@ -1413,7 +1427,7 @@ function buildKidColumnHeader(kid) {
     const kidId = String(kid?.id || '');
     const name = String(kid?.name || '');
     if (!editMode) {
-        return `<th colspan="2" class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}"></th>`;
+        return `<th colspan="${window.OfflineParentClient?.active ? 1 : 2}" class="admin-matrix-kid-head admin-matrix-cards-head" data-kid-id="${escapeHtml(kidId)}"></th>`;
     }
     const initial = getKidInitial(name);
     const tone = hashStringToIndex(kidId || name, KID_AVATAR_TONE_COUNT);
@@ -1498,6 +1512,7 @@ function buildKidRingSegmentsHtml({ total, complete, inProgress }) {
 }
 
 function buildTodayColumnHeader(kid) {
+    if (window.OfflineParentClient?.active) return '<th class="admin-matrix-status-head paradigm-status-column"></th>';
     const href = '/point-activity-report.html?ruleId=0';
     const eyeIconHtml = typeof window.icon === 'function'
         ? window.icon('eye', { size: 21, strokeWidth: 1.9 })
@@ -1510,6 +1525,7 @@ function buildTodayColumnHeader(kid) {
 }
 
 function buildUnaddedSubjectToggleRow(count, expanded, colSpan) {
+    if (window.OfflineParentClient?.active) return '';
     const safeCount = Math.max(0, Number.parseInt(count, 10) || 0);
     if (safeCount <= 0) return '';
     const iconName = expanded ? 'chevron-up' : 'chevron-down';
@@ -1540,7 +1556,9 @@ function buildMatrixRow(row, kids, options = {}) {
         categoryName: String(row.displayName || ''),
     });
     const reportHref = `/point-activity-report.html?${reportParams.toString()}`;
-    const subjectIcon = `<a class="paradigm-subject-icon admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View activity for ${escapeHtml(row.displayName)}" title="View activity history">${subjectIconHtml}</a>`;
+    const subjectIcon = window.OfflineParentClient?.active
+        ? `<span class="paradigm-subject-icon">${subjectIconHtml}</span>`
+        : `<a class="paradigm-subject-icon admin-point-report-icon" href="${escapeHtml(reportHref)}" aria-label="View activity for ${escapeHtml(row.displayName)}" title="View activity history">${subjectIconHtml}</a>`;
     const cellsHtml = kids.map((kid) => buildMatrixCell(row, kid)).join('');
     const showTodayStatusColumn = Boolean(options?.showTodayStatusColumn);
     const todayStatusCellHtml = showTodayStatusColumn ? buildTodayStatusCell(row, kids[0]) : '';
@@ -1578,7 +1596,7 @@ function buildTodayStatusCell(row, kid) {
     const ungradedCount = Math.max(0, Number.parseInt(statusInfo.ungradedCount ?? statusInfo.ungraded_count, 10) || 0);
     const needsReview = Boolean(statusInfo.pendingReview) || (status === 'done' && row.behaviorType === 'type_iii' && ungradedCount > 0);
     const earnedPoints = Number.parseInt(statusInfo.earnedPoints ?? statusInfo.earned_points, 10) || 0;
-    const label = statusInfo.pendingReview ? 'Review' : status === 'done'
+    const label = statusInfo.pendingReview ? 'Review' : window.OfflineParentClient?.active && status === 'done' ? 'Done' : status === 'done'
         ? `+${earnedPoints}`
         : (labelByStatus[status] || labelByStatus.not_started);
     const sessionId = Number.parseInt(statusInfo.sessionId ?? statusInfo.session_id, 10);
@@ -1603,10 +1621,10 @@ function buildTodayStatusCell(row, kid) {
         ? `<span class="admin-today-pill-sep" aria-hidden="true">·</span><span class="${resultClassName}">${hasMistakes ? `${mistakeIconHtml}<span>${mistakeCount}</span>` : resultPhrase}</span>`
         : '';
     const mainHtml = `${leadingIconHtml}<span>${escapeHtml(label)}</span>${resultLabelHtml}`;
-    const viewIconHtml = (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
+    const viewIconHtml = !window.OfflineParentClient?.active && (typeof window.icon === 'function') ? window.icon('eye', { size: 14, strokeWidth: 2.4 }) : '';
     if (Number.isInteger(sessionId) && sessionId > 0) {
         const href = `/kid-session-report.html?id=${encodeURIComponent(kidId)}&sessionId=${encodeURIComponent(sessionId)}`;
-        const ariaLabel = status === 'done'
+        const ariaLabel = window.OfflineParentClient?.active ? `${label}. Review session.` : status === 'done'
             ? `Done, ${earnedPoints} points${resultPhrase ? `, ${resultPhrase}` : ''}. View latest session.`
             : `${label}. View session.`;
         const resultClass = status === 'done' && !needsReview ? 'is-credited' : 'is-review';
@@ -1645,7 +1663,7 @@ function buildRowOptInCheckbox(row, kid) {
     const optedIn = getEffectiveKidCategoryOptedIn(kid, row.categoryKey);
     const label = optedIn ? 'Opt out' : 'Opt in';
     return `
-        <button type="button" role="checkbox" class="admin-matrix-row-check${optedIn ? ' is-checked' : ''}" data-row-opt-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-checked="${optedIn ? 'true' : 'false'}" aria-label="${label} ${escapeHtml(row.displayName)}">
+        <button type="button" role="checkbox" class="admin-matrix-row-check${optedIn ? ' is-checked' : ''}" data-row-opt-toggle data-kid-id="${escapeHtml(kidId)}" data-category-key="${escapeHtml(row.categoryKey)}" aria-checked="${optedIn ? 'true' : 'false'}" aria-label="${label} ${escapeHtml(row.displayName)}"${window.OfflineParentClient?.active ? ' disabled' : ''}>
             <span class="admin-matrix-row-check-box paradigm-selection-check${optedIn ? ' is-checked' : ''}" aria-hidden="true">${optedIn && typeof window.icon === 'function' ? window.icon('check', { size: 13, strokeWidth: 3 }) : ''}</span>
         </button>
     `;
@@ -1665,6 +1683,10 @@ function buildMatrixCell(row, kid) {
     const baselineOptedIn = getEffectiveKidCategoryOptedIn(kid, row.categoryKey);
     const optedIn = baselineOptedIn;
     const rowCheckboxHtml = buildRowOptInCheckbox(row, kid);
+    if (window.OfflineParentClient?.active) {
+        const target = Number(kid.practiceTargetByDeckCategory?.[row.categoryKey]) || 0;
+        return `<td class="admin-matrix-target-cell admin-matrix-cell"><div class="admin-matrix-value-wrap"><span class="admin-matrix-value"><span class="admin-matrix-value-num">${target}</span></span></div></td>`;
+    }
 
     if (!editMode) {
         const targets = getCategoryValueMap(kid?.practiceTargetByDeckCategory);

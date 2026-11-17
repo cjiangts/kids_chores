@@ -115,6 +115,12 @@
     }
 
     function itemsForMode() {
+        if (navigationMode() === 'parent' && window.OfflineParentClient?.active) {
+            return [PARENT_ITEMS[0], { key: 'offline', label: 'Offline', icon: 'cloud-off', path: '/offline/home.html' }];
+        }
+        if (navigationMode() === 'kid' && window.OfflinePracticeClient?.active) {
+            return KID_ITEMS.filter((item) => item.key !== 'rewards');
+        }
         return navigationMode() === 'kid' ? KID_ITEMS : PARENT_ITEMS;
     }
 
@@ -139,6 +145,7 @@
 
     function activeKey() {
         const path = window.location.pathname || '';
+        if (path === '/offline/home.html') return 'offline';
         if (path.endsWith('/kid-practice-home.html')) return 'practice';
         if (path.endsWith('/point-log.html')) return 'rewards';
         if (path.endsWith('/parent-settings.html')) return 'settings';
@@ -284,6 +291,7 @@
         list.forEach(async (kid) => {
             const id = String(kid?.id || '').trim();
             if (!id) return;
+            if (kid.offlineMode) return;
             // A selected child only changes local UI state.  Do not re-query
             // every child's balance each time that state re-renders.
             if (kidAvatarPointBalances.has(id)) return;
@@ -354,7 +362,7 @@
                     ${avatar}
                     <span class="kid-app-nav__user-meta">
                         <strong>${escapeHtml(name)}</strong>
-                        <span data-kid-app-nav-user-points="${escapeHtml(kidId)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>
+                        ${window.OfflinePracticeClient?.active ? '' : `<span data-kid-app-nav-user-points="${escapeHtml(kidId)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>`}
                     </span>
                 </span>
                 <span class="kid-app-nav__user-switch" aria-hidden="true">${switchUserIconHtml()}</span>
@@ -363,7 +371,7 @@
     }
 
     function hydrateNavUserPoints(nav, mode) {
-        if (mode !== 'kid') return;
+        if (mode !== 'kid' || window.OfflinePracticeClient?.active) return;
         const kidId = String(state.kidId || '').trim();
         if (!kidId || kidAvatarPointBalances.has(kidId)) return;
         fetchKidPointBalance(kidId)
@@ -374,7 +382,7 @@
     function renderKidAvatarSwitcher(container, kids, options = {}) {
         if (!container) return;
         const list = Array.isArray(kids) ? kids : [];
-        const showPoints = options.showPoints !== false;
+        const showPoints = options.showPoints !== false && !window.OfflinePracticeClient?.active;
         const hideWhenLessThan = Number.isInteger(options.hideWhenLessThan)
             ? options.hideWhenLessThan
             : 2;
@@ -393,21 +401,26 @@
             const href = typeof options.hrefForKid === 'function'
                 ? String(options.hrefForKid(kid) || '')
                 : '';
-            const tagName = href && !isActive ? 'a' : 'button';
+            const disabled = Boolean(kid.offlineMode) && !options.readOnly;
+            const tagName = options.readOnly ? 'span' : href && !isActive && !disabled ? 'a' : 'button';
             const actionAttr = tagName === 'a'
                 ? ` href="${escapeHtml(href)}"`
-                : ' type="button"';
+                : tagName === 'button' ? ` type="button"${disabled ? ' disabled' : ''}` : '';
             return `
-                <${tagName}${actionAttr} class="kid-avatar-switcher-item${isActive ? ' active' : ''}" role="tab" aria-selected="${isActive ? 'true' : 'false'}" data-kid-id="${escapeHtml(id)}">
+                <${tagName}${actionAttr} class="kid-avatar-switcher-item${isActive ? ' active' : ''}"${options.readOnly ? '' : ` role="tab" aria-selected="${isActive ? 'true' : 'false'}"`} data-kid-id="${escapeHtml(id)}">
                     ${kidAvatarHtml(kid)}
                     <span class="kid-avatar-switcher-text">
                         <span class="kid-avatar-switcher-name">${escapeHtml(kidName(kid))}</span>
-                        ${showPoints ? `<span class="kid-avatar-switcher-points" data-kid-avatar-points="${escapeHtml(id)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>` : ''}
+                        ${kid.offlineMode ? '<span class="kid-avatar-switcher-points">Offline</span>' : showPoints ? `<span class="kid-avatar-switcher-points" data-kid-avatar-points="${escapeHtml(id)}"${hasCachedBalance ? '' : ' hidden'}>${hasCachedBalance ? escapeHtml(formatPoints(cachedBalance)) : ''}</span>` : ''}
                     </span>
                 </${tagName}>
             `;
         }).join('');
         container.classList.remove('hidden');
+        if (options.readOnly) {
+            container.onclick = null;
+            return;
+        }
         if (showPoints) {
             kidAvatarPointsRequestId += 1;
             hydrateKidAvatarPoints(container, list, kidAvatarPointsRequestId);
@@ -419,7 +432,7 @@
             if (!item) return;
             const kidId = String(item.getAttribute('data-kid-id') || '').trim();
             const kid = list.find((entry) => String(entry?.id || '') === kidId);
-            if (!kidId || !kid) return;
+            if (!kidId || !kid || kid.offlineMode) return;
             if (options.persist !== false) setKidId(kidId);
             if (typeof options.onSelect === 'function') {
                 options.onSelect(kidId, kid, event);

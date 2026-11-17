@@ -1,4 +1,10 @@
 window.PracticeSessionFlow = {
+    saveProgress(state) {
+        return this.progressWriter?.(state);
+    },
+    discardProgress(state) {
+        return this.progressDiscarder?.(state);
+    },
     async startShuffledSession(url, body = {}) {
         const clientSessionStartMs = Date.now();
         const response = await fetch(url, {

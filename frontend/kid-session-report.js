@@ -72,6 +72,8 @@ let currentSheetTask = null;
 let sheetTaskController = null;
 
 function isParentReviewSession() {
+    if (window.OfflineParentClient?.active && currentSessionBehaviorType !== BEHAVIOR_TYPE_III
+        && currentAnswers.some((answer) => Number(answer.correct_score) === 0)) return true;
     return currentSessionBehaviorType === BEHAVIOR_TYPE_II && currentSessionPracticeMode === 'parent_review';
 }
 
@@ -79,6 +81,8 @@ function isParentReviewSession() {
 // === 1. DOM refs + bootstrap
 // =====================================================================
 document.addEventListener('DOMContentLoaded', async () => {
+    await window.OfflineParentClient?.ready;
+    if (window.OfflineParentClient?.blocked) return;
     if (!kidId || !sessionId) {
         window.location.href = '/admin.html';
         return;
@@ -119,12 +123,13 @@ function getFinishHereState(session, answers) {
         todoCount,
         unresolvedCount,
         canFinish: session?.delivery_mode !== 'sheet'
-            && session?.practice_mode !== 'parent_review'
+            && (session?.practice_mode !== 'parent_review' || window.OfflineParentClient?.active)
             && !session?.parent_finalized
             && answerCount > 0
             // Type-III is complete once its recordings are submitted; parent grades
             // are review metadata, not unfinished practice work.
-            && (todoCount > 0 || (!isTypeIIIReviewSession() && unresolvedCount > 0)),
+            && (todoCount > 0 || (!isTypeIIIReviewSession() && unresolvedCount > 0))
+            && (!window.OfflineParentClient?.active || answers.every((answer) => Number(answer.correct_score) !== 0)),
     };
 }
 
@@ -144,7 +149,7 @@ async function handleFinishSessionHere(btn, session, answers) {
     const eligibleCards = Math.max(0, Number.parseInt(session?.point_eligible_card_count, 10) || 0);
     const remaining = state.todoCount;
     const kidLabel = String(currentKidName || 'Your child').trim() || 'Your child';
-    const awardLine = cardsPerPoint > 0
+    const awardLine = window.OfflineParentClient?.active ? '' : cardsPerPoint > 0
         ? `${kidLabel} will earn +${points} pts (${eligibleCards} corrected cards at ${cardsPerPoint} cards per point).`
         : `${kidLabel} will earn +0 pts because this activity has no active point rule.`;
     const confirmed = window.confirm(
@@ -198,6 +203,7 @@ async function handleDeleteSession(btn) {
 }
 
 function resolveBackHref() {
+    if (window.OfflineParentClient?.active) return '/admin.html';
     if (!kidId) {
         return '/admin.html';
     }
@@ -326,7 +332,7 @@ function renderSummary(session, answers) {
         totalActiveMs,
     }));
     const awardedPoints = Number.parseInt(session?.awarded_points, 10);
-    if (Number.isInteger(awardedPoints)) {
+    if (!window.OfflineParentClient?.active && Number.isInteger(awardedPoints)) {
         metaItems.push({
             className: 'session-summary-meta-points',
             ariaLabel: `Points awarded ${awardedPoints}`,
@@ -352,6 +358,11 @@ function renderSummary(session, answers) {
     summaryCard.innerHTML = `
         ${renderSummaryHero(metaHtml, finishHereState.canFinish)}
     `;
+    if (window.OfflineParentClient?.active) {
+        summaryCard.querySelectorAll('a').forEach((link) => {
+            link.removeAttribute('href'); link.removeAttribute('title'); link.removeAttribute('aria-label');
+        });
+    }
 }
 
 function renderSummaryHero(metaHtml, canFinish) {
@@ -599,7 +610,8 @@ function renderParentReview(answers) {
         ...answer,
         correct_score: pending && Number(answer.correct_score) <= -2 ? -1 : Number(answer.correct_score),
     }));
-    renderAnswerList(rightList, draft, { compact: true, parentReview: pending });
+    renderAnswerList(rightList, draft, { compact: true, parentReview: pending,
+        keepSingleGroupOrder: false, sortCorrectBySpeed: true });
     if (!pending) return;
     const actions = document.createElement('div');
     actions.className = 'parent-review-actions';
@@ -902,6 +914,7 @@ function hideSpeedDistribution() {
 }
 
 function shouldShowSpeedDistribution() {
+    if (window.OfflineParentClient?.active) return false;
     return false;
 }
 
@@ -1033,7 +1046,9 @@ function renderAnswerList(container, cards, options = {}) {
     const sortCorrectBySpeed = !!options.sortCorrectBySpeed && !typeIII;
     const reportFrom = getCardReportFromSession();
     const sorted = [...cards].sort((a, b) => {
-        if (isParentReviewSession()) return Number(a.result_id) - Number(b.result_id);
+        if (currentSessionBehaviorType === BEHAVIOR_TYPE_II && currentSessionPracticeMode === 'parent_review') {
+            return Number(a.result_id) - Number(b.result_id);
+        }
         if (sortCorrectBySpeed) {
             return sortStandardAnswersByOutcomeAndSpeed(a, b);
         }
@@ -1142,7 +1157,7 @@ function renderAnswerList(container, cards, options = {}) {
         container.innerHTML = itemHtml;
     }
 
-    if (typeIII && window.LessonReadingDurationBackfill) {
+    if (typeIII && window.LessonReadingDurationBackfill && !window.OfflineParentClient?.active) {
         window.LessonReadingDurationBackfill.attach(container, { kidId });
     }
     window.AudioHistoryCommon.attachPlayers(container, { rewindSeconds: 5 });
@@ -1361,6 +1376,7 @@ function getCardReportFromSession() {
 }
 
 function buildCardReportHref(cardId, fromValue, resultId = null) {
+    if (window.OfflineParentClient?.active) return '';
     const reportLinkParams = new URLSearchParams();
     reportLinkParams.set('id', String(kidId || ''));
     reportLinkParams.set('cardId', String(cardId || ''));

@@ -123,25 +123,23 @@ def get_kids():
                 }
                 for kid in kids
             ]), 200
-        if view == 'reward_nav':
-            family_timezone = metadata.get_family_timezone(family_id)
-            return jsonify([
-                {
-                    'id': kid.get('id'),
-                    'name': kid.get('name'),
-                    'familyTimezone': family_timezone,
-                    'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
-                }
-                for kid in kids
-            ]), 200
-        if view == 'family_home':
-            # The family-home user picker only needs id/name.
-            # Skip the per-kid DB opens + dashboard stats the admin matrix needs.
+        if view in ('family_home', 'reward_nav'):
+            # Include the lightweight offline reservation, without dashboard stats.
+            from src.services.offline.repository import current as current_offline_package
+            timezone_fields = {'familyTimezone': metadata.get_family_timezone(family_id)} if view == 'reward_nav' else {}
+            offline_by_kid = {}
+            for kid in kids:
+                package = current_offline_package(kid)
+                offline_by_kid[str(kid['id'])] = (
+                    {'id': package['id'], 'status': package['status']} if package else None
+                )
             return jsonify([
                 {
                     'id': kid.get('id'),
                     'name': kid.get('name'),
                     'avatarUrl': kid_avatar.avatar_url_for_kid(kid),
+                    'offlineMode': offline_by_kid[str(kid['id'])],
+                    **timezone_fields,
                 }
                 for kid in kids
             ]), 200
@@ -155,6 +153,7 @@ def get_kids():
         }
         type_iii_category_keys = get_type_iii_category_keys(category_meta_by_key)
         if is_admin_view:
+            from src.services.offline.repository import current as current_offline_package
             family_timezone = metadata.get_family_timezone(family_id)
             kids_with_admin_summary = []
             shared_conn = None
@@ -213,6 +212,7 @@ def get_kids():
                         )
                         kids_with_admin_summary.append({
                             **kid,
+                            'offlineMode': current_offline_package(kid, conn=conn) if conn is not None else None,
                             'typeIIIToReviewCount': ungraded_count,
                             'optedInDeckCategoryKeys': opted_in_category_keys,
                             'practiceTargetByDeckCategory': practice_target_by_deck_category,

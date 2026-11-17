@@ -161,14 +161,18 @@ def get_kid_points(kid_id):
     except (TypeError, ValueError):
         limit = 100
     kid_conn = get_kid_connection_for(kid, read_only=True)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         total = get_point_total(kid_conn)
         reward_bucket_totals = get_reward_bucket_totals(kid_conn, shared_conn, family_id)
         events = list_point_events(kid_conn, shared_conn, family_id, limit=limit)
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({
         'kidId': str(kid.get('id') or ''),
         'totalPoints': total,
@@ -184,8 +188,9 @@ def post_kid_point_event(kid_id):
         return error
     payload = request.get_json(silent=True) or {}
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         event = apply_direct_rule_event(
             kid_conn,
             shared_conn,
@@ -198,8 +203,11 @@ def post_kid_point_event(kid_id):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({'event': event}), 201
 
 
@@ -248,12 +256,16 @@ def pull_kid_point_events_from_today_sessions(kid_id):
     if error:
         return error
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         result = pull_in_app_chore_events_for_today(kid_conn, shared_conn, family_id)
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({
         'kidId': str(kid.get('id') or ''),
         **result,
@@ -299,8 +311,9 @@ def get_kid_off_app_chores(kid_id):
     if error:
         return error
     kid_conn = get_kid_connection_for(kid, read_only=True)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         chores = list_enabled_off_app_chores(kid_conn, shared_conn, family_id)
         pending = list_pending_off_app_chores(kid_conn, shared_conn, family_id)
         pending_by_rule_id = {
@@ -325,8 +338,11 @@ def get_kid_off_app_chores(kid_id):
             for chore in chores
         ]
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({
         'kidId': str(kid.get('id') or ''),
         'chores': chores,
@@ -341,8 +357,9 @@ def put_kid_off_app_chores(kid_id):
         return error
     payload = request.get_json(silent=True) or {}
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         chores = set_enabled_off_app_chores(
             kid_conn,
             shared_conn,
@@ -352,8 +369,11 @@ def put_kid_off_app_chores(kid_id):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({'chores': chores}), 200
 
 
@@ -363,14 +383,18 @@ def post_kid_off_app_chore_submit(kid_id, rule_id):
     if error:
         return error
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         pending = submit_off_app_chore(kid_conn, shared_conn, family_id, rule_id)
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({'pending': pending}), 201
 
 
@@ -380,8 +404,9 @@ def delete_kid_off_app_chore_pending(kid_id, pending_id):
     if error:
         return error
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         pending = cancel_pending_off_app_chore(
             kid_conn,
             shared_conn,
@@ -393,8 +418,11 @@ def delete_kid_off_app_chore_pending(kid_id, pending_id):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({'deleted': True, 'pending': pending}), 200
 
 
@@ -405,8 +433,9 @@ def post_kid_off_app_chore_review(kid_id, pending_id):
         return error
     payload = request.get_json(silent=True) or {}
     kid_conn = get_kid_connection_for(kid)
-    shared_conn = get_shared_decks_connection(read_only=True)
+    shared_conn = None
     try:
+        shared_conn = get_shared_decks_connection(read_only=True)
         event = review_pending_off_app_chore(
             kid_conn,
             shared_conn,
@@ -421,6 +450,9 @@ def post_kid_off_app_chore_review(kid_id, pending_id):
     except ValueError as exc:
         return jsonify({'error': str(exc)}), 400
     finally:
-        shared_conn.close()
-        kid_conn.close()
+        try:
+            if shared_conn is not None:
+                shared_conn.close()
+        finally:
+            kid_conn.close()
     return jsonify({'event': event}), 201

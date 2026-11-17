@@ -1,0 +1,3 @@
+.offline-parent-active #deleteSessionBtn { display: none !important; }
+.offline-parent-active .admin-matrix-value:not(a),
+.offline-parent-active .admin-matrix-row-check:disabled { cursor: default; }

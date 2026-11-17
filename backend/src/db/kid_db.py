@@ -1,6 +1,7 @@
 """DuckDB connection manager for individual kid databases"""
 import duckdb
 import os
+from threading import RLock
 from typing import Optional
 
 from src.db.duckdb_maintenance import compact_duckdb_file
@@ -9,6 +10,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), '../../data')
 SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'schema.sql')
 
 _schema_sql_cache: Optional[str] = None
+_connection_open_lock = RLock()
 
 def _get_schema_sql() -> str:
     """Read and cache schema.sql contents."""
@@ -31,9 +33,16 @@ def _apply_schema_sql(conn: duckdb.DuckDBPyConnection) -> None:
 
 def _connect_kid_db(db_path: str) -> duckdb.DuckDBPyConnection:
     """Open a kid DB connection with UTC as the only DB timestamp timezone."""
-    conn = duckdb.connect(db_path)
-    conn.execute("SET TimeZone='UTC'")
-    return conn
+    # Only serialize opening/initialization, not queries or the request lifetime.
+    # Keep separate request connections and release files when callers close them.
+    with _connection_open_lock:
+        conn = duckdb.connect(os.path.realpath(db_path))
+        try:
+            conn.execute("SET TimeZone='UTC'")
+            return conn
+        except Exception:
+            conn.close()
+            raise
 
 def get_absolute_db_path(db_file_path: str) -> str:
     """Resolve a metadata dbFilePath (relative to backend/data) to absolute path."""
@@ -53,8 +62,10 @@ def init_kid_database_by_path(db_file_path: str) -> str:
     db_path = get_absolute_db_path(db_file_path)
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
     conn = _connect_kid_db(db_path)
-    _apply_schema_sql(conn)
-    conn.close()
+    try:
+        _apply_schema_sql(conn)
+    finally:
+        conn.close()
     return db_path
 
 
@@ -64,8 +75,10 @@ def ensure_kid_database_schema_by_path(db_file_path: str) -> str:
     if not os.path.exists(db_path):
         raise FileNotFoundError(f"Database not found at {db_file_path}")
     conn = _connect_kid_db(db_path)
-    _apply_schema_sql(conn)
-    conn.close()
+    try:
+        _apply_schema_sql(conn)
+    finally:
+        conn.close()
     return db_path
 
 

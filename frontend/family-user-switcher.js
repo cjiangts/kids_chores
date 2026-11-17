@@ -111,7 +111,7 @@
         const avatarUrl = String(options.avatarUrl || '').trim();
         const title = String(options.title || `Switch user from ${name}`);
         const extraClass = String(options.className || '').trim();
-        const pointsHtml = options.showPoints
+        const pointsHtml = options.showPoints && !window.OfflinePracticeClient?.active
             ? '<span class="family-user-switcher__points" data-family-user-points hidden></span>'
             : '';
         container.innerHTML = `

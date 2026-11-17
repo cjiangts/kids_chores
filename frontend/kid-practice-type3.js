@@ -252,6 +252,7 @@ async function toggleRecord() {
     }
 }
 async function stopRecordingForReview() {
+    const recordingDurationMs = Math.max(0, Date.now() - state.recordingStartedAtMs);
     const previousBtnText = recordBtnLabel.textContent;
     recordBtn.disabled = true;
     recordBtnLabel.textContent = 'Stopping...';
@@ -286,6 +287,7 @@ async function stopRecordingForReview() {
     resetRecordingState();
 
     state.pendingRecordedBlob = blob;
+    state.pendingRecordedDurationMs = recordingDurationMs;
     state.pendingRecordedMimeType = mimeType;
     if (state.pendingRecordedUrl) {
         URL.revokeObjectURL(state.pendingRecordedUrl);
@@ -447,7 +449,7 @@ async function confirmAndNext() {
     if (!isType(BEHAVIOR_TYPE_III)) {
         return;
     }
-    if (state.isSessionPaused || state.isRecording || state.isUploadingRecording || !state.pendingRecordedBlob) {
+    if (state.savingProgress || state.isSessionPaused || state.isRecording || state.isUploadingRecording || !state.pendingRecordedBlob) {
         return;
     }
 
@@ -466,7 +468,9 @@ async function confirmAndNext() {
         state.sessionAnswers.push({
             cardId: card.id,
             known: true,
+            responseTimeMs: state.pendingRecordedDurationMs || 0,
         });
+        await window.PracticeSessionFlow.saveProgress(state);
         state.completedCount += 1;
         updateFinishEarlyButtonState();
 

@@ -167,7 +167,8 @@ function revealType2Answer() {
     doneRow.classList.add('hidden');
     judgeRow.classList.remove('hidden');
 }
-function answerType2Card(correct) {
+async function answerType2Card(correct) {
+    if (state.savingProgress) return;
     if (!state.answerRevealed || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
@@ -180,6 +181,7 @@ function answerType2Card(correct) {
         known: correct,
         responseTimeMs,
     });
+    await window.PracticeSessionFlow.saveProgress(state);
     updateFinishEarlyButtonState();
 
     if (!state.type2ParentReview) {

@@ -153,6 +153,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     persistLastViewedKidId(kidId);
 
+    try {
+        if (await window.OfflineRouting.openPracticeHome(kidId, urlParams.get('offlineSetup'))) return;
+    } catch (error) {
+        showError(error.message || 'Could not read this device’s offline package.');
+        return;
+    }
+
     const cachedKid = readKidFromPracticeNavigationCache();
     if (cachedKid) {
         applyKidPayload(cachedKid);
@@ -578,12 +585,14 @@ function renderOffAppTaskIcon(chore) {
 }
 
 function formatDonePointsStatus(pointsValue) {
+    if (window.OfflinePracticeClient?.active) return 'Done';
     const points = Number.parseInt(pointsValue, 10);
     if (!Number.isInteger(points)) return 'Done';
     return `Done ${points >= 0 ? '+' : ''}${points}`;
 }
 
 function formatCreditedOffAppStatus(event) {
+    if (window.OfflinePracticeClient?.active) return 'Done';
     const points = Number.parseInt(event?.pointsDelta, 10);
     if (!Number.isInteger(points)) {
         return 'Done Today';

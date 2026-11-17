@@ -181,6 +181,10 @@ async function startType1Session() {
 
         if (isDrillConfirmed) {
             initDrillSession(started?.data?.drill_speed_target_ms);
+            if (started.data.client_progress) {
+                Object.assign(state, started.data.client_progress);
+                state.currentIndex = pickNextDrillCardIndex();
+            }
         } else {
             resetDrillSessionState();
         }
@@ -562,6 +566,7 @@ function renderType1MultipleChoiceOptions() {
 // =====================================================================
 
 function answerType1IDontKnow() {
+    if (state.savingProgress) return;
     if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
@@ -576,6 +581,7 @@ function answerType1IDontKnow() {
     answerType1Card(false, null, { idk: true });
 }
 function answerType1MultipleChoice(choiceIndex) {
+    if (state.savingProgress) return;
     if (!isType(BEHAVIOR_TYPE_I) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
@@ -624,6 +630,7 @@ function showType1WrongAnswerReview(wrongChoiceText) {
 }
 
 function dismissType1WrongAnswerReview() {
+    if (state.savingProgress) return;
     state.type1WrongAnswerReview = false;
     cardAnswer.classList.add('hidden');
     flashcard.classList.remove('revealed');
@@ -683,6 +690,7 @@ function setPausedVisual(paused) {
 // =====================================================================
 
 function answerType1Card(correct, loggedChoice = null, options = {}) {
+    if (state.savingProgress) return;
     const judgeState = getJudgeModeUiState();
     if (judgeState.isSelfMode && !state.answerRevealed) {
         return;
@@ -742,7 +750,8 @@ function recordType1Answer(correct, loggedChoice = null, options = {}) {
     }
 }
 
-function advanceType1Card() {
+async function advanceType1Card() {
+    await window.PracticeSessionFlow.saveProgress(state);
     if (state.drillActive) {
         if (state.drillAttemptsDone >= state.drillTargetAttempts) {
             void endSession();

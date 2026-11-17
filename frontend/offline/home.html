@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Offline practice - The Mommy App</title>
+    <link rel="stylesheet" href="/fonts-local.css">
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/paradigm.css">
+    <link rel="stylesheet" href="/kid-app-navigation.css">
+    <link rel="stylesheet" href="entry.css">
+    <link rel="stylesheet" href="home.css">
+</head>
+<body class="parent-admin-page">
+    <main class="container offline-home">
+        <header class="page-header-with-back page-header-with-actions">
+            <div class="page-header-row">
+                <h1><span class="page-title-icon" aria-hidden="true">☁️</span><span id="offlineKidName">Offline</span></h1>
+                <div class="page-header-end">
+                    <div id="offlineKidAvatar" class="kid-avatar-switcher hidden" role="group" aria-label="Child"></div>
+                    <div class="page-header-actions" data-family-user-switcher></div>
+                </div>
+            </div>
+        </header>
+        <section class="offline-home-panel paradigm-settings-panel">
+            <div class="paradigm-metric-header">
+                <h2 class="paradigm-panel-title">
+                    <span class="paradigm-panel-title-icon" aria-hidden="true"><span data-icon="cloud-off" data-icon-stroke="2"></span></span>
+                    <span id="offlinePackageTitle" class="paradigm-panel-heading">Offline</span>
+                </h2>
+                <div class="paradigm-row-action-group">
+                    <button id="uploadOfflinePackage" type="button" class="paradigm-btn paradigm-btn--pill hidden"><span data-icon="upload" data-icon-size="17"></span> Upload</button>
+                    <button id="deleteOfflinePackage" type="button" class="paradigm-btn paradigm-btn--pill is-danger hidden"><span data-icon="trash" data-icon-size="17"></span> Delete</button>
+                    <button id="offlineBrowserStorage" type="button" class="paradigm-btn paradigm-btn--pill" aria-haspopup="dialog">Storage</button>
+                </div>
+            </div>
+            <div id="offlineDownloadProgress" class="offline-download-progress hidden" role="status" aria-live="polite">
+                <p id="offlineDownloadStatus"></p>
+                <progress id="offlineDownloadBar" max="1" value="0" aria-label="Offline package download"></progress>
+            </div>
+            <p id="offlineHomeError" class="error hidden" role="alert"></p>
+            <a id="offlineSignIn" class="hidden" href="/family-login.html">Sign in to continue</a>
+            <a id="offlineNoPackageBack" class="hidden" href="/family-home.html">Choose user</a>
+            <div id="offlinePlan" class="hidden">
+                <div class="offline-progress-overview">
+                    <div class="offline-chore-legend">
+                        <span><i class="offline-chore-block" aria-hidden="true"></i> To do</span>
+                        <span><i class="offline-chore-block is-finished" aria-hidden="true"></i> Done</span>
+                        <span><i class="offline-chore-block is-pending" aria-hidden="true"></i> In progress / Needs review</span>
+                        <span><i class="offline-chore-block is-excluded" aria-hidden="true"></i> Not in package</span>
+                    </div>
+                </div>
+                <div id="offlineDays" class="offline-days"></div>
+                <div class="offline-home-actions">
+                    <button id="cancelOfflinePreparation" type="button" class="paradigm-edit-action paradigm-edit-action--cancel">Cancel</button>
+                    <button id="startOfflineDownload" type="button" class="paradigm-edit-action paradigm-edit-action--confirm">Start download</button>
+                </div>
+            </div>
+        </section>
+    </main>
+    <dialog id="offlineStorageDialog" class="offline-setup-dialog" aria-labelledby="offlineStorageTitle">
+        <div class="offline-setup-head">
+            <h2 id="offlineStorageTitle">Storage details</h2>
+            <form method="dialog"><button type="submit" class="paradigm-icon-btn" aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button></form>
+        </div>
+        <div id="offlineStorageDetails" class="offline-storage-details"></div>
+    </dialog>
+    <script src="store.js"></script>
+    <script src="/icons.js"></script>
+    <script src="/family-user-switcher.js"></script>
+    <script src="/subject-icons.js"></script>
+    <script src="/kid-app-navigation.js"></script>
+    <script src="/practice-manage-common.js"></script>
+    <script src="download.js"></script>
+    <script src="parent-auth.js"></script>
+    <script src="parent-client.js"></script>
+    <script src="upload.js"></script>
+    <script src="home.js"></script>
+</body>
+</html>

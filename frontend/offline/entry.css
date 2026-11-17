@@ -1,0 +1,38 @@
+.offline-setup-dialog {
+    width: min(440px, calc(100% - 32px));
+    max-height: calc(100dvh - 40px);
+    overflow-y: auto;
+    margin: auto;
+    padding: 24px;
+    border: 1px solid var(--p-border);
+    border-radius: 24px;
+    background: #fff;
+    color: #2f3c7e;
+    box-shadow: 0 24px 70px rgba(35, 42, 90, .25);
+}
+.offline-setup-dialog::backdrop { background: rgba(30, 34, 65, .4); }
+.offline-setup-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.offline-setup-head h2 { margin: 0; font-size: 1.35rem; }
+.offline-setup-hint { margin: 12px 0 20px; color: #6b7390; font-size: .9rem; line-height: 1.5; }
+.offline-child-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.offline-child { display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 60px; border: 1px solid #d8def0; border-radius: 16px; background: #fff; color: #2f3c7e; font: inherit; cursor: pointer; }
+.offline-child img { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.offline-child span { overflow-wrap: anywhere; min-width: 0; }
+.offline-child.is-selected { border-color: #7161ed; background: #f1eeff; box-shadow: 0 0 0 1px #7161ed; }
+.offline-child:focus-visible { outline: 2px solid #7161ed; outline-offset: 3px; }
+.offline-child--readonly { cursor: default; border: 0; padding: .6rem 0; }
+[data-offline-existing] { font-size: var(--paradigm-list-item-sub-font-size, .78rem); line-height: 1.5; overflow-wrap: anywhere; }
+.offline-days-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 8px 0 24px; }
+.offline-setup-actions { display: flex; justify-content: flex-end; gap: 10px; }
+.offline-password-label { display: block; margin-bottom: 8px; font-size: .9rem; }
+#offlineSetupPassword { width: 100%; box-sizing: border-box; }
+.offline-setup-actions { margin-top: 20px; }
+.offline-setup-error { margin: 12px 0; color: #b93838; font-size: .9rem; }
+.offline-blocker-list { margin: 16px 0; padding-left: 24px; color: #b93838; font-size: .9rem; line-height: 1.5; }
+.offline-blocker-list li + li { margin-top: 12px; }
+.offline-blocker-list strong, .offline-blocker-list span { display: block; }
+
+@media (max-width: 480px) {
+    .family-home-header { gap: 8px; }
+    .family-home-header h1 { font-size: clamp(1.4rem, 6vw, 2.05rem); }
+}

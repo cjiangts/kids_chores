@@ -903,7 +903,7 @@ async function loadKidsManage() {
         return;
     }
     try {
-        const response = await fetch(`${API_BASE}/kids?view=practice_nav`);
+        const response = await fetch(`${API_BASE}/kids?view=family_home`);
         const payload = await response.json().catch(() => ([]));
         if (!response.ok) {
             showKidsManageError((payload && payload.error) || `Failed to load children (HTTP ${response.status})`);
@@ -937,7 +937,9 @@ function renderKidsManage(kids) {
             <div class="kids-manage-row" data-kid-id="${escapeHtml(kidId)}">
                 <span class="kids-manage-avatar kid-initial-avatar ${avatarVariant}" data-kid-avatar>${avatarInner}</span>
                 <span class="kids-manage-name">${escapeHtml(name)}</span>
+                ${kid.offlineMode ? `<span class="paradigm-pill kids-manage-offline-pill">${icon('cloud-off', { size: 14 })} Offline</span>` : ''}
                 <div class="kids-manage-row-action">
+                    <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn" data-action="prepare-offline" aria-label="${escapeHtml(`Offline practice for ${name}`)}" title="${kid.offlineMode ? 'Manage offline package' : 'Offline practice'}">${icon('cloud-off', { size: 16 })}</button>
                     <button type="button" class="paradigm-icon-btn paradigm-icon-action-btn" data-action="set-avatar" aria-label="${escapeHtml(`Set photo for ${name}`)}">${icon('image', { size: 16 })}</button>
                     <button type="button" class="paradigm-icon-btn is-danger paradigm-icon-action-btn" data-action="ask-delete-kid" aria-label="${escapeHtml(`Remove ${name}`)}">${icon('trash', { size: 16 })}</button>
                 </div>
@@ -1255,3 +1257,9 @@ function showTimezoneSuccess(message) {
         timezoneSuccess.classList.add('hidden');
     }
 }
+
+window.OfflineEntry.init({
+    onReady(kid, setup) {
+        location.href = `/offline/home.html?${new URLSearchParams({ id: kid.id, packageId: setup.id })}`;
+    },
+});

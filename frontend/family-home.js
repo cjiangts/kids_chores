@@ -16,8 +16,8 @@ let familyHomeLoggingOut = false;
 document.addEventListener('DOMContentLoaded', bootFamilyHome);
 logoutBtn?.addEventListener('click', logoutFamily);
 clearOfflineCacheBtn?.addEventListener('click', clearOfflineCacheAndRefresh);
-
 async function bootFamilyHome() {
+    if (await window.OfflineGate.ready) return;
     const controller = new AbortController();
     familyHomeBootController?.abort();
     familyHomeBootController = controller;
@@ -25,7 +25,8 @@ async function bootFamilyHome() {
         const status = await fetchJson(`${API_BASE}/family-auth/status`, { signal: controller.signal });
         if (familyHomeLoggingOut) return;
         if (!status.authenticated) return redirectToFamilyLogin();
-        const kids = await fetchJson(`${API_BASE}/kids?view=family_home`, { signal: controller.signal });
+        const boundKid = await window.OfflineEntry.getBoundKid();
+        const kids = boundKid ? [boundKid] : await fetchJson(`${API_BASE}/kids?view=family_home`, { signal: controller.signal });
         if (familyHomeLoggingOut) return;
         currentKids = Array.isArray(kids) ? kids : [];
         renderBubbles();
@@ -46,11 +47,23 @@ function renderBubbles() {
     bubbleGrid.querySelectorAll('[data-kid-id]').forEach((bubble) => bubble.addEventListener('click', async (event) => {
         event.preventDefault();
         const id = String(bubble.dataset.kidId || '');
-        showError(''); await refreshFamilyHomeSnapshot();
-        const kid = currentKids.find((item) => String(item?.id || '') === id);
-        persist(LAST_VIEWED_KID_STORAGE_KEY, id); persist(CURRENT_USER_MODE_STORAGE_KEY, 'kid');
-        persist(CURRENT_USER_NAME_STORAGE_KEY, String(kid?.name || 'Kid')); persistAvatar(kid?.avatarUrl);
-        window.location.href = `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
+        try {
+            showError('');
+            await refreshFamilyHomeSnapshot();
+            renderBubbles();
+            const kid = currentKids.find((item) => String(item?.id || '') === id);
+            if (!kid) throw new Error('Child not found. Please refresh.');
+            let setup = null;
+            if (kid.offlineMode) {
+                setup = await window.OfflineSetupStore.getSetup(kid.offlineMode.id, id);
+                if (!setup || String(setup.kidId) !== id) {
+                    throw new Error(`${kid.name} is using offline mode on another device. Please use that device.`);
+                }
+            }
+            enterKidMode(kid, setup);
+        } catch (error) {
+            showError(error.message || 'Could not open this child.');
+        }
     }));
 }
 
@@ -62,13 +75,22 @@ function renderKidBubble(kid, index) {
     const id = String(kid?.id || ''); const name = String(kid?.name || '').trim() || 'Kid';
     const avatar = String(kid?.avatarUrl || '');
     const avatarHtml = avatar ? `<img class="user-bubble-avatar-img" src="${escapeHtml(avatar)}" alt="" loading="lazy">` : `<span class="user-bubble-initials">${escapeHtml(name.slice(0, 2).toUpperCase())}</span>`;
-    return `<a class="user-bubble user-bubble--tone-${index % 4}" href="/kid-practice-home.html?id=${encodeURIComponent(id)}" data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`${name} practice home`)}"><span class="user-bubble-avatar" aria-hidden="true">${avatarHtml}</span><span class="user-bubble-name">${escapeHtml(name)}</span><span class="user-bubble-role">Kid</span></a>`;
+    const offline = kid.offlineMode;
+    const showOffline = offline && !document.documentElement.classList.contains('offline-device-active');
+    const label = showOffline ? (offline.status === 'preparing' ? 'Offline · Preparing' : 'Offline') : 'Kid';
+    const href = offline?.status === 'preparing'
+        ? `/offline/home.html?${new URLSearchParams({ id, packageId: offline.id })}`
+        : `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
+    return `<a class="user-bubble user-bubble--tone-${index % 4}${showOffline ? ' user-bubble--offline' : ''}" href="${escapeHtml(href)}" data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`${name} practice home${showOffline ? `, ${label}` : ''}`)}"><span class="user-bubble-avatar" aria-hidden="true">${avatarHtml}</span><span class="user-bubble-name">${escapeHtml(name)}</span><span class="user-bubble-role${showOffline ? ' user-bubble-role--offline' : ''}">${showOffline ? iconHtml('cloud-off', 14) : ''}${escapeHtml(label)}</span></a>`;
 }
 
 async function refreshFamilyHomeSnapshot() {
     if (familyHomeRefreshing) return;
     familyHomeRefreshing = true;
-    try { currentKids = await fetchJson(`${API_BASE}/kids?view=family_home`); } finally { familyHomeRefreshing = false; }
+    try {
+        const boundKid = await window.OfflineEntry.getBoundKid();
+        currentKids = boundKid ? [boundKid] : await fetchJson(`${API_BASE}/kids?view=family_home`);
+    } finally { familyHomeRefreshing = false; }
 }
 
 async function logoutFamily() {
@@ -80,6 +102,11 @@ async function logoutFamily() {
 
 async function clearOfflineCacheAndRefresh() {
     if (!clearOfflineCacheBtn || clearOfflineCacheBtn.disabled) return;
+    const binding = await window.OfflineSetupStore.getBoundSetup();
+    if (binding) {
+        location.replace(window.OfflineGate.homeUrl(binding));
+        return;
+    }
     clearOfflineCacheBtn.disabled = true;
     clearOfflineCacheBtn.classList.add('is-clearing');
     try {
@@ -102,6 +129,14 @@ async function clearOfflineCacheAndRefresh() {
 
 async function enterParentMode(targetHref) {
     showError('');
+    const offlineSetup = await window.OfflineSetupStore.getBoundSetup();
+    if (offlineSetup?.status === 'active') {
+        try {
+            window.OfflineParentAuth.leave(offlineSetup);
+            if (await window.OfflineParentAuth.enter(offlineSetup)) enterParentModeComplete('/admin.html');
+        } catch (error) { showError(error.message || 'Could not enter offline parent mode.'); }
+        return;
+    }
     if (await enterParentModeWithTrustedBrowser(targetHref)) return;
 
     if (!window.PracticeManageCommon || typeof window.PracticeManageCommon.requestWithPasswordDialog !== 'function') {
@@ -196,3 +231,18 @@ function persistAvatar(value) { try { value ? window.sessionStorage?.setItem(CUR
 function iconHtml(name, size = 44) { return typeof window.icon === 'function' ? window.icon(name, { className: 'icon', size, strokeWidth: 2.1 }) : ''; }
 function showError(message) { if (!errorMessage) return; errorMessage.textContent = message; errorMessage.classList.toggle('hidden', !message); }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch])); }
+
+function enterKidMode(kid, offlineSetup = null) {
+    if (offlineSetup) window.OfflineParentAuth.leave(offlineSetup);
+    const id = String(kid.id);
+    persist(LAST_VIEWED_KID_STORAGE_KEY, id);
+    persist(CURRENT_USER_MODE_STORAGE_KEY, 'kid');
+    persist(CURRENT_USER_NAME_STORAGE_KEY, String(kid.name || 'Kid'));
+    persistAvatar(kid.avatarUrl);
+    const query = new URLSearchParams({ id });
+    if (offlineSetup?.status === 'preparing') {
+        window.location.href = `/offline/home.html?${new URLSearchParams({ id, packageId: offlineSetup.id })}`;
+        return;
+    }
+    window.location.href = `/kid-practice-home.html?${query}`;
+}

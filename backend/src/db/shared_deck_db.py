@@ -1,5 +1,6 @@
 """DuckDB connection manager for shared, family-created decks."""
 import os
+from threading import RLock
 from typing import Optional
 
 import duckdb
@@ -13,6 +14,7 @@ SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'shared_deck_schema.sql')
 POINTS_SCHEMA_FILE = os.path.join(os.path.dirname(__file__), 'shared_deck_points.sql')
 
 _schema_sql_cache: Optional[str] = None
+_connection_open_lock = RLock()
 
 
 def _get_schema_sql() -> str:
@@ -34,17 +36,24 @@ def _get_schema_sql() -> str:
 
 def _connect_shared_db() -> duckdb.DuckDBPyConnection:
     """Open the shared DB with UTC as the only DB timestamp timezone."""
-    conn = duckdb.connect(SHARED_DB_PATH)
-    conn.execute("SET TimeZone='UTC'")
-    return conn
+    with _connection_open_lock:
+        conn = duckdb.connect(os.path.realpath(SHARED_DB_PATH))
+        try:
+            conn.execute("SET TimeZone='UTC'")
+            return conn
+        except Exception:
+            conn.close()
+            raise
 
 
 def init_shared_decks_database() -> str:
     """Initialize shared decks database file and schema."""
     os.makedirs(DATA_DIR, exist_ok=True)
     conn = _connect_shared_db()
-    conn.execute(_get_schema_sql())
-    conn.close()
+    try:
+        conn.execute(_get_schema_sql())
+    finally:
+        conn.close()
     return SHARED_DB_PATH
 
 

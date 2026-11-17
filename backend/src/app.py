@@ -27,6 +27,7 @@ import time
 from src.routes.kids import (
     kids_bp,
 )
+from src.routes.offline_setup import offline_setup_bp
 from src.routes.backup import backup_bp
 from src.routes.points import points_bp
 from src.db import metadata, kid_db
@@ -259,6 +260,7 @@ def create_app():
     app.register_blueprint(kids_bp, url_prefix='/api')
     app.register_blueprint(backup_bp, url_prefix='/api')
     app.register_blueprint(points_bp, url_prefix='/api')
+    app.register_blueprint(offline_setup_bp, url_prefix='/api')
 
     # =================================================================
     # === 4. Family-auth routes
@@ -736,14 +738,8 @@ def create_app():
             if path.lower().endswith('.html'):
                 return frontend_html_response(path)
             response = send_from_directory(frontend_dir, path)
-            normalized_path = path.lower()
-            # The worker is a stable generic cache controller. Keep it in the
-            # browser HTTP cache so Safari does not revalidate it per page;
-            # the Settings reset still clears all app content in Cache Storage.
-            if normalized_path == 'service-worker.js':
-                response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
-            else:
-                response.headers['Cache-Control'] = 'no-store'
+            # The worker must update independently of cached application assets.
+            response.headers['Cache-Control'] = 'no-store'
             return response
         return frontend_html_response('index.html')
 

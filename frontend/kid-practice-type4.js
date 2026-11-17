@@ -210,7 +210,8 @@ function showCurrentType4Item() {
         }, 0);
     }
 }
-function answerType4Item(submittedAnswer) {
+async function answerType4Item(submittedAnswer) {
+    if (state.savingProgress) return;
     if (!isType(BEHAVIOR_TYPE_IV) || !window.PracticeSession.hasActiveSession(state.activePendingSessionId)) {
         return;
     }
@@ -222,6 +223,7 @@ function answerType4Item(submittedAnswer) {
         submittedAnswer: String(submittedAnswer ?? ''),
         responseTimeMs,
     });
+    await window.PracticeSessionFlow.saveProgress(state);
     updateFinishEarlyButtonState();
 
     if (state.currentIndex >= state.sessionCards.length - 1) {
@@ -307,6 +309,7 @@ async function endType4Session(endedEarly = false) {
         resultSummary.textContent = endedEarly
             ? `Ended early · Wrong: ${wrongCount} of ${answeredCount} answered${partialSuffix}`
             : `Wrong: ${wrongCount} of ${displayTotal}${partialSuffix}`;
+        if (payload.requires_review) resultSummary.textContent = `${answeredCount} completed · Waiting for parent review.`;
         window.PracticeSession.clearSessionStart(state.activePendingSessionId);
         updateFinishEarlyButtonState();
         setResultActionMode('back');

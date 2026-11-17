@@ -38,6 +38,9 @@
     .sheet-task-view { max-width: none; }
     .practice-page:has(.sheet-task-view) .practice-container,
     .report-page:has(.sheet-task-view) > .container { max-width: none; width: 100%; }
+    .report-page.has-kid-app-nav:has(.sheet-task-view) > .container {
+        width: calc(100% - 180px);
+    }
     .sheet-task-pages {
         display: flex;
         flex-wrap: wrap;

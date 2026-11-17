@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="home-redesign-v4.css">
     <link rel="stylesheet" href="kid-app-navigation.css">
     <link rel="stylesheet" href="avatar-editor.css">
+    <link rel="stylesheet" href="offline/entry.css">
     <style>
         .settings-row {
             display: flex;
@@ -189,6 +190,14 @@
 
         .kids-manage-row-action {
             margin-left: auto;
+        }
+
+        .kids-manage-offline-pill {
+            gap: .3rem;
+            padding: 0 .6rem;
+            border-radius: 999px;
+            background: #e4f5ec;
+            color: #267c58;
         }
 
         .kids-manage-row.is-confirming .kids-manage-row-action {
@@ -566,11 +575,54 @@
         </div>
     </div>
 
+    <dialog id="offlineSetupDialog" class="offline-setup-dialog" aria-labelledby="offlineSetupTitle">
+        <div class="offline-setup-head">
+            <h2 id="offlineSetupTitle">Offline practice</h2>
+            <button type="button" class="paradigm-icon-btn" data-offline-cancel aria-label="Close"><span data-icon="x" data-icon-size="20"></span></button>
+        </div>
+        <form id="offlineSetupForm">
+        <div class="offline-child offline-child--readonly" data-offline-child></div>
+        <div data-offline-existing class="hidden">
+            <p data-offline-device></p>
+            <p data-offline-activated></p>
+            <p>Deleting releases this child for online use. The other device will no longer be able to upload its results.</p>
+        </div>
+        <div class="offline-days-row">
+            <span>Offline days</span>
+            <div class="paradigm-compact-stepper" role="group" aria-label="Offline days">
+                <button type="button" class="paradigm-compact-stepper-button" data-offline-step="-1" aria-label="Fewer days">−</button>
+                <output class="paradigm-compact-stepper-value" data-offline-days aria-live="polite">7</output>
+                <button type="button" class="paradigm-compact-stepper-button" data-offline-step="1" aria-label="More days">+</button>
+            </div>
+        </div>
+        <div class="offline-setup-actions paradigm-edit-actions">
+            <button type="button" class="paradigm-edit-action paradigm-edit-action--cancel" data-offline-cancel>Cancel</button>
+            <button type="button" class="paradigm-edit-action paradigm-edit-action--confirm paradigm-edit-action--danger hidden" data-offline-force-delete>Delete</button>
+            <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm" data-offline-confirm disabled>Continue</button>
+        </div>
+        </form>
+    </dialog>
+
+    <dialog id="offlineSetupErrorDialog" class="offline-setup-dialog" aria-labelledby="offlineSetupErrorTitle" aria-describedby="offlineSetupErrorMessage">
+        <div class="offline-setup-head">
+            <h2 id="offlineSetupErrorTitle">Could not prepare offline practice</h2>
+        </div>
+        <p id="offlineSetupErrorMessage" class="offline-setup-error"></p>
+        <ul class="offline-blocker-list hidden" data-offline-blockers></ul>
+        <form method="dialog" class="offline-setup-actions paradigm-edit-actions">
+            <button type="submit" class="paradigm-edit-action paradigm-edit-action--confirm" autofocus>OK</button>
+        </form>
+    </dialog>
+
     <script src="icons.js"></script>
     <script src="family-user-switcher.js"></script>
     <script src="kid-app-navigation.js"></script>
     <script src="practice-manage-common.js"></script>
     <script src="avatar-editor.js"></script>
+    <script src="offline/store.js"></script>
+    <script src="offline/download.js"></script>
+    <script src="offline/parent-auth.js"></script>
+    <script src="offline/entry.js"></script>
     <script src="parent-settings-core.js"></script>
     <script src="parent-settings-backup.js"></script>
 </body>

@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <style>.offline-binding-check body { visibility: hidden; }</style>
+    <script src="offline/store.js"></script>
+    <script src="offline/gate.js"></script>
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
@@ -14,12 +17,16 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="paradigm.css">
     <link rel="stylesheet" href="family-home.css">
+    <link rel="stylesheet" href="offline/entry.css">
 </head>
 <body class="family-home-page">
     <main class="family-home-shell" aria-labelledby="familyHomeTitle">
         <header class="family-home-header">
             <div class="family-home-title-block">
-                <div class="family-home-eyebrow">The Mommy App</div>
+                <div class="family-home-badges">
+                    <div class="family-home-eyebrow">The Mommy App</div>
+                    <span class="family-home-offline-pill" role="status"><span data-icon="cloud-off" data-icon-size="14"></span> Offline</span>
+                </div>
                 <h1 id="familyHomeTitle">Choose user</h1>
             </div>
             <div class="family-home-actions">
@@ -43,6 +50,10 @@
 
     <script src="icons.js"></script>
     <script src="practice-manage-common.js"></script>
+    <script src="offline/download.js"></script>
+    <script src="offline/parent-auth.js"></script>
+    <script src="offline/upload.js"></script>
+    <script src="offline/entry.js"></script>
     <script src="family-home.js"></script>
 </body>
 </html>
