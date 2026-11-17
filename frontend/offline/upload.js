@@ -37,6 +37,10 @@ window.OfflineUpload = (() => {
         return (await new Response(form).blob()).size;
     }
     async function upload(setup, password) {
+        if (!setup.manifest || setup.manifest.id !== setup.id
+            || String(setup.manifest.kidId) !== String(setup.kidId)) {
+            throw new Error('The saved task plan on this device has missing or mismatched package identification. Nothing was uploaded. Local results have been kept.');
+        }
         const store = window.OfflineSetupStore;
         let alreadyFrozen = false;
         // Freeze the snapshot in the same transaction as practice writes. Other

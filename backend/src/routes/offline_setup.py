@@ -109,14 +109,18 @@ def upload_package(package_id):
     def operation(kid):
         from src.services.family_auth import get_kid_connection_for
         from src.db.shared_deck_db import get_shared_decks_connection
+        if 'manifest' not in request.form or 'records' not in request.form:
+            raise ValueError(f"The server did not receive {kid['name']}’s task plan or results in the upload form. "
+                             "Reload this page while online and retry. Local results have been kept.")
+        manifest = json.loads(request.form['manifest'])
+        records = json.loads(request.form['records'])
         conn = get_kid_connection_for(kid)
         shared = None
         try:
             shared = get_shared_decks_connection(read_only=True)
             with lifecycle.LOCK:
                 return reconcile.upload(conn, shared, kid, package_id, request.headers.get('X-Offline-Device') or '',
-                                        json.loads(request.form.get('manifest', '{}')),
-                                        json.loads(request.form.get('records', '{}')), request.files)
+                                        manifest, records, request.files)
         finally:
             try:
                 if shared is not None:

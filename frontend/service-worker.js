@@ -63,6 +63,8 @@ async function serveRequest(request) {
     // Explicit downloads bypass the ordinary app cache and always read the server.
     if (request.headers.get('X-Offline-Download') === '1') return fetch(request);
     var url = new URL(request.url);
+    // Package lifecycle requests always belong to the server, including multipart uploads.
+    if (url.pathname.startsWith('/api/offline/')) return fetch(request);
     var setup;
     try { setup = await self.OfflineSetupStore.getBoundSetup(); } catch (_) { /* Online fallback. */ }
     if (setup) {

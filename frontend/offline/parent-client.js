@@ -28,6 +28,11 @@ window.OfflineParentClient = { active: false, blocked: false };
     })();
     window.fetch = async (input, options) => {
         await window.OfflineParentClient.ready;
+        const inputUrl = new URL(input instanceof Request ? input.url : input, location.href);
+        // Package uploads use native FormData. Do not reconstruct their requests.
+        if (inputUrl.origin === location.origin && inputUrl.pathname.startsWith('/api/offline/')) {
+            return originalFetch(input, options);
+        }
         const request = new Request(input, options);
         const url = new URL(request.url);
         if (window.OfflineParentClient.active && url.origin === location.origin && url.pathname.startsWith('/api/')
