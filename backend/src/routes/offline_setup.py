@@ -111,7 +111,11 @@ def upload_package(package_id):
         from src.db.shared_deck_db import get_shared_decks_connection
         if 'manifest' not in request.form or 'records' not in request.form:
             raise ValueError(f"The server did not receive {kid['name']}’s task plan or results in the upload form. "
-                             "Reload this page while online and retry. Local results have been kept.")
+                             f"Upload format: {request.mimetype or 'missing'}; "
+                             f"boundary: {'present' if request.mimetype_params.get('boundary') else 'missing'}; "
+                             f"received fields: {', '.join(list(request.form.keys())[:5]) or 'none'}; "
+                             f"received files: {len(request.files)}. "
+                             "Local results have been kept.")
         manifest = json.loads(request.form['manifest'])
         records = json.loads(request.form['records'])
         conn = get_kid_connection_for(kid)

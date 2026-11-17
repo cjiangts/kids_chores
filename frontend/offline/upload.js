@@ -51,9 +51,12 @@ window.OfflineUpload = (() => {
             return { ...all, __uploading: true };
         });
         const records = results(frozen);
-        let form;
+        let body;
         try {
-            form = await buildForm(setup, records);
+            const form = await buildForm(setup, records);
+            // Materialize multipart once so its boundary and bytes stay paired
+            // across the page, service worker and network request.
+            body = await new Response(form).blob();
         } catch (error) {
             if (!alreadyFrozen) await store.changeValue(key(setup), (all) => { delete all.__uploading; return all; });
             throw error;
@@ -61,8 +64,9 @@ window.OfflineUpload = (() => {
         let response, payload;
         try {
             response = await fetch(`/api/offline/packages/${encodeURIComponent(setup.id)}/upload?${new URLSearchParams({ kidId: setup.kidId })}`, {
-                method: 'POST', body: form,
-                headers: { ...window.PracticeManageCommon.buildPasswordHeaders(password), 'X-Offline-Device': setup.deviceId },
+                method: 'POST', body,
+                headers: { ...window.PracticeManageCommon.buildPasswordHeaders(password),
+                    'Content-Type': body.type, 'X-Offline-Device': setup.deviceId },
             });
             payload = await response.json();
         } catch (_) {
