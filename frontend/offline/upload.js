@@ -19,22 +19,31 @@ window.OfflineUpload = (() => {
             throw error;
         }
     }
-    async function buildForm(setup, records) {
-        const form = new FormData();
-        form.append('manifest', JSON.stringify(setup.manifest));
-        form.append('records', JSON.stringify(records));
+    async function buildBody(setup, records) {
+        // Use byte-backed parts instead of FormData's browser-managed files.
+        const boundary = `offline-${crypto.randomUUID()}`;
+        const parts = [];
+        for (const [name, value] of [['manifest', setup.manifest], ['records', records]]) {
+            parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${JSON.stringify(value)}\r\n`);
+        }
         const audioIds = new Set(Object.values(records).flatMap((record) =>
             (record.answers || []).map((answer) => answer?.audioId).filter(Boolean)));
         for (const audioId of audioIds) {
             const clip = await window.OfflineSetupStore.readValue(audioId);
             if (!clip?.blob?.size) throw new Error('A recording is missing on this device. Local results have been kept.');
-            form.append(audioId, clip.blob, 'recording');
+            if (/[\r\n"\\]/.test(audioId)) throw new Error('Invalid recording identifier. Local results have been kept.');
+            let bytes;
+            try { bytes = new Uint8Array(await clip.blob.arrayBuffer()); }
+            catch (_) { throw new Error(`Could not read saved recording ${audioId} on this device. Local results have been kept.`); }
+            const mime = clip.blob.type || clip.mimeType || 'application/octet-stream';
+            if (/[\r\n]/.test(mime)) throw new Error('Invalid recording format. Local results have been kept.');
+            parts.push(`--${boundary}\r\nContent-Disposition: form-data; name="${audioId}"; filename="recording"\r\nContent-Type: ${mime}\r\n\r\n`, bytes, '\r\n');
         }
-        return form;
+        parts.push(`--${boundary}--\r\n`);
+        return new Blob(parts, { type: `multipart/form-data; boundary=${boundary}` });
     }
     async function size(setup, all) {
-        const form = await buildForm(setup, results(all));
-        return (await new Response(form).blob()).size;
+        return (await buildBody(setup, results(all))).size;
     }
     async function upload(setup, password) {
         if (!setup.manifest || setup.manifest.id !== setup.id
@@ -53,10 +62,7 @@ window.OfflineUpload = (() => {
         const records = results(frozen);
         let body;
         try {
-            const form = await buildForm(setup, records);
-            // Materialize multipart once so its boundary and bytes stay paired
-            // across the page, service worker and network request.
-            body = await new Response(form).blob();
+            body = await buildBody(setup, records);
         } catch (error) {
             if (!alreadyFrozen) await store.changeValue(key(setup), (all) => { delete all.__uploading; return all; });
             throw error;
