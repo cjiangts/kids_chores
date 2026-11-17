@@ -43,8 +43,14 @@ def upload(conn, shared, kid, package_id, device_id, manifest, records, files):
         return {'packageId': package_id, 'status': 'completed'}
     if package['status'] != 'active':
         raise ValueError('This offline package is not active')
-    if not isinstance(manifest, dict) or manifest.get('id') != package_id or str(manifest.get('kidId')) != str(kid['id']):
-        raise ValueError('Task package does not match this child and offline package')
+    if not isinstance(manifest, dict):
+        raise ValueError(f"{kid['name']}’s uploaded task plan is invalid. Local results have been kept.")
+    if manifest.get('id') != package_id:
+        raise ValueError(f"{kid['name']}’s uploaded task plan belongs to a different offline package "
+                         f"(uploaded: {manifest.get('id')!r}; expected: {package_id!r}). Local results have been kept.")
+    if str(manifest.get('kidId')) != str(kid['id']):
+        raise ValueError(f"The uploaded task plan does not belong to {kid['name']} "
+                         f"(uploaded child ID: {manifest.get('kidId')!r}; expected: {str(kid['id'])!r}). Local results have been kept.")
     if manifest.get('deviceId') != device_id or manifest.get('days') != package['days']:
         raise ValueError('Task package does not match this device and duration')
     zone = ZoneInfo(metadata.get_family_timezone(kid['familyId']))
