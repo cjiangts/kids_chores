@@ -73,6 +73,7 @@ globalThis.OfflineParentApi = (() => {
                 const card = task.cards.find((item) => String(item.id) === String(answer.cardId));
                 const score = answer.grade == null ? 0 : answer.grade ? (answer.firstCorrect === false ? -2 : 1) : -1;
                 return [{ result_id: index + 1, card_id: answer.cardId,
+                    presentation_order: answer.presentationOrder ?? index,
                     front: card?.prompt ?? card?.front ?? '', back: card?.back ?? card?.answer ?? '',
                     prompt: card?.prompt, answer: card?.answer, correct_score: score,
                     grade_status: score === 0 ? 'ungraded' : score > 0 ? 'pass' : 'fail',

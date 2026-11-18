@@ -3,7 +3,8 @@ window.OfflineUpload = (() => {
     const key = (setup) => `practice:${setup.id}`;
     function results(all) {
         return Object.fromEntries(Object.entries(all).filter(([id]) => id !== '__uploading')
-            .map(([id, record]) => [id, { ...record, answers: (record.answers || []).filter(Boolean) }]));
+            .map(([id, record]) => [id, { ...record, answers: (record.answers || []).filter(Boolean)
+                .sort((a, b) => (a.presentationOrder ?? 0) - (b.presentationOrder ?? 0)) }]));
     }
     function requireSettled(setup, all) {
         const blockers = setup.manifest.tasks.flatMap((task) => {

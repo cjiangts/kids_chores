@@ -1047,6 +1047,9 @@ function renderAnswerList(container, cards, options = {}) {
     const reportFrom = getCardReportFromSession();
     const sorted = [...cards].sort((a, b) => {
         if (currentSessionBehaviorType === BEHAVIOR_TYPE_II && currentSessionPracticeMode === 'parent_review') {
+            if (window.OfflineParentClient?.active) {
+                return Number(a.presentation_order ?? a.result_id) - Number(b.presentation_order ?? b.result_id);
+            }
             return Number(a.result_id) - Number(b.result_id);
         }
         if (sortCorrectBySpeed) {

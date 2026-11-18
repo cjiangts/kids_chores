@@ -78,6 +78,7 @@ globalThis.OfflinePracticeData = (() => {
             if (record.pendingId !== payload.pendingSessionId) throw new Error('This session was opened in another tab. Reload to resume.');
             if (['done', 'closed'].includes(record.status)) return;
             const used = new Set();
+            let nextPresentationOrder = Math.max(-1, ...record.answers.flatMap((answer, index) => answer ? [answer.presentationOrder ?? index] : [])) + 1;
             for (let i = 0; i < payload.answers.length; i++) {
                 const raw = payload.answers[i];
                 // The existing player shuffles cards. Match their IDs rather than
@@ -92,6 +93,7 @@ globalThis.OfflinePracticeData = (() => {
                 const previous = record.answers[index];
                 const grade = isReview(task) ? null : Boolean(raw.known);
                 const result = { ...raw, cardId: card.id, grade,
+                    presentationOrder: previous?.presentationOrder ?? nextPresentationOrder++,
                     firstCorrect: previous?.firstCorrect ?? (grade == null ? undefined : grade),
                     responseTimeMs: Math.max(0, Number(raw.responseTimeMs) || 0),
                     audioId: previous?.audioId };
