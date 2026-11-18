@@ -1586,7 +1586,8 @@ async function loadInitialData() {
         fetchJson(`${API_BASE}/points/rules?includeInactive=1`),
         fetchJson(`${API_BASE}/points/rules/activity-counts`),
     ]);
-    kids = loadedKids;
+    kids = loadedKids.filter((kid) => !kid.offlineMode);
+    if (!kids.some((kid) => String(kid.id) === selectedKidId)) selectedKidId = '';
     ruleActivityCounts = countData?.counts && typeof countData.counts === 'object' ? countData.counts : {};
     const pointEntriesPromise = Promise.all(kids.map(async (kid) => [
         String(kid.id),
