@@ -241,7 +241,7 @@
     pointer-events: none;
 }
 
-.user-bubble:hover,
+.user-bubble:not([aria-disabled="true"]):hover,
 .user-bubble:focus-visible {
     background:
         linear-gradient(145deg, rgba(255, 255, 255, 1), rgba(248, 251, 255, 0.94)),
@@ -253,7 +253,7 @@
     outline: none;
 }
 
-.user-bubble:hover::after,
+.user-bubble:not([aria-disabled="true"]):hover::after,
 .user-bubble:focus-visible::after {
     opacity: 1;
 }
@@ -328,6 +328,11 @@
 .user-bubble--offline {
     border-color: #72b79b;
     box-shadow: 0 0 0 2px rgba(57, 153, 113, 0.18), 0 16px 36px rgba(43, 65, 114, 0.12);
+}
+
+.user-bubble[aria-disabled="true"] {
+    cursor: default;
+    opacity: .65;
 }
 
 .user-bubble-role--offline {

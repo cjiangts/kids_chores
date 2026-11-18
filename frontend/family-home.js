@@ -46,6 +46,7 @@ function renderBubbles() {
     }));
     bubbleGrid.querySelectorAll('[data-kid-id]').forEach((bubble) => bubble.addEventListener('click', async (event) => {
         event.preventDefault();
+        if (bubble.getAttribute('aria-disabled') === 'true') return;
         const id = String(bubble.dataset.kidId || '');
         try {
             showError('');
@@ -81,7 +82,7 @@ function renderKidBubble(kid, index) {
     const href = offline?.status === 'preparing'
         ? `/offline/home.html?${new URLSearchParams({ id, packageId: offline.id })}`
         : `/kid-practice-home.html?id=${encodeURIComponent(id)}`;
-    return `<a class="user-bubble user-bubble--tone-${index % 4}${showOffline ? ' user-bubble--offline' : ''}" href="${escapeHtml(href)}" data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`${name} practice home${showOffline ? `, ${label}` : ''}`)}"><span class="user-bubble-avatar" aria-hidden="true">${avatarHtml}</span><span class="user-bubble-name">${escapeHtml(name)}</span><span class="user-bubble-role${showOffline ? ' user-bubble-role--offline' : ''}">${showOffline ? iconHtml('cloud-off', 14) : ''}${escapeHtml(label)}</span></a>`;
+    return `<a class="user-bubble user-bubble--tone-${index % 4}${showOffline ? ' user-bubble--offline' : ''}" ${showOffline ? 'aria-disabled="true" tabindex="-1"' : `href="${escapeHtml(href)}"`} data-kid-id="${escapeHtml(id)}" aria-label="${escapeHtml(`${name} practice home${showOffline ? `, ${label}` : ''}`)}"><span class="user-bubble-avatar" aria-hidden="true">${avatarHtml}</span><span class="user-bubble-name">${escapeHtml(name)}</span><span class="user-bubble-role${showOffline ? ' user-bubble-role--offline' : ''}">${showOffline ? iconHtml('cloud-off', 14) : ''}${escapeHtml(label)}</span></a>`;
 }
 
 async function refreshFamilyHomeSnapshot() {
