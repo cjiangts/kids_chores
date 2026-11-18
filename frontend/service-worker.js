@@ -15,17 +15,27 @@ function isCacheableAppRequest(request) {
     return !url.pathname.startsWith('/api/') && url.pathname !== '/';
 }
 
-async function cacheFirst(request) {
+async function refreshUi(cache, key, request) {
+    var response = await fetch(new Request(request, { cache: 'no-store' }));
+    if (response.ok && !response.redirected) {
+        try { await cache.put(key, response.clone()); } catch (_) { /* Keep the saved offline copy. */ }
+    }
+    return response;
+}
+
+async function cacheFirst(request, event) {
     var cache = await caches.open(APP_CACHE);
     var url = new URL(request.url);
     // Page query strings identify client-side data, not a different HTML file.
     // Store one shell per path; versioned avatar URLs intentionally stay distinct.
     var cacheKey = url.pathname.startsWith('/api/') ? request : url.origin + url.pathname;
     var cached = await cache.match(cacheKey);
-    // Offline management scripts must receive cleanup fixes even when the
-    // device is between packages and using the ordinary app cache.
+    // Serve saved UI immediately; deployed fixes arrive in the background.
     var refreshOfflineUi = url.pathname.startsWith('/offline/');
-    if (cached && !refreshOfflineUi) return cached;
+    if (cached) {
+        if (refreshOfflineUi) event.waitUntil(refreshUi(cache, cacheKey, request).catch(function () {}));
+        return cached;
+    }
     var response;
     try {
         response = await fetch(refreshOfflineUi ? new Request(request, { cache: 'no-store' }) : request);
@@ -56,10 +66,10 @@ self.addEventListener('activate', function (event) {
 
 self.addEventListener('fetch', function (event) {
     var url = new URL(event.request.url);
-    if (url.origin === self.location.origin) event.respondWith(serveRequest(event.request));
+    if (url.origin === self.location.origin) event.respondWith(serveRequest(event.request, event));
 });
 
-async function serveRequest(request) {
+async function serveRequest(request, event) {
     // Explicit downloads bypass the ordinary app cache and always read the server.
     if (request.headers.get('X-Offline-Download') === '1') return fetch(request);
     var url = new URL(request.url);
@@ -95,21 +105,16 @@ async function serveRequest(request) {
             var cache = await caches.open(PACKAGE_CACHE_PREFIX + setup.id);
             var key = url.pathname.startsWith('/api/') ? url.href : url.origin + url.pathname;
             var cached = await cache.match(key);
-            // Refresh the entry UI online so already downloaded packages receive UI fixes.
-            // The saved task plan, recordings and API snapshots remain device-owned.
+            // Background refresh never delays cached pages, scripts or styles.
             var entryUi = url.pathname.startsWith('/offline/') || url.pathname.startsWith('/family-home.')
                 || /\.(js|css|html)$/.test(url.pathname);
-            if (entryUi) {
-                try {
-                    var response = await fetch(new Request(request, { cache: 'no-store' }));
-                    if (response.ok && !response.redirected) {
-                        try { await cache.put(key, response.clone()); } catch (_) { /* Keep the previous offline copy. */ }
-                        return response;
-                    }
-                    if (!cached) return response;
-                } catch (_) { /* Use the downloaded entry page without a network connection. */ }
+            if (cached) {
+                if (entryUi) event.waitUntil(refreshUi(cache, key, request).catch(function () {}));
+                return cached;
             }
-            if (cached) return cached;
+            if (entryUi) {
+                return refreshUi(cache, key, request);
+            }
             if (!url.pathname.startsWith('/api/')) {
                 // Existing active packages can acquire dependencies of an updated entry UI.
                 var asset = await fetch(request);
@@ -128,5 +133,5 @@ async function serveRequest(request) {
             });
         }
     }
-    return isCacheableAppRequest(request) ? cacheFirst(request) : fetch(request);
+    return isCacheableAppRequest(request) ? cacheFirst(request, event) : fetch(request);
 }

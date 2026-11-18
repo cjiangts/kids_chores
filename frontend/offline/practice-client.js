@@ -5,8 +5,7 @@ window.OfflinePracticeClient.ready = (async () => {
     if (setup?.status !== 'active') return false;
     window.OfflinePracticeClient.active = true;
     window.KidAppNavigation?.render();
-    try { await window.OfflineDownload.installWorker(); }
-    catch (error) { if (!navigator.serviceWorker?.controller) throw error; }
+    if (!navigator.serviceWorker?.controller) await window.OfflineDownload.installWorker();
     if (!setup.manifest.practiceConfig) {
         // Upgrade previously downloaded plans without changing any selected questions.
         setup = await window.OfflineDownload.start(setup);
