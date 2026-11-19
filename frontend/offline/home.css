@@ -30,6 +30,7 @@
     button.offline-chore-block { flex: 1 1 0; min-width: 0; max-width: 44px; width: 0; height: auto; aspect-ratio: 1; }
 }
 .offline-day-row { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; padding: .8rem 0; font-size: var(--paradigm-row-text-font-size); }
+.offline-today-pill { padding: 0 .6rem; border-radius: 999px; background: #ece9ff; color: var(--p-accent); }
 button.offline-chore-block { padding: 0; box-shadow: none; cursor: pointer; }
 button.offline-chore-block:disabled { cursor: default; opacity: 1; }
 button.offline-chore-block:not(:disabled):hover { outline: 2px solid var(--chore-color); outline-offset: 2px; }

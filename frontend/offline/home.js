@@ -256,8 +256,11 @@
             const days = document.getElementById('offlineDays');
             const allChores = [...manifest.tasks, ...choresForDay(manifest.startDate).filter((task) => task.completedBeforeDownload)];
             const pending = allChores.filter((task) => stateFor(task) === 'pending_review').length;
-            uploadBtn.disabled = packageBusy || pending > 0;
-            uploadBtn.title = pending > 0 ? `Review ${pending} remaining ${pending === 1 ? 'chore' : 'chores'} before uploading` : '';
+            const readyCount = manifest.tasks.filter((task) => ['done', 'closed'].includes(stateFor(task))).length;
+            document.getElementById('offlineUploadLabel').textContent = `Upload ${readyCount}`;
+            uploadBtn.disabled = packageBusy || pending > 0 || readyCount === 0;
+            uploadBtn.title = pending > 0 ? `Review ${pending} remaining ${pending === 1 ? 'chore' : 'chores'} before uploading`
+                : readyCount === 0 ? 'No completed chores to upload' : '';
             days.replaceChildren();
             for (let day = 0; day < setup.days; day++) {
                 const value = new Date(`${manifest.startDate}T00:00:00Z`);
@@ -300,6 +303,13 @@
                 }
                 progress.appendChild(blocks);
                 heading.append(label);
+                if (date === today()) {
+                    const badge = document.createElement('span');
+                    badge.className = 'paradigm-pill offline-today-pill';
+                    badge.textContent = 'Today';
+                    heading.appendChild(badge);
+                    label.setAttribute('aria-current', 'date');
+                }
                 heading.appendChild(progress);
                 details.appendChild(heading);
                 days.appendChild(details);
